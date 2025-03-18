@@ -1,39 +1,16 @@
-%% Create a TSE sequence and export for execution
-% 
-% The |Sequence| class provides functionality to create magnetic
-% resonance sequences (MRI or NMR) from basic building blocks.
-%
-% This provides an implementation of the open file format for MR sequences
-% described here: http://pulseq.github.io/specification.pdf
-%
-% This example performs the following steps:
-% 
-% # Create slice selective RF pulse for imaging.
-% # Create readout gradient and phase encode strategy.
-% # Loop through phase encoding and generate sequence blocks.
-% # Write the sequence to an open file format suitable for execution on a
-% scanner.
-% 
-%   Juergen Hennig <juergen.hennig@uniklinik-freiburg.de>
-%   Maxim Zaitsev  <maxim.zaitsev@uniklinik-freiburg.de>
- 
 clc; clear; close all;
-%% Instantiation and gradient limits
-% The system gradient limits can be specified in various units _mT/m_,
-% _Hz/cm_, or _Hz/m_. However the limits will be stored internally in units
-% of _Hz/m_ for amplitude and _Hz/m/s_ for slew. Unspecificied hardware
-% parameters will be assigned default values.
-
+%% Create a TSE sequence
+addpath(genpath('pulseq'));
+% Instantiation and gradient limits
 system = mr.opts('MaxGrad', 40, 'GradUnit', 'mT/m', ...
     'MaxSlew', 180, 'SlewUnit', 'T/m/s', 'rfRingdownTime', 100e-6, ...
     'rfDeadTime', 100e-6, 'adcDeadTime', 10e-6);
-
 seq=mr.Sequence(system);
-
 %% Sequence events
+PEMode         = 'Centric2'; % 'Centric', 'Linear'
 MultiSliceMode = 'Interleaved'; % 'Interleaved' or 'Sequential'
 fov = 120e-3;
-nX=120; nY=120; nEcho=10; nSlice=9;
+nX=300; nY=300; nEcho=10; nSlice=9;
 rflip = 180;
 if isscalar(rflip), rflip=rflip+zeros([1 nEcho]); end
 SliceThickness = 2e-3;
@@ -131,31 +108,57 @@ GRpreph  = mr.makeTrapezoid('x', system, 'Area', AGRpreph, 'duration', tSpex, 'r
 % select gradient is required.
 % TODO: 1. parallel imaging
 %       2. phase encoding order
-
-nExcit   = floor(nY / nEcho);
-pe_steps = (1:(nEcho * nExcit)) - 0.5 * nEcho * nExcit - 1;
-if mod(nEcho, 2) == 0
-    pe_steps=circshift(pe_steps, [0, -round(nExcit / 2)]); % for odd number of echoes we have to apply a shift to avoid a contrast jump at k=0
+switch PEMode
+    case 'Centric'
+        % half_l = (1:nY/2);
+        % half_r = half_l + nY/2;
+        nExcit   = floor(nY / nEcho);
+        pe_steps = (1:(nEcho * nExcit)) - 0.5 * nEcho * nExcit - 1;
+        half_l = pe_steps(1:nY/2);
+        half_r = pe_steps(nY/2+1:end);
+        
+        pe_steps = [flipud(reshape(half_l, nExcit/2, nEcho)') reshape(half_r, nExcit/2, nEcho)'];
+        
+        k0prescr   = max(round(TEeff/TE1), 1); % echo to be aligned to the k-space center 
+        PEorder    = circshift(pe_steps, k0prescr - 1);
+        PElabel    = PEorder - min(PEorder(:));
+        phaseAreas = PEorder * deltak;
+    case 'Centric2'
+        nExcit   = floor(nY / nEcho);
+        pe_steps = (1:(nEcho * nExcit)) - 0.5 * nEcho * nExcit - 1;
+        A = reshape(pe_steps, [nExcit, nEcho])';
+        [B, idx] = sort(abs(A), 1, 'ascend'); % 按列排序，升序
+        
+        % 使用排序索引重新排列原矩阵
+        pe_steps = A(sub2ind(size(A), idx, repmat(1:size(A,2), size(A,1), 1)));
+        
+        k0prescr   = max(round(TEeff/TE1), 1); % echo to be aligned to the k-space center 
+        PEorder    = circshift(pe_steps, k0prescr - 1);
+        PElabel    = PEorder - min(PEorder(:));
+        phaseAreas = PEorder * deltak;
+    case 'Linear'
+        nExcit   = floor(nY / nEcho);
+        pe_steps = (1:(nEcho * nExcit)) - 0.5 * nEcho * nExcit - 1;
+        if mod(nEcho, 2) == 0
+            pe_steps=circshift(pe_steps, [0, -round(nExcit / 2)]); % for odd number of echoes we have to apply a shift to avoid a contrast jump at k=0
+        end
+        % TSE echo time magic
+        [~,iPEmin] = min(abs(pe_steps));
+        k0curr     = floor((iPEmin-1)/nExcit) + 1; % calculate the 'native' central echo index 
+        k0prescr   = max(round(TEeff/TE1), 1); % echo to be aligned to the k-space center 
+        PEorder    = circshift(reshape(pe_steps, [nExcit, nEcho])', k0prescr - k0curr);
+        PElabel    = PEorder - min(PEorder(:));
+        phaseAreas = PEorder * deltak;
+    otherwise
+        error('Invalid PEMode');
 end
-% TSE echo time magic
-[~,iPEmin] = min(abs(pe_steps));
-k0curr     = floor((iPEmin-1)/nExcit) + 1; % calculate the 'native' central echo index 
-k0prescr   = max(round(TEeff/TE1), 1); % echo to be aligned to the k-space center 
-PEorder    = circshift(reshape(pe_steps, [nExcit, nEcho])', k0prescr - k0curr);
-PElabel    = PEorder - min(PEorder(:));
-phaseAreas = PEorder * deltak;
 
-% A = reshape(pe_steps, [nExcit, nEcho])';
-% [B, idx] = sort(abs(A), 1, 'ascend'); % 按列排序，升序
-% 
-% % 使用排序索引重新排列原矩阵
-% pe_steps = A(sub2ind(size(A), idx, repmat(1:size(A,2), size(A,1), 1)));
-% 
-% k0prescr   = max(round(TEeff/TE1), 1); % echo to be aligned to the k-space center 
-% PEorder    = circshift(pe_steps, k0prescr - 1);
-% PElabel    = PEorder - min(PEorder(:));
-% phaseAreas = PEorder * deltak;
-plot_PEOrder(PElabel, nX, nY, nExcit, nEcho)
+
+% plot_PEOrder(PElabel, nX, nY, nExcit, nEcho)
+fig = plot_PEMode2(PElabel, nX, nY, nExcit, nEcho);
+
+% print(fig, '-dpng', '-loose', '-r300', '-image', sprintf('PEMode_%s.png', PEMode));
+
 %% split gradients and recombine into blocks
 % lets start with slice selection....
 
@@ -345,13 +348,14 @@ seq.setDefinition('nSlice'           , nSlice          );
 seq.setDefinition('BW'               , BWPerPixel      );
 seq.setDefinition('TuborFactor'      , nEcho           );
 seq.setDefinition('MultiSliceMode'   , MultiSliceMode  );
+seq.setDefinition('PEMode'           , PEMode          );
 
 
 seq.setDefinition('Developer'        , 'Jinyuan Zhang' );
 seq.setDefinition('Name'             , 'tse'           );
 
 outpath = 'E:/pulseq/idea/pulseq_150/TSE/';
-seqname = sprintf('TSE_%s_sli%s_tr%s_te%s_t%s_bw%s', prefix, num2str(nSlice), num2str(TR*1e3), num2str(TEeff*1e3), num2str(nEcho), num2str(round(BWPerPixel)));
+seqname = sprintf('TSE_%s_sli%s_tr%s_te%s_t%s_bw%s_%s', prefix, num2str(nSlice), num2str(TR*1e3), num2str(TEeff*1e3), num2str(nEcho), num2str(round(BWPerPixel)), PEMode);
 seq.write(strcat(outpath, seqname,'.seq'))
 
 %% very optional slow step, but useful for testing during development e.g. for the real TE, TR or for staying within slew rate limits  
