@@ -1,6 +1,8 @@
 clc; clear; close all;
 %% Create a TSE sequence
 addpath(genpath('pulseq'));
+addpath(genpath('plot'));
+
 % Instantiation and gradient limits
 system = mr.opts('MaxGrad', 40, 'GradUnit', 'mT/m', ...
     'MaxSlew', 180, 'SlewUnit', 'T/m/s', 'rfRingdownTime', 100e-6, ...
@@ -9,8 +11,14 @@ seq=mr.Sequence(system);
 %% Sequence events
 PEMode         = 'Centric'; % 'Centric', 'Linear'
 MultiSliceMode = 'Interleaved'; % 'Interleaved' or 'Sequential'
+IR             = 'on';       % Inversion Recovery
+
+
+
+
 fov = 120e-3;
 nX=300; nY=300; nEcho=10; nSlice=5;
+
 rflip = 180;
 if isscalar(rflip), rflip=rflip+zeros([1 nEcho]); end
 SliceThickness = 2e-3;
@@ -47,6 +55,12 @@ dG             = 250e-6; % 'standard' ramp time - makes sequence structure much 
 rfex_phase     = pi/2; % MZ: we need to maintain these as variables because we will overwrtite phase offsets for multiple slice positions
 rfref_phase    = 0;
 
+if strcmp(IR, 'on')
+    TI             = 1700e-3; % time of inversion recovery
+    tIr            = 3e-3;    % duration of IR RF pulse
+    tIrwd          = tIr + system.rfRingdownTime + system.rfDeadTime;
+    rfir_phase     = 0;
+end
 %%
 %%% Base gradients
 %%% Slice selection
@@ -67,7 +81,6 @@ flipex       = 90 * pi / 180;
     'use', 'excitation');
 GSex         = mr.makeTrapezoid('z', system, 'amplitude', gz_ex.amplitude, 'FlatTime', tExwd, 'riseTime', dG);
 rfex.delay   = rfex.deadTime;
-% plotPulse(rfex,GSex);
 
 flipref      = rflip(1)*pi/180;
 [rfref, gz_ref] = mr.makeSincPulse(flipref, system, 'Duration', tRef,... % it was a bug as 'gz' was owerwritten
@@ -80,6 +93,15 @@ AGSex  = GSex.area/2;
 GSspr  = mr.makeTrapezoid('z', system, 'area', AGSex*(1+fspS), 'duration', tSp  , 'riseTime', dG);
 GSspex = mr.makeTrapezoid('z', system, 'area', AGSex*fspS    , 'duration', tSpex, 'riseTime', dG);
 
+
+if strcmp(IR, 'on')
+    flipir       = 180 * pi / 180;
+    [rfir, gz_ir]   = mr.makeSincPulse(flipir, system, 'Duration', tIr,...
+        'SliceThickness', SliceThickness, 'apodization', 0.5, 'timeBwProduct', 4, 'PhaseOffset', rfir_phase,...
+        'use', 'inversion');
+    GSir         = mr.makeTrapezoid('z', system, 'amplitude', gz_ir.amplitude, 'FlatTime', tIrwd, 'riseTime', dG);
+    rfir.delay   = rfir.deadTime;
+end
 %%
 %%% Readout gradient
 % To define the remaining encoding gradients we need to calculate the
@@ -161,6 +183,12 @@ fig = plot_PEMode2(PElabel, nX, nY, nExcit, nEcho);
 
 %% split gradients and recombine into blocks
 % lets start with slice selection....
+if strcmp(IR, 'on')
+    GS0times = [0 GSir.riseTime GSir.riseTime+GSir.flatTime GSir.riseTime+GSir.flatTime+GSir.fallTime];
+    GS0amp   = [0 GSir.amplitude GSir.amplitude 0];
+    GS0      = mr.makeExtendedTrapezoid('z', 'times', GS0times, 'amplitudes', GS0amp);
+    rfir.delay = rfir.delay + GSir.riseTime;
+end
 
 % Gz for excitation
 GS1times = [0 GSex.riseTime];
@@ -205,9 +233,6 @@ GR7      = mr.makeExtendedTrapezoid('x', 'times', GR7times, 'amplitudes', GR7amp
 
 
 % and filltimes
-%tex=GS1.t(end)+GS2.t(end)+GS3.t(end);
-%tref=GS4.t(end)+GS5.t(end)+GS7.t(end)+readoutTime;
-%tend=GS4.t(end)+GS5.t(end);
 tex  = mr.calcDuration(GS1) + mr.calcDuration(GS2) + mr.calcDuration(GS3);
 tref = mr.calcDuration(GS4) + mr.calcDuration(GS5) + mr.calcDuration(GS7) + readoutTime;
 tend = mr.calcDuration(GS4) + mr.calcDuration(GS5);
@@ -217,20 +242,69 @@ tETrain = tex + nEcho*tref + tend;
 TRfill  = (TR - nSlice * tETrain) / nSlice;
 % round to gradient raster
 TRfill  = system.gradRasterTime * round(TRfill / system.gradRasterTime);
-if TRfill<0, TRfill=1e-3; 
-    disp(strcat('Warning!!! TR too short, adapted to include all slices to : ',num2str(1000*nSlice*(tETrain+TRfill)),' ms')); 
-else
-    disp(strcat('TRfill : ',num2str(1000*TRfill),' ms')); 
-end
+% if TRfill<0, TRfill=1e-3; 
+%     disp(strcat('Warning!!! TR too short, adapted to include all slices to : ',num2str(1000*nSlice*(tETrain+TRfill)),' ms')); 
+% else
+%     disp(strcat('TRfill : ',num2str(1000*TRfill),' ms')); 
+% end
 delayTR = mr.makeDelay(TRfill);
+
+delayEtrain = mr.makeDelay(tETrain);
+
+nSlice_even    = sum(mod(SliceLabel, 2) == 0);
+nSlice_odd     = sum(mod(SliceLabel, 2) == 1);  
+SliceIdx_even  = find(mod(SliceLabel, 2) == 0);
+SliceIdx_odd   = find(mod(SliceLabel, 2) ~= 0);
+
+
+if strcmp(IR, 'on')
+    TIfill  = TI - mr.calcDuration(GS0)/2 - mr.calcDuration(GS1) - mr.calcDuration(GS2)/2;
+    delayTI = mr.makeDelay(TIfill);
+
+    TRfill = TR - (mr.calcDuration(GS0)*2 + TIfill*2 + tETrain * nSlice);% + TIfill_slice * nSlice);
+    delayTR = mr.makeDelay(0);
+
+    assert(TRfill >= 0, 'TRfill [%f ms] must be >= 0 ms, please increase TR or adjust other parameters', ...
+        TRfill*1e3);
+     
+    TIfill_slice  = TRfill/nSlice;  % delay between slices
+    delayTI_slice = mr.makeDelay(TIfill_slice);
+
+    TIfill_slice_even = TIfill - nSlice_even * (mr.calcDuration(GS0) + TIfill_slice + tETrain) + tETrain + mr.calcDuration(GS0);
+    TIfill_slice_odd  = TIfill - nSlice_odd  * (mr.calcDuration(GS0) + TIfill_slice + tETrain) + tETrain + mr.calcDuration(GS0);
+    assert(TIfill_slice_even >= 0, 'TIfill_slice_even [%f ms] must be >= 0 ms, please increase TI or adjust other parameters', ...
+        TIfill_slice_even*1e3);
+
+    delayTI_slice_even = mr.makeDelay(TIfill_slice_even);
+    delayTI_slice_odd  = mr.makeDelay(TIfill_slice_odd);
+
+
+    disp(strcat('TRfill : ',num2str(1000*TRfill),' ms')); 
+    disp(strcat('TIfill_slice_even : ',num2str(1000*TIfill_slice_even),' ms')); 
+    disp(strcat('TIfill_slice_odd  : ',num2str(1000*TIfill_slice_odd),' ms')); 
+end
+
 
 %% Define sequence blocks
 % Next, the blocks are put together to form the sequence
 
 for iexcit = 0:nExcit % MZ: we start at 0 to have one dummy
     seq.addBlock(mr.makeLabel('SET', 'SLC', 0));
-    for isli = 1:nSlice
-        % seq.addBlock(mr.makeLabel('SET', 'SLC', SliceLabel(isli)));
+
+    for idx = 1:nSlice_even
+        isli = SliceIdx_even(idx);
+        rfir.freqOffset  = GSir.amplitude * SlicePositions(isli);
+        rfir.phaseOffset = rfir_phase - 2 * pi * rfir.freqOffset * mr.calcRfCenter(rfir); % dito
+        seq.addBlock(GS0, rfir);
+        seq.addBlock(delayTI_slice);
+        if idx < nSlice_even
+            seq.addBlock(delayEtrain)
+        end
+    end
+    seq.addBlock(delayTI_slice_even);
+   
+    for idx = 1:nSlice_even
+        isli = SliceIdx_even(idx);
         rfex.freqOffset   = GSex.amplitude  * SlicePositions(isli);
         rfref.freqOffset  = GSref.amplitude * SlicePositions(isli);
         rfex.phaseOffset  = rfex_phase  - 2 * pi *  rfex.freqOffset * mr.calcRfCenter(rfex); % align the phase for off-center slices
@@ -262,9 +336,61 @@ for iexcit = 0:nExcit % MZ: we start at 0 to have one dummy
         end
         seq.addBlock(GS4);
         seq.addBlock(GS5);
-        seq.addBlock(delayTR);
+        seq.addBlock(delayTI_slice);
+        % seq.addBlock(delayTR);
         seq.addBlock(mr.makeLabel('INC', 'SLC', 1));
     end
+    seq.addBlock(delayTR);
+
+    for idx = 1:nSlice_odd
+        isli = SliceIdx_odd(idx);
+        rfir.freqOffset  = GSir.amplitude * SlicePositions(isli);
+        rfir.phaseOffset = rfir_phase - 2 * pi * rfir.freqOffset * mr.calcRfCenter(rfir); % dito
+        seq.addBlock(GS0, rfir);
+        seq.addBlock(delayTI_slice);
+        if idx < nSlice_odd
+            seq.addBlock(delayEtrain)
+        end
+    end
+    seq.addBlock(delayTI_slice_odd);
+
+    for idx = 1:nSlice_odd
+        isli = SliceIdx_odd(idx);
+        rfex.freqOffset   = GSex.amplitude  * SlicePositions(isli);
+        rfref.freqOffset  = GSref.amplitude * SlicePositions(isli);
+        rfex.phaseOffset  = rfex_phase  - 2 * pi *  rfex.freqOffset * mr.calcRfCenter(rfex); % align the phase for off-center slices
+        rfref.phaseOffset = rfref_phase - 2 * pi * rfref.freqOffset * mr.calcRfCenter(rfref); % dito
+    
+        seq.addBlock(GS1);
+        seq.addBlock(GS2, rfex);
+        seq.addBlock(GS3, GR3);
+    
+        seq.addBlock(mr.makeLabel('SET', 'SEG', 0));
+        for iseg = 1:nEcho
+            if (iexcit > 0)
+                phaseArea = phaseAreas(iseg, iexcit);
+                seq.addBlock(mr.makeLabel('SET', 'LIN', PElabel(iseg, iexcit)));
+            else
+                phaseArea = 0;
+            end
+            GPpre = mr.makeTrapezoid('y', system, 'Area',  phaseArea, 'Duration', tSp, 'riseTime', dG);
+            GPrew = mr.makeTrapezoid('y', system, 'Area', -phaseArea, 'Duration', tSp, 'riseTime', dG);
+            seq.addBlock(GS4, rfref);
+            seq.addBlock(GS5, GR5, GPpre);
+            if (iexcit > 0)
+                seq.addBlock(GR6, adc);
+            else
+                seq.addBlock(GR6);
+            end
+            seq.addBlock(GS7, GR7, GPrew);
+            seq.addBlock(mr.makeLabel('INC', 'SEG', 1));
+        end
+        seq.addBlock(GS4);
+        seq.addBlock(GS5);
+        seq.addBlock(delayTI_slice);
+        seq.addBlock(mr.makeLabel('INC', 'SLC', 1));
+    end
+    seq.addBlock(delayTR);
 end
 
 %% check whether the timing of the sequence is correct
@@ -339,6 +465,11 @@ seq.setDefinition('FOV'              , [fov fov fov_z] );
 seq.setDefinition('MatrixSize'       , [nX nY nSlice]  );
 seq.setDefinition('TR'               , TR              );
 seq.setDefinition('TE'               , TEeff           );
+seq.setDefinition('IR'               , IR              );
+if strcmp(IR, 'on')
+    seq.setDefinition('TI'               , TI           );
+    seq.setDefinition('IR mode'          , 'Interleaved');
+end
 
 % seq.setDefinition('FlipAngle', alpha);
 
@@ -352,13 +483,13 @@ seq.setDefinition('PEMode'           , PEMode          );
 
 
 seq.setDefinition('Developer'        , 'Jinyuan Zhang' );
-seq.setDefinition('Name'             , 'tse'           );
+seq.setDefinition('Name'             , 'irtse'           );
 
 outpath = 'E:/pulseq/idea/pulseq_150/TSE/';
-seqname = sprintf('TSE_%s_sli%s_tr%s_te%s_t%s_bw%s_%s', prefix, num2str(nSlice), num2str(TR*1e3), num2str(TEeff*1e3), num2str(nEcho), num2str(round(BWPerPixel)), PEMode);
+seqname = sprintf('IRTSE_%s_sli%s_tr%s_te%s_t%s_bw%s_%s', prefix, num2str(nSlice), num2str(TR*1e3), num2str(TEeff*1e3), num2str(nEcho), num2str(round(BWPerPixel)), PEMode);
 seq.write(strcat(outpath, seqname,'.seq'))
 
 %% very optional slow step, but useful for testing during development e.g. for the real TE, TR or for staying within slew rate limits  
 
-rep = seq.testReport; 
-fprintf([rep{:}]); 
+% rep = seq.testReport; 
+% fprintf([rep{:}]); 
