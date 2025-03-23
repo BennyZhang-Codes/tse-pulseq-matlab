@@ -1,0 +1,58 @@
+function [PEorder, PElabel, phaseAreas] = prep_PEOrder_PI(PEMode, nY, nEcho, TEeff, TE1, deltak, R, RefLinesRatio)
+    nExcit   = floor(nY / nEcho);
+    pe_steps = (1:(nEcho * nExcit)) - 0.5 * nEcho * nExcit - 1;
+
+    %%
+    R = 2;
+    RefLinesRatio = 30/nY;
+    
+    nExcit   = floor(nY / nEcho);
+    pe_steps = (1:(nEcho * nExcit)) - 0.5 * nEcho * nExcit - 1;
+    
+    nImg = round(nY/R);
+    nRef = round(nY * RefLinesRatio * (R-1)/R);
+    nRef = round((nImg+nRef) / nEcho) * nEcho - nImg; % adjusting nRef to make mod(nRef+nImg, nEcho) == 0
+    
+    pe_Img = pe_steps(1:R:end);            % pe_Img
+    
+    pe_Ref = pe_steps;          
+    pe_Ref(1:R:end) = [];
+    n = length(pe_Ref);
+    mid_start = floor((n - nRef) / 2) + 1; 
+    mid_end   = mid_start + nRef - 1;       
+    pe_Ref = pe_Ref(mid_start:mid_end);    % pe_Ref
+    
+    pe_steps = sort([pe_Img pe_Ref], "ascend");
+    
+    pe_ImgAndRef = pe_Img(pe_Img > min(pe_Ref) & pe_Img < max(pe_Ref)); 
+
+
+
+    k0prescr = max(round(TEeff/TE1), 1); % echo to be aligned to the k-space center 
+    k0curr   = 1;
+    switch lower(PEMode)
+        case 'centric'
+            half_l = pe_steps(1:nY/2);
+            half_r = pe_steps(nY/2+1:end);
+            
+            pe_steps = [flipud(reshape(half_l, nExcit/2, nEcho)') reshape(half_r, nExcit/2, nEcho)'];
+        case 'centric2'
+            A = reshape(pe_steps, [nExcit, nEcho])';
+            [~, idx] = sort(abs(A), 1, 'ascend'); 
+            
+            pe_steps = A(sub2ind(size(A), idx, repmat(1:size(A,2), size(A,1), 1)));
+        case 'linear'
+            if mod(nEcho, 2) == 0
+                pe_steps=circshift(pe_steps, [0, -round(nExcit / 2)]); % for odd number of echoes we have to apply a shift to avoid a contrast jump at k=0
+            end
+            % TSE echo time magic
+            [~,iPEmin] = min(abs(pe_steps));
+            k0curr     = floor((iPEmin-1)/nExcit) + 1; % calculate the 'native' central echo index 
+            pe_steps   = reshape(pe_steps, [nExcit, nEcho])';
+        otherwise
+            error('Invalid PEMode');
+    end
+    PEorder    = circshift(pe_steps, k0prescr - k0curr);
+    PElabel    = PEorder - min(PEorder(:));
+    phaseAreas = PEorder * deltak;
+end

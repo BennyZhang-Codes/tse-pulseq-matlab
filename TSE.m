@@ -1,6 +1,7 @@
 clc; clear; close all;
 %% Create a TSE sequence
 addpath(genpath('pulseq'));
+addpath(genpath('plot'));
 % Instantiation and gradient limits
 system = mr.opts('MaxGrad', 40, 'GradUnit', 'mT/m', ...
     'MaxSlew', 180, 'SlewUnit', 'T/m/s', 'rfRingdownTime', 100e-6, ...
@@ -26,6 +27,7 @@ switch MultiSliceMode
 end
 SliceOrder = SliceLabel - (nSlice-1)/2;
 SlicePositions = (SliceThickness + SliceGap) * SliceOrder;
+% [SliceLabel, SliceOrder, SlicePositions] = prep_SlicePositions(nSlice, SliceThickness, SliceGap, MultiSliceMode);
 
 TE1            = 14e-3; % echo time of the first echo in the train
 TR             = 5000e-3;
@@ -153,10 +155,13 @@ switch PEMode
         error('Invalid PEMode');
 end
 
-
+%%
+% [PEorder, PElabel, phaseAreas] = prep_PEOrder_PI('centric2', nY, nEcho, TEeff, TE1, deltak,2,0.2);
+% plot_PEOrder(PElabel, nX, nY, nExcit, nEcho)
+% plot_PEMode2(PElabel, nX, nY, nExcit, nEcho);
+%%
 % plot_PEOrder(PElabel, nX, nY, nExcit, nEcho)
 fig = plot_PEMode2(PElabel, nX, nY, nExcit, nEcho);
-
 % print(fig, '-dpng', '-loose', '-r300', '-image', sprintf('PEMode_%s.png', PEMode));
 
 %% split gradients and recombine into blocks
@@ -356,9 +361,9 @@ seq.setDefinition('Name'             , 'tse'           );
 
 outpath = 'E:/pulseq/idea/pulseq_150/TSE/';
 seqname = sprintf('TSE_%s_sli%s_tr%s_te%s_t%s_bw%s_%s', prefix, num2str(nSlice), num2str(TR*1e3), num2str(TEeff*1e3), num2str(nEcho), num2str(round(BWPerPixel)), PEMode);
-seq.write(strcat(outpath, seqname,'.seq'))
+% seq.write(strcat(outpath, seqname,'.seq'))
 
 %% very optional slow step, but useful for testing during development e.g. for the real TE, TR or for staying within slew rate limits  
 
-rep = seq.testReport; 
-fprintf([rep{:}]); 
+% rep = seq.testReport; 
+% fprintf([rep{:}]); 
