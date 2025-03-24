@@ -1,4 +1,4 @@
-function [fig] = plot_PEMode2(PElabel, nX, nY, nExcit, nEcho)
+function [fig] = plot_PEMode2(PElabel, nY, nEcho)
     % [nEcho, nExcit]
     cmap = gray(nEcho+5);
     fig = figure;

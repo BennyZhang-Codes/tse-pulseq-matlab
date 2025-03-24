@@ -1,4 +1,4 @@
-function [fig] = plot_PEMode(PElabel, nX, nY, nExcit, nEcho)
+function [fig] = plot_PEMode(PElabel, nX, nY, nEcho)
     % [nEcho, nExcit]
     im_PEOrder = zeros(nX, nY);
     for iecho = 1:nEcho
