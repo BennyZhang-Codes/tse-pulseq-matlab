@@ -12,6 +12,7 @@ PEMode         = 'Centric'; % 'Centric', 'Linear'
 MultiSliceMode = 'Interleaved'; % 'Interleaved' or 'Sequential'
 fov = 120e-3;
 nX=300; nY=300; nEcho=10; nSlice=5;
+readoutOS = 2 ; % oversampling factor for readout direction
 rflip = 180;
 if isscalar(rflip), rflip=rflip+zeros([1 nEcho]); end
 SliceThickness = 2e-3;
@@ -94,7 +95,7 @@ deltak   = 1 / fov;
 kWidth   = nX * deltak;
 
 GRacq    = mr.makeTrapezoid('x', system, 'FlatArea', kWidth, 'FlatTime', readoutTime, 'riseTime', dG);
-adc      = mr.makeAdc(nX, 'Duration', roDuration, 'Delay', system.adcDeadTime);%,'Delay',GRacq.riseTime);
+adc      = mr.makeAdc(nX*readoutOS, 'Duration', roDuration, 'Delay', system.adcDeadTime);%,'Delay',GRacq.riseTime);
 GRspr    = mr.makeTrapezoid('x', system, 'area', GRacq.area*fspR    , 'duration', tSp  , 'riseTime', dG);
 GRspex   = mr.makeTrapezoid('x', system, 'area', GRacq.area*(1+fspR), 'duration', tSpex, 'riseTime', dG);
 
@@ -161,7 +162,7 @@ end
 % plot_PEMode2(PElabel, nX, nY, nExcit, nEcho);
 %%
 % plot_PEOrder(PElabel, nX, nY, nExcit, nEcho)
-fig = plot_PEMode2(PElabel, nX, nY, nExcit, nEcho);
+% fig = plot_PEMode2(PElabel, nX, nY, nExcit, nEcho);
 % print(fig, '-dpng', '-loose', '-r300', '-image', sprintf('PEMode_%s.png', PEMode));
 
 %% split gradients and recombine into blocks
@@ -329,6 +330,9 @@ if mod(b, 10) == 0
 end
 prefix = [num2str(a),'p',num2str(b),'_',num2str(nX)];
 
+% readout oversampling 
+seq.setDefinition('ReadoutOversamplingFactor', readoutOS);
+
 % sequence definitions: enable 2D multi-slice mode
 seq.setDefinition('SliceThickness'   , SliceThickness  );
 seq.setDefinition('SliceGap'         , SliceGap        );
@@ -360,8 +364,8 @@ seq.setDefinition('Developer'        , 'Jinyuan Zhang' );
 seq.setDefinition('Name'             , 'tse'           );
 
 outpath = 'E:/pulseq/idea/pulseq_150/TSE/';
-seqname = sprintf('TSE_%s_sli%s_tr%s_te%s_t%s_bw%s_%s', prefix, num2str(nSlice), num2str(TR*1e3), num2str(TEeff*1e3), num2str(nEcho), num2str(round(BWPerPixel)), PEMode);
-% seq.write(strcat(outpath, seqname,'.seq'))
+seqname = sprintf('TSE_%s_sli%s_tr%s_te%s_t%s_bw%s_os%s', prefix, num2str(nSlice), num2str(TR*1e3), num2str(TEeff*1e3), num2str(nEcho), num2str(round(BWPerPixel)), num2str(readoutOS));
+seq.write(strcat(outpath, seqname,'.seq'))
 
 %% very optional slow step, but useful for testing during development e.g. for the real TE, TR or for staying within slew rate limits  
 
