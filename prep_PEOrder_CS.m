@@ -3,42 +3,39 @@ function [...
     nAcq, nRef, nExcit, ...
     pe_full, pe_Img, pe_Ref, pe_ImgAndRef, ...
     kSpaceCenterLine, FirstRefLine...
-    ] = prep_PEOrder_PI(PEMode, nY, nEcho, TEeff, TE1, deltak, R, RefLinesRatio)
-    
+    ] = prep_PEOrder_CS(PEMode, nY, nEcho, TEeff, TE1, deltakY, R, p, r)
+
     if R == 1
         nExcit  = floor(nY / nEcho);
         pe_full = (1:(nEcho * nExcit)) - floor(0.5 * nEcho * nExcit) -1;
-        pe_step_min = min(pe_full(:));
         pe_Img = pe_full;
         pe_Ref = [];
         pe_ImgAndRef = [];
         pe_steps  = pe_full;
     elseif R > 1 % for parallel imaging
-        % 1. determine nRef (to make mod(nRef+nImg, nEcho) == 0)
         pe_full   = (1:(nY)) - floor(0.5 * nY) - 1;
         pe_step_min = min(pe_full(:));
-
-        pe_Img    = fliplr(pe_full(end:-R:1));
-        pe_Img    = sort([pe_Img 0], "ascend");
         
-        nImg      = length(pe_Img);
-        nRef      = round(nY * RefLinesRatio * (R-1)/R);
+        nAcq      = round(nY/R/nEcho)*nEcho;
+        R1        = nAcq / nY;
+        [pdf, ~]  = genPDF(nY, p, R1, 2, r, 1);
+        mask      = genSampling_TSE(pdf,500,0.3,nAcq);
 
-        nExcit    = round((nImg+nRef) / nEcho);
-        nRef      = nExcit * nEcho - nImg; 
-
-        % 2. Ref
-        pe_Ref    = pe_full(~ismember(pe_full, pe_Img));
-        n         = length(pe_Ref);
-        mid_start = floor((n - nRef) / 2) + 1; 
-        mid_end   = mid_start + nRef - 1;       
-        pe_Ref    = pe_Ref(mid_start:mid_end);    
-
-        % 3. Img & Ref
-        pe_ImgAndRef = pe_Img(pe_Img > min(pe_Ref) & pe_Img < max(pe_Ref)); 
-
-        % 4. reset pe_steps
-        pe_steps  = sort([pe_Img pe_Ref], "ascend");
+        % [pdf, ~]  = genPDF(nY, p, 1/R, 2, r, 1);
+        % mask      = genSampling(pdf,500,1);
+        % mask(end) = 1;
+        
+        pe_acq = pe_full(mask);
+        
+        pe_ImgAndRef = pe_full(pdf==1);
+        pe_Img = pe_acq(~ismember(pe_acq, pe_ImgAndRef));
+        pe_Ref = [];
+        
+        pe_steps    = sort([pe_Img pe_ImgAndRef], "ascend");
+        
+        nExcit      = ceil(sum(mask)/nEcho);
+        pe_null     = (min(pe_step_min)-1) * ones(nExcit*nEcho - sum(mask), 1);
+        pe_steps    = [pe_steps pe_null'];
     end
     nAcq    = nExcit * nEcho;
     nRef    = length(pe_Ref) + length(pe_ImgAndRef);
@@ -67,8 +64,10 @@ function [...
         otherwise
             error('Invalid PEMode');
     end
+
+    %%
     PEorder    = circshift(pe_steps, k0prescr - k0curr);
-    phaseAreas = PEorder * deltak;
+    phaseAreas = PEorder * deltakY;
     PElabel    = PEorder - pe_step_min;
 
     [row, col] = find(PEorder == 0);
@@ -80,3 +79,25 @@ function [...
         FirstRefLine = -1;
     end
 end
+
+% plot_PE(R, nX, nY, pe_Img, pe_Ref, pe_ImgAndRef, pe_full)
+% plot_PEOrder(R, nX, nY, PElabel);
+
+% %%
+% % R1 = round(nY/R/nEcho)*nEcho / nY;
+% % 
+% % r = 0.15 + 0.001 * count;
+% % [pdf, ~]  = genPDF(nY, 10, R1, 2, r, 1);
+% % i = find(pdf==1);
+% % pdf(i(1)) = pdf(i(1)-1);
+% % pdf(end) = 1;
+% % 
+% % mask      = genSampling(pdf,500,1);
+% % disp(sum(mask))
+% 
+% 
+% R1 = round(nY/R/nEcho)*nEcho / nY;
+% [pdf, ~]  = genPDF(nY, p, R1, 2, r, 1);
+% mask      = genSampling_TSE(pdf,500,0.3,round(nY/R/nEcho)*nEcho);
+% % mask(end) = 1;
+% disp(sum(mask))

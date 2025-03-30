@@ -1,6 +1,6 @@
 function [PEorder, PElabel, phaseAreas] = prep_PEOrder(PEMode, nY, nEcho, TEeff, TE1, deltak)
     switch lower(PEMode)
-        case 'centric' % half
+        case 'centrichalf' % half
             nExcit   = floor(nY / nEcho);
             pe_steps = (1:(nEcho * nExcit)) - 0.5 * nEcho * nExcit - 1;
             half_l = pe_steps(1:nY/2);
@@ -12,7 +12,7 @@ function [PEorder, PElabel, phaseAreas] = prep_PEOrder(PEMode, nY, nEcho, TEeff,
             PEorder    = circshift(pe_steps, k0prescr - 1);
             PElabel    = PEorder - min(PEorder(:));
             phaseAreas = PEorder * deltak;
-        case 'centric2' % full
+        case 'centricfull' % full
             nExcit   = floor(nY / nEcho);
             pe_steps = (1:(nEcho * nExcit)) - 0.5 * nEcho * nExcit - 1;
             A = reshape(pe_steps, [nExcit, nEcho])';
