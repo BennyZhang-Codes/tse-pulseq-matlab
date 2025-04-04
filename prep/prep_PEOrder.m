@@ -1,12 +1,16 @@
-function [...
-    PEorder, PElabel, phaseAreas, ...
-    nAcq, nRef, nExcit, ...
-    pe_full, pe_Img, pe_Ref, pe_ImgAndRef, ...
-    kSpaceCenterLine, FirstRefLine...
-    ] = prep_PEOrder(AccelerationMode, PEMode, nY, nEcho, TEeff, TE1, fovPhase, R, ...
-    RefLinesRatio, ...  % for PI
-    p, r...             % for CS
-    )
+function [nAcq, nExcit, PE] = prep_PEOrder(params)
+    AccelerationMode = params.AccelerationMode;
+    PEMode           = params.PEMode;
+    nY               = params.nY;
+    nEcho            = params.nEcho;
+    TEeff            = params.TEeff;
+    TE1              = params.TE1;
+    fovPhase         = params.fovPhase;
+    R                = params.R;
+    RefLinesRatio    = params.RefLinesRatio;  % PI
+    p                = params.p;              % CS
+    r                = params.r;              % CS
+
     deltak   = 1 / fovPhase;
     if R == 1
         nExcit  = floor(nY / nEcho);
@@ -65,4 +69,16 @@ function [...
     else
         FirstRefLine = -1;
     end
-end
+
+
+    PE.PEorder           = PEorder;
+    PE.PElabel           = PElabel;
+    PE.phaseAreas        = phaseAreas;
+    PE.nRef              = nRef;
+    PE.pe_full           = pe_full;
+    PE.pe_Img            = pe_Img;
+    PE.pe_Ref            = pe_Ref;
+    PE.pe_ImgAndRef      = pe_ImgAndRef;
+    PE.kSpaceCenterLine  = kSpaceCenterLine;
+    PE.FirstRefLine      = FirstRefLine;
+end 

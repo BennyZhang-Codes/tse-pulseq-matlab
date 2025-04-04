@@ -1,5 +1,8 @@
-function [SliceLabel, SliceOrder, SlicePositions] = prep_SlicePositions(MultiSliceMode, nSlice, SliceThickness, SliceGap)
-
+function [SliceLabel, SliceOrder, SlicePositions] = prep_SlicePositions(params)
+    MultiSliceMode  = params.MultiSliceMode;
+    nSlice          = params.nSlice;
+    SliceThickness  = params.SliceThickness;
+    SliceGap        = params.SliceGap;
     switch lower(MultiSliceMode)
         case 'sequential'
             SliceLabel = -1 + (1:nSlice);

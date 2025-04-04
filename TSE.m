@@ -4,170 +4,108 @@ clc; clear; close all;
 addpath(genpath('pulseq'));
 addpath(genpath('plot'));
 % Instantiation and gradient limits
-system = mr.opts('MaxGrad', 40, 'GradUnit', 'mT/m', ...
+sys = mr.opts('MaxGrad', 40, 'GradUnit', 'mT/m', ...
     'MaxSlew', 180, 'SlewUnit', 'T/m/s', 'rfRingdownTime', 100e-6, ...
     'rfDeadTime', 100e-6, 'adcDeadTime', 10e-6);
-seq=mr.Sequence(system);
+seq=mr.Sequence(sys);
 %% Sequence Parameters
-PEMode           = 'CentricFull'; % 'Centric', 'Linear'
-AccelerationMode = 'CS';          % 'PI', 'CS'
-MultiSliceMode   = 'Interleaved'; % 'Interleaved' or 'Sequential'
-fovRead  = 120e-3;
-fovPhase = 120e-3;
-nX=300; nY=300; nEcho=10; nSlice=5; nRep=1;
-nDummy = 1;
+params.PEMode           = 'CentricFull'; % 'Centric', 'Linear'
+params.AccelerationMode = 'PI';          % 'PI', 'CS'
+params.MultiSliceMode   = 'Interleaved'; % 'Interleaved' or 'Sequential'
 
-R = 3;
-RefLinesRatio =29/nY;
+params.IR               = 'on';          % Inversion Recovery
+params.IRMode           = 'Interleaved'; % 'Interleaved' or 'Sequential'
 
-readoutOS = 2 ; % oversampling factor for readout direction
-rflip = 180;
-if isscalar(rflip), rflip=rflip+zeros([1 nEcho]); end
-SliceThickness = 2e-3;
-SliceGap       = SliceThickness * 0/100;
+params.NoiseScan        = 'on';      
 
-[SliceLabel, SliceOrder, SlicePositions] = prep_SlicePositions(MultiSliceMode, nSlice, SliceThickness, SliceGap);
+params.nDummy           = 1;             % number of pre-scans
 
-TE1            = 14e-3; % echo time of the first echo in the train
-TR             = 5000e-3;
-TEeff          = 14e-3; % the desired echo time (can only be achieved approximately)
+params.fovRead          = 120e-3;
+params.fovPhase         = 120e-3;
+params.nX               = 300; 
+params.nY               = 300; 
+params.nEcho            = 10; 
+params.nSlice           = 5; 
+params.nRep             = 1;
 
-roDuration     = 6.3e-3;
-BWPerPixel     = 1/roDuration;
-readoutTime    = roDuration + 2 * system.adcDeadTime;
-tEx            = 2.5e-3; 
-tExwd          = tEx + system.rfRingdownTime + system.rfDeadTime;
-tRef           = 3e-3; 
-tRefwd         = tRef + system.rfRingdownTime + system.rfDeadTime;
-tSp            = 0.5*(TE1-readoutTime-tRefwd);
-tSpex          = 0.5*(TE1-tExwd-tRefwd);
-fspR           = 1.0;
-fspS           = 0.5;
-dG             = 250e-6; % 'standard' ramp time - makes sequence structure much simpler
+params.SliceThickness   = 2e-3;
+params.SliceGap         = 0/100 * params.SliceThickness;
 
-rfex_phase     = pi/2; % MZ: we need to maintain these as variables because we will overwrtite phase offsets for multiple slice positions
-rfref_phase    = 0;
+params.TE1              = 14e-3; % echo time of the first echo in the train
+params.TR               = 5000e-3;
+params.TEeff            = 14e-3; % the desired echo time 
+
+params.R                = 3;              % Acceleration factor
+params.RefLinesRatio    = 29/params.nY;          % PI
+params.p                = 20;             % CS
+params.r                = 0.1;            % CS
+
+params.rflip = 180; if isscalar(params.rflip), params.rflip=params.rflip+zeros([1 params.nEcho]); end
+params.flipex           = 90 * pi / 180;
+params.flipref          = params.rflip(1)*pi/180;
+params.flipir           = 180 * pi / 180;
+
+params.roDuration       = 6.3e-3;
+
+params.TI               = 1700e-3; % time of inversion recovery
+paramsRF.tIr            = 3e-3;    % duration of IR RF pulse
+paramsRF.tIrwd          = paramsRF.tIr + sys.rfRingdownTime + sys.rfDeadTime;
+paramsRF.rfir_phase     = 0;
+
+paramsRF.typeEx         = 'sinc'   ;
+paramsRF.typeRef        = 'sinc'   ;
+paramsRF.typeInv        = 'sinc'   ;
+paramsRF.tEx            = 2.5e-3   ; 
+paramsRF.tRef           = 3e-3     ; 
+paramsRF.tInv           = 3e-3     ;
+paramsRF.tbpEx          = 4        ;
+paramsRF.tbpRef         = 4        ;
+paramsRF.tbpInv         = 4        ;
+paramsRF.phaseEx        = pi/2     ;   
+paramsRF.phaseRef       = 0        ;
+paramsRF.phaseInv       = 0        ;
+
+params.fspR             = 1.0      ; % ratio of spoiling area to readout area
+params.fspS             = 0.5      ; % ratio of spoiling area to Gz rephasing area
+params.dG               = 250e-6   ; % 'standard' ramp time - makes sequence structure much simpler
+params.readoutOS        = 2        ; % oversampling factor for readout direction
+
+params.paramsRF         = paramsRF;
+%% init
+params.BWPerPixel       = 1/params.roDuration;
+params.readoutTime      = params.roDuration + 2 * sys.adcDeadTime;
+params.tExwd            = paramsRF.tEx + sys.rfRingdownTime + sys.rfDeadTime;
+params.tRefwd           = paramsRF.tRef + sys.rfRingdownTime + sys.rfDeadTime;
+params.tSp              = 0.5*(params.TE1-params.readoutTime-params.tRefwd);
+params.tSpex            = 0.5*(params.TE1-params.tExwd-params.tRefwd);
+
+%% multi-slice
+[Slice.SliceLabel, Slice.SliceOrder, Slice.SlicePositions] = prep_SlicePositions(params);
+params.Slice = Slice;
 
 %% Phase encoding
-p = 20;
-r = 0.1;
-
-[PEorder, PElabel, phaseAreas, nAcq, nRef, nExcit, ...
-    pe_full, pe_Img, pe_Ref, pe_ImgAndRef, kSpaceCenterLine, FirstRefLine] = ...
-    prep_PEOrder(AccelerationMode, PEMode, nY, nEcho, TEeff, TE1, fovPhase, R, ...
-        RefLinesRatio, ...  % for PI
-        p, r...             % for CS
-        );
-
-plot_PE(R, nX, nY, pe_Img, pe_Ref, pe_ImgAndRef, pe_full)
-plot_PEOrder(R, nX, nY, PElabel);
+[params.nAcq, params.nExcit, PE] = prep_PEOrder(params);
+params.PE = PE;
+plot_PE(params.R, params.nX, params.nY, PE.pe_Img, PE.pe_Ref, PE.pe_ImgAndRef, PE.pe_full)
+plot_PEOrder(params.R, params.nX, params.nY, PE.PElabel);
 
 %% RF and Gz
-flipex       = 90 * pi / 180;
-[rfex, GSex] = ...
-    prep_Excitation(flipex, rfex_phase, SliceThickness, tEx, tExwd, dG, system);
-
-flipref      = rflip(1)*pi/180;
-[rfref, GSref] = ...
-    prep_Refocusing(flipref, rfref_phase, SliceThickness, tRef, tRefwd, dG, system);
-
-[GSspr, GSspex] = ...
-    prep_Gradient_GZSpoiler(fspS, GSex, tSp, tSpex, dG, system);
-
-%% readout gradients
-[GRacq, adc, GRspr, GRspex, GRpreph] = ...
-    prep_Gradient_GR(fovRead, nX, readoutOS, readoutTime, roDuration, fspR, tSp, tSpex, dG, system);
-
-%% split gradients and recombine into blocks
-[GS1, GS2, GS3, GS4, GS5, GS7, GR3, GR5, GR6, GR7] = ...
-    prep_Gradient_Block(GSex, GSspex, GSref, GSspr, GRpreph, GRacq, GRspr, readoutTime);
-
-% and filltimes
-tex  = mr.calcDuration(GS1) + mr.calcDuration(GS2) + mr.calcDuration(GS3);
-tref = mr.calcDuration(GS4) + mr.calcDuration(GS5) + mr.calcDuration(GS7) + readoutTime;
-tend = mr.calcDuration(GS4) + mr.calcDuration(GS5);
-
-
-tETrain = tex + nEcho*tref + tend;
-TRfill  = (TR - nSlice * tETrain) / nSlice;
-% round to gradient raster
-TRfill  = system.gradRasterTime * round(TRfill / system.gradRasterTime);
-if TRfill<0, TRfill=1e-3; 
-    disp(strcat('Warning!!! TR too short, adapted to include all slices to : ',num2str(1000*nSlice*(tETrain+TRfill)),' ms')); 
-else
-    disp(strcat('TRfill : ',num2str(1000*TRfill),' ms')); 
+[RF.rfex,    Grad.GSex  ] = prep_Excitation(params, sys);
+[RF.rfref,   Grad.GSref ] = prep_Refocusing(params, sys);
+[Grad.GSspr, Grad.GSspex] = prep_Gradient_GZSpoiler(Grad, params, sys);
+if strcmp(params.IR, 'on')
+    [RF.rfir, Grad.GSir] = prep_Refocusing(params, sys);
 end
-delayTR = mr.makeDelay(TRfill);
+
+[ADC, Grad] = prep_Gradient_GR(Grad, params, sys); % readout gradients
+
+[Grad] = prep_Gradient_Block(Grad, params);        % split gradients and recombine into blocks
 
 %% Define sequence blocks
-% Set PAT scan flag
-lblSetRefScan            = mr.makeLabel('SET','REF', true );
-lblSetRefAndImaScan      = mr.makeLabel('SET','IMA', true );
-lblResetRefScan          = mr.makeLabel('SET','REF', false);
-lblResetRefAndImaScan    = mr.makeLabel('SET','IMA', false);
-lblSetRefScan.id         = seq.registerLabelEvent(lblSetRefScan        );
-lblSetRefAndImaScan.id   = seq.registerLabelEvent(lblSetRefAndImaScan  );
-lblResetRefScan.id       = seq.registerLabelEvent(lblResetRefScan      );
-lblResetRefAndImaScan.id = seq.registerLabelEvent(lblResetRefAndImaScan);
+[seq, Label] = prep_Kernel(seq, params, ADC);
 
-% Add noise scans.
-seq.addBlock(mr.makeLabel('SET', 'LIN', 0), mr.makeLabel('SET','SLC', 0));
-seq.addBlock(adc, mr.makeLabel('SET', 'NOISE', true), lblResetRefScan, lblResetRefAndImaScan);
-seq.addBlock(mr.makeLabel('SET', 'NOISE', false));
-seq.addBlock(mr.makeDelay(1 - mr.calcDuration(adc)));
+[seq] = prep_Seqloop(seq, params, RF, Grad, ADC, Label, sys);
 
-% Next, the blocks are put together to form the sequence
-seq.addBlock(mr.makeLabel('SET', 'REP', 0));
-for irep = 1:nRep
-    for iexcit = (1-nDummy):nExcit 
-        seq.addBlock(mr.makeLabel('SET', 'SLC', 0));
-        for isli = 1:nSlice
-            % seq.addBlock(mr.makeLabel('SET', 'SLC', SliceLabel(isli)));
-            rfex.freqOffset   = GSex.amplitude  * SlicePositions(isli);
-            rfref.freqOffset  = GSref.amplitude * SlicePositions(isli);
-            rfex.phaseOffset  = rfex_phase  - 2 * pi *  rfex.freqOffset * mr.calcRfCenter(rfex); % align the phase for off-center slices
-            rfref.phaseOffset = rfref_phase - 2 * pi * rfref.freqOffset * mr.calcRfCenter(rfref); % dito
-        
-            seq.addBlock(GS1);
-            seq.addBlock(GS2, rfex);
-            seq.addBlock(GS3, GR3);
-    
-            seq.addBlock(mr.makeLabel('SET', 'SEG', 0));
-            for iseg = 1:nEcho
-                if (iexcit > 0)
-                    phaseArea = phaseAreas(iseg, iexcit);
-                    seq.addBlock(mr.makeLabel('SET', 'LIN', PElabel(iseg, iexcit)));
-                    
-                    if ismember(PEorder(iseg, iexcit), pe_Ref)
-                        seq.addBlock(lblResetRefAndImaScan, lblSetRefScan) ;
-                    elseif ismember(PEorder(iseg, iexcit),pe_ImgAndRef)
-                        seq.addBlock(lblSetRefAndImaScan, lblSetRefScan) ;
-                    else
-                        seq.addBlock(lblResetRefAndImaScan, lblResetRefScan) ;
-                    end
-                else
-                    phaseArea = 0;
-                end
-                GPpre = mr.makeTrapezoid('y', system, 'Area',  phaseArea, 'Duration', tSp, 'riseTime', dG);
-                GPrew = mr.makeTrapezoid('y', system, 'Area', -phaseArea, 'Duration', tSp, 'riseTime', dG);
-                seq.addBlock(GS4, rfref);
-                seq.addBlock(GS5, GR5, GPpre);
-                if (iexcit > 0)
-                    seq.addBlock(GR6, adc);
-                else
-                    seq.addBlock(GR6);
-                end
-                seq.addBlock(GS7, GR7, GPrew);
-                seq.addBlock(mr.makeLabel('INC', 'SEG', 1));
-            end
-            seq.addBlock(GS4);
-            seq.addBlock(GS5);
-            seq.addBlock(delayTR);
-            seq.addBlock(mr.makeLabel('INC', 'SLC', 1));
-        end
-    end
-    seq.addBlock(mr.makeLabel('INC', 'REP', 1));
-end
 %% check whether the timing of the sequence is correct
 [ok, error_report]=seq.checkTiming;
 
@@ -191,7 +129,7 @@ title('2D k-space');
 
 %%
 % Display the first few lines of the output file
-seq.plot('Label', 'LIN,SLC,SEG,REP', 'timeRange', [0*TR, 5*TR] + 1);
+seq.plot('Label', 'LIN,SLC,SEG,REP', 'timeRange', [0*params.TR, 5*params.TR] + 1);
 
 %% evaluate label settings more specifically
 
@@ -204,16 +142,7 @@ end
 legend(lbl_names(:));
 title('evolution of labels/counters/flags');
 xlabel('adc number');
-% %%
-% lbls=seq.evalLabels('evolution','adc');
-% lbl_names=["REF", "IMA", "SEG"]
-% figure; hold on;
-% 
-% scatter((1:length(lbls.REF)), lbls.REF);
-% scatter((1:length(lbls.REF)), lbls.IMA);
-% % legend(lbl_names(:));
-% title('evolution of labels/counters/flags');
-% xlabel('adc number');
+
 %% PNS calc
 warning('OFF', 'mr:restoreShape');
 [pns_ok, pns_n, pns_c, tpns] = seq.calcPNS('MP_GPA_K2259_2000V_650A_SC72CD_EGA.asc'); % TERRA-XJ
@@ -225,51 +154,10 @@ else
 end
 
 %% Write to file
-% prepare sequence export
-res = round(1e3*fovRead/nX, 2);
-a = fix(res);
-b = (res - a)*100;
-if mod(b, 10) == 0
-    b = b/10;
-end
-prefix = [num2str(a),'p',num2str(b),'_',num2str(nX)];
-
-% readout oversampling 
-seq.setDefinition('ReadoutOversamplingFactor', readoutOS             );
-
-% sequence definitions: enable 2D multi-slice mode
-seq.setDefinition('SliceThickness'       , SliceThickness            );
-seq.setDefinition('SliceGap'             , SliceGap                  );
-seq.setDefinition('SlicePositions'       , SlicePositions            );
-seq.setDefinition('SliceLabel'           , SliceLabel                );
-
-% sequence definitions: additional information required by GRAPPA
-seq.setDefinition('kSpaceCenterLine'     , kSpaceCenterLine          ); % PE center line index
-seq.setDefinition('PhaseResolution'      , (fovRead/nX)/(fovPhase/nY)); % phase resolution
-seq.setDefinition('AccelerationFactor3D' , 1                         );          
-seq.setDefinition('AccelerationFactorPE' , R                         );          
-seq.setDefinition('FirstRefLine'         , FirstRefLine              );          
-seq.setDefinition('nRefLine'             , nRef                      ); % number of ACS line
-
-fov_z = nSlice*(SliceThickness+SliceGap) - SliceGap;
-seq.setDefinition('FOV'                  , [fovRead fovPhase fov_z]  );
-seq.setDefinition('MatrixSize'           , [nX nY nSlice]            );
-seq.setDefinition('TR'                   , TR                        );
-seq.setDefinition('TE'                   , TEeff                     );
-
-seq.setDefinition('nSlice'               , nSlice                    );
-seq.setDefinition('nDummy'               , nDummy                    );
-seq.setDefinition('BW'                   , BWPerPixel                );
-seq.setDefinition('TuborFactor'          , nEcho                     );
-seq.setDefinition('MultiSliceMode'       , MultiSliceMode            );
-seq.setDefinition('PEMode'               , PEMode                    );
-
-seq.setDefinition('Developer'            , 'Jinyuan Zhang'           );
-seq.setDefinition('Name'                 , 'tse'                     );
-  
+[seq, prefix] = prep_Definition(seq, params, PE);
 outpath = 'E:/pulseq/idea/pulseq_150/TSE/';
 % seqname = sprintf('TSE_%s_sli%s_tr%s_te%s_t%s_bw%s_%s', prefix, num2str(nSlice), num2str(TR*1e3), num2str(TEeff*1e3), num2str(nEcho), num2str(round(BWPerPixel)), PEMode);
-seqname = sprintf('TSE_%s_r%s_nRef%s_sli%s', prefix, num2str(R), num2str(nRef), num2str(nSlice));
+seqname = sprintf('TSE_%s_r%s_nRef%s_sli%s', prefix, num2str(params.R), num2str(PE.nRef), num2str(params.nSlice));
 % seq.write(strcat(outpath, seqname,'.seq'))
 %% very optional slow step, but useful for testing during development e.g. for the real TE, TR or for staying within slew rate limits  
 % end
