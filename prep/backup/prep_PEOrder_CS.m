@@ -2,12 +2,10 @@ function [...
     PEorder, PElabel, phaseAreas, ...
     nAcq, nRef, nExcit, ...
     pe_full, pe_Img, pe_Ref, pe_ImgAndRef, ...
-    kSpaceCenterLine, FirstRefLine...
-    ] = prep_PEOrder(AccelerationMode, PEMode, nY, nEcho, TEeff, TE1, fovPhase, R, ...
-    RefLinesRatio, ...  % for PI
-    p, r...             % for CS
-    )
-    deltak   = 1 / fovPhase;
+    kSpaceCenterLine, FirstRefLine,...
+    mask, pdf...
+    ] = prep_PEOrder_CS(PEMode, nY, nEcho, TEeff, TE1, deltakY, R, p, r)
+
     if R == 1
         nExcit  = floor(nY / nEcho);
         pe_full = (1:(nEcho * nExcit)) - floor(0.5 * nEcho * nExcit) -1;
@@ -16,17 +14,30 @@ function [...
         pe_Ref = [];
         pe_ImgAndRef = [];
         pe_steps  = pe_full;
-    elseif R > 1 % for Acceleration
-        switch lower(AccelerationMode)
-            case 'pi'
-                [nExcit, pe_steps, pe_step_min, pe_full, pe_Img, pe_Ref, pe_ImgAndRef] = ...
-                    prep_PEOrder_PI(nY, nEcho, R, RefLinesRatio);
-            case 'cs'
-                [nExcit, pe_steps, pe_step_min, pe_full, pe_Img, pe_Ref, pe_ImgAndRef, ~, ~] = ...
-                    prep_PEOrder_CS(nY, nEcho, R, p, r);
-            otherwise
-                error('Invalid Acceleration Mode');
-        end
+    elseif R > 1 % for parallel imaging
+        pe_full   = (1:(nY)) - floor(0.5 * nY) - 1;
+        pe_step_min = min(pe_full(:));
+        
+        nAcq      = round(nY/R/nEcho)*nEcho;
+        R1        = nAcq / nY;
+        [pdf, ~]  = genPDF(nY, p, R1, 2, r, 1);
+        mask      = genSampling_TSE(pdf,500,0.3,nAcq);
+
+        % [pdf, ~]  = genPDF(nY, p, 1/R, 2, r, 1);
+        % mask      = genSampling(pdf,500,1);
+        % mask(end) = 1;
+        
+        pe_acq = pe_full(mask);
+        
+        pe_ImgAndRef = pe_full(pdf==1);
+        pe_Img = pe_acq(~ismember(pe_acq, pe_ImgAndRef));
+        pe_Ref = [];
+        
+        pe_steps    = sort([pe_Img pe_ImgAndRef], "ascend");
+        
+        nExcit      = ceil(sum(mask)/nEcho);
+        pe_null     = (min(pe_step_min)-1) * ones(nExcit*nEcho - sum(mask), 1);
+        pe_steps    = [pe_steps pe_null'];
     end
     nAcq    = nExcit * nEcho;
     nRef    = length(pe_Ref) + length(pe_ImgAndRef);
@@ -37,10 +48,12 @@ function [...
         case 'centrichalf'
             half_l = pe_steps(1:(floor(nExcit/2)*nEcho));
             half_r = pe_steps((floor(nExcit/2)*nEcho)+1:end);
+            
             pe_steps = [flipud(reshape(half_l, floor(nExcit/2), nEcho)') reshape(half_r, ceil(nExcit/2), nEcho)'];
         case 'centricfull'
             A = reshape(pe_steps, [nExcit, nEcho])';
             [~, idx] = sort(abs(A), 1, 'ascend'); 
+            
             pe_steps = A(sub2ind(size(A), idx, repmat(1:size(A,2), size(A,1), 1)));
         case 'linear'
             if mod(nEcho, 2) == 0
@@ -53,8 +66,10 @@ function [...
         otherwise
             error('Invalid PEMode');
     end
+
+    %%
     PEorder    = circshift(pe_steps, k0prescr - k0curr);
-    phaseAreas = PEorder * deltak;
+    phaseAreas = PEorder * deltakY;
     PElabel    = PEorder - pe_step_min;
 
     [row, col] = find(PEorder == 0);
@@ -66,3 +81,25 @@ function [...
         FirstRefLine = -1;
     end
 end
+
+% plot_PE(R, nX, nY, pe_Img, pe_Ref, pe_ImgAndRef, pe_full)
+% plot_PEOrder(R, nX, nY, PElabel);
+
+% %%
+% % R1 = round(nY/R/nEcho)*nEcho / nY;
+% % 
+% % r = 0.15 + 0.001 * count;
+% % [pdf, ~]  = genPDF(nY, 10, R1, 2, r, 1);
+% % i = find(pdf==1);
+% % pdf(i(1)) = pdf(i(1)-1);
+% % pdf(end) = 1;
+% % 
+% % mask      = genSampling(pdf,500,1);
+% % disp(sum(mask))
+% 
+% 
+% R1 = round(nY/R/nEcho)*nEcho / nY;
+% [pdf, ~]  = genPDF(nY, p, R1, 2, r, 1);
+% mask      = genSampling_TSE(pdf,500,0.3,round(nY/R/nEcho)*nEcho);
+% % mask(end) = 1;
+% disp(sum(mask))

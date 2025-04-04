@@ -177,7 +177,7 @@ end
 
 
 % plot_PEOrder(PElabel, nX, nY, nExcit, nEcho)
-fig = plot_PEMode2(PElabel, nX, nY, nExcit, nEcho);
+% fig = plot_PEMode2(PElabel, nX, nY, nExcit, nEcho);
 
 % print(fig, '-dpng', '-loose', '-r300', '-image', sprintf('PEMode_%s.png', PEMode));
 
@@ -487,7 +487,7 @@ seq.setDefinition('Name'             , 'irtse'           );
 
 outpath = 'E:/pulseq/idea/pulseq_150/TSE/';
 seqname = sprintf('IRTSE_%s_sli%s_tr%s_te%s_t%s_bw%s_%s', prefix, num2str(nSlice), num2str(TR*1e3), num2str(TEeff*1e3), num2str(nEcho), num2str(round(BWPerPixel)), PEMode);
-seq.write(strcat(outpath, seqname,'.seq'))
+% seq.write(strcat(outpath, seqname,'.seq'))
 
 %% very optional slow step, but useful for testing during development e.g. for the real TE, TR or for staying within slew rate limits  
 
