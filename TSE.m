@@ -72,12 +72,12 @@ params.readoutOS        = 2        ; % oversampling factor for readout direction
 
 params.paramsRF         = paramsRF;
 %% init
-params.BWPerPixel       = 1/params.roDuration;
+params.BWPerPixel       = 1 / params.roDuration;
 params.readoutTime      = params.roDuration + 2 * sys.adcDeadTime;
-params.tExwd            = paramsRF.tEx + sys.rfRingdownTime + sys.rfDeadTime;
+params.tExwd            = paramsRF.tEx  + sys.rfRingdownTime + sys.rfDeadTime;
 params.tRefwd           = paramsRF.tRef + sys.rfRingdownTime + sys.rfDeadTime;
-params.tSp              = 0.5*(params.TE1-params.readoutTime-params.tRefwd);
-params.tSpex            = 0.5*(params.TE1-params.tExwd-params.tRefwd);
+params.tSp              = 0.5 * (params.TE1 - params.readoutTime - params.tRefwd);
+params.tSpex            = 0.5 * (params.TE1 - params.tExwd       - params.tRefwd);
 
 %% multi-slice
 [Slice.SliceLabel, Slice.SliceOrder, Slice.SlicePositions] = prep_SlicePositions(params);
