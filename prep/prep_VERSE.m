@@ -1,0 +1,25 @@
+function [rfex, GSex] = prep_VERSE(params, sys)
+    flipex          = params.flipex;
+    SliceThickness  = params.SliceThickness;
+    tExwd           = params.tExwd;
+    dG              = params.dG;
+    
+    typeEx          = params.paramsRF.typeEx;
+    tEx             = params.paramsRF.tEx;
+    tbpEx           = params.paramsRF.tbpEx;
+    phaseEx         = params.paramsRF.phaseEx;
+
+    switch lower(typeEx)
+        case 'sinc'
+            [rfex, gz_ex]   = mr.makeSincPulse(flipex, sys, 'Duration', tEx,...
+                'SliceThickness', SliceThickness, 'apodization', 0.5, 'timeBwProduct', tbpEx, ...
+                'PhaseOffset', phaseEx, 'use', 'excitation');
+            amplitude = gz_ex.amplitude;
+        case 'slr'
+            % TODO
+    end
+    GSex         = mr.makeTrapezoid('z', sys, 'amplitude', amplitude, 'FlatTime', tExwd, 'riseTime', dG);
+    rfex.delay   = rfex.deadTime;
+
+    GSex_Arb = mr.makeArbitraryGrad('z', [amplitude, amplitude], sys, 'first', amplitude, 'last', amplitude);
+end

@@ -16,7 +16,8 @@ params.MultiSliceMode   = 'Interleaved'; % 'Interleaved' or 'Sequential'
 params.IR               = 'on';          % Inversion Recovery
 params.IRMode           = 'Interleaved'; % 'Interleaved' or 'Sequential'
 
-params.NoiseScan        = 'on';      
+params.NoiseScan        = 'on';  
+params.VERSE            = 'on';
 
 params.nDummy           = 1;             % number of pre-scans
 
@@ -43,18 +44,18 @@ params.r                = 0.1;            % CS
 params.rflip = 180; if isscalar(params.rflip), params.rflip=params.rflip+zeros([1 params.nEcho]); end
 params.flipex           = 90 * pi / 180;
 params.flipref          = params.rflip(1)*pi/180;
-params.flipir           = 180 * pi / 180;
+params.flipinv          = 180 * pi / 180;
 
 params.roDuration       = 6.3e-3;
 
 params.TI               = 1700e-3; % time of inversion recovery
-paramsRF.tIr            = 3e-3;    % duration of IR RF pulse
-paramsRF.tIrwd          = paramsRF.tIr + sys.rfRingdownTime + sys.rfDeadTime;
-paramsRF.rfir_phase     = 0;
+paramsRF.tInv           = 3e-3;    % duration of IR RF pulse
+params.tInvwd           = paramsRF.tInv + sys.rfRingdownTime + sys.rfDeadTime;
+paramsRF.rfinv_phase    = 0;
 
 paramsRF.typeEx         = 'sinc'   ;
-paramsRF.typeRef        = 'sinc'   ;
-paramsRF.typeInv        = 'sinc'   ;
+paramsRF.typeRef        = 'slr'   ;
+paramsRF.typeInv        = 'slr'   ;
 paramsRF.tEx            = 2.5e-3   ; 
 paramsRF.tRef           = 3e-3     ; 
 paramsRF.tInv           = 3e-3     ;
@@ -65,7 +66,7 @@ paramsRF.phaseEx        = pi/2     ;
 paramsRF.phaseRef       = 0        ;
 paramsRF.phaseInv       = 0        ;
 
-params.fspR             = 1.0      ; % ratio of spoiling area to readout area
+params.fspR             = 1        ; % ratio of spoiling area to readout area
 params.fspS             = 0.5      ; % ratio of spoiling area to Gz rephasing area
 params.dG               = 250e-6   ; % 'standard' ramp time - makes sequence structure much simpler
 params.readoutOS        = 2        ; % oversampling factor for readout direction
@@ -90,13 +91,15 @@ plot_PE(params.R, params.nX, params.nY, PE.pe_Img, PE.pe_Ref, PE.pe_ImgAndRef, P
 plot_PEOrder(params.R, params.nX, params.nY, PE.PElabel);
 
 %% RF and Gz
-[RF.rfex,    Grad.GSex  ] = prep_Excitation(params, sys);
-[RF.rfref,   Grad.GSref ] = prep_Refocusing(params, sys);
-[Grad.GSspr, Grad.GSspex] = prep_Gradient_GZSpoiler(Grad, params, sys);
+Grad = struct();
+RF   = struct();
+[RF, Grad] = prep_Excitation(RF, Grad, params, sys);
+[RF, Grad] = prep_Refocusing(RF, Grad, params, sys);
+[Grad] = prep_Gradient_GZSpoiler(Grad, params, sys);
 if strcmp(params.IR, 'on')
-    [RF.rfir, Grad.GSir] = prep_Refocusing(params, sys);
+    [RF, Grad] = prep_Inversion(RF, Grad, params, sys);
 end
-
+%%
 [ADC, Grad] = prep_Gradient_GR(Grad, params, sys); % readout gradients
 
 [Grad] = prep_Gradient_Block(Grad, params);        % split gradients and recombine into blocks

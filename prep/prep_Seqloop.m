@@ -22,6 +22,9 @@ function [seq] = prep_Seqloop(seq, params, RF, Grad, ADC, Label, sys)
     rfex           = RF.rfex;
     rfref          = RF.rfref;
 
+
+    amplitudeEx    = Grad.amplitudeEx;
+    amplitudeRef   = Grad.amplitudeRef;
     GSex           = Grad.GSex;
     GSref          = Grad.GSref;
     GS1            = Grad.GS1;
@@ -62,8 +65,8 @@ function [seq] = prep_Seqloop(seq, params, RF, Grad, ADC, Label, sys)
         for iexcit = (1-nDummy):nExcit 
             seq.addBlock(mr.makeLabel('SET', 'SLC', 0));
             for isli = 1:nSlice
-                rfex.freqOffset   = GSex.amplitude  * SlicePositions(isli);
-                rfref.freqOffset  = GSref.amplitude * SlicePositions(isli);
+                rfex.freqOffset   = amplitudeEx  * SlicePositions(isli);
+                rfref.freqOffset  = amplitudeRef * SlicePositions(isli);
                 rfex.phaseOffset  = phaseEx  - 2 * pi *  rfex.freqOffset * mr.calcRfCenter(rfex); % align the phase for off-center slices
                 rfref.phaseOffset = phaseRef - 2 * pi * rfref.freqOffset * mr.calcRfCenter(rfref); % dito
             

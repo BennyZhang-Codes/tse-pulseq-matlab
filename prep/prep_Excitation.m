@@ -1,8 +1,10 @@
-function [rfex, GSex] = prep_Excitation(params, sys)
+function [RF, Grad] = prep_Excitation(RF, Grad, params, sys)
     flipex          = params.flipex;
     SliceThickness  = params.SliceThickness;
     tExwd           = params.tExwd;
     dG              = params.dG;
+
+    VERSE           = params.VERSE;
     
     typeEx          = params.paramsRF.typeEx;
     tEx             = params.paramsRF.tEx;
@@ -38,6 +40,28 @@ function [rfex, GSex] = prep_Excitation(params, sys)
             BW = tbpEx / tEx;
             amplitude = BW / SliceThickness;
     end
+    
     GSex         = mr.makeTrapezoid('z', sys, 'amplitude', amplitude, 'FlatTime', tExwd, 'riseTime', dG);
     rfex.delay   = rfex.deadTime;
+
+    if strcmpi(VERSE, 'on')
+        [rf_verse, t_rf, g_verse, t_g] = prep_minSAR_VERSE(rfex, tbpEx, SliceThickness, 15, 25, 100, sys);
+        rf_verse = rf_verse * 1e-3 * sys.gamma; % [Hz]
+        rfex.signal = rf_verse;
+        rfex.t      = t_rf;
+            
+        g_verse  = g_verse(:, 3) *1e-3 * sys.gamma;   % [Hz]
+
+        g_start = ones(sys.rfRingdownTime / sys.gradRasterTime, 1) * amplitude;
+        g_end   = ones(sys.rfDeadTime     / sys.gradRasterTime, 1) * amplitude;
+
+        g_verse = [g_start; g_verse; g_end];
+        
+        GSex = mr.makeArbitraryGrad('z', g_verse, sys, 'first', amplitude, 'last', amplitude);
+        figure;plot(abs(g_verse(2:end)-g_verse(1:end-1))./sys.gradRasterTime/sys.gamma)
+    end
+
+    Grad.amplitudeEx = amplitude;
+    RF.rfex          = rfex;
+    Grad.GSex        = GSex;
 end

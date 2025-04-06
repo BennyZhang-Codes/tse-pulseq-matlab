@@ -9,36 +9,49 @@ function [Grad] = prep_Gradient_Block(Grad, params)
 
     readoutTime  = params.readoutTime;
     nEcho        = params.nEcho;
+    dG           = params.dG;
+    VERSE        = params.VERSE;
+
+    amplitudeEx  = Grad.amplitudeEx;
+    amplitudeRef = Grad.amplitudeRef;
 
 
     %% split gradients and recombine into blocks
     % Gz for excitation
-    GS1times = [0 GSex.riseTime];
-    GS1amp   = [0 GSex.amplitude];
+    GS1times = [0          dG];
+    GS1amp   = [0 amplitudeEx];
     GS1      = mr.makeExtendedTrapezoid('z', 'times', GS1times, 'amplitudes', GS1amp);
     
-    GS2times = [0              GSex.flatTime];
-    GS2amp   = [GSex.amplitude GSex.amplitude];
-    GS2      = mr.makeExtendedTrapezoid('z', 'times', GS2times, 'amplitudes', GS2amp);
+    if strcmpi(VERSE, 'on')
+        GS2  = GSex;
+    else
+        GS2times = [0              GSex.flatTime];
+        GS2amp   = [GSex.amplitude GSex.amplitude];
+        GS2      = mr.makeExtendedTrapezoid('z', 'times', GS2times, 'amplitudes', GS2amp);
+    end
     
     % Gz spoiling for excitation
-    GS3times = [0              GSspex.riseTime  GSspex.riseTime+GSspex.flatTime GSspex.riseTime+GSspex.flatTime+GSspex.fallTime];
-    GS3amp   = [GSex.amplitude GSspex.amplitude GSspex.amplitude                GSref.amplitude];
+    GS3times = [0            GSspex.riseTime  GSspex.riseTime+GSspex.flatTime GSspex.riseTime+GSspex.flatTime+GSspex.fallTime];
+    GS3amp   = [amplitudeEx  GSspex.amplitude GSspex.amplitude                amplitudeRef];
     GS3      = mr.makeExtendedTrapezoid('z', 'times', GS3times, 'amplitudes', GS3amp);
     
     % Gz for refocusing
-    GS4times = [0               GSref.flatTime];
-    GS4amp   = [GSref.amplitude GSref.amplitude];
-    GS4      = mr.makeExtendedTrapezoid('z', 'times', GS4times, 'amplitudes', GS4amp);
+    if strcmpi(VERSE, 'on')
+        GS4  = GSref;
+    else
+        GS4times = [0               GSref.flatTime];
+        GS4amp   = [GSref.amplitude GSref.amplitude];
+        GS4      = mr.makeExtendedTrapezoid('z', 'times', GS4times, 'amplitudes', GS4amp);
+    end
     
     % Gz right spoiler
-    GS5times = [0               GSspr.riseTime  GSspr.riseTime+GSspr.flatTime GSspr.riseTime+GSspr.flatTime+GSspr.fallTime];
-    GS5amp   = [GSref.amplitude GSspr.amplitude GSspr.amplitude               0];
+    GS5times = [0             GSspr.riseTime  GSspr.riseTime+GSspr.flatTime GSspr.riseTime+GSspr.flatTime+GSspr.fallTime];
+    GS5amp   = [amplitudeRef  GSspr.amplitude GSspr.amplitude               0];
     GS5      = mr.makeExtendedTrapezoid('z', 'times', GS5times, 'amplitudes', GS5amp);
     
     % Gz left spoiler
     GS7times = [0 GSspr.riseTime  GSspr.riseTime+GSspr.flatTime GSspr.riseTime+GSspr.flatTime+GSspr.fallTime];
-    GS7amp   = [0 GSspr.amplitude GSspr.amplitude               GSref.amplitude];
+    GS7amp   = [0 GSspr.amplitude GSspr.amplitude               amplitudeRef];
     GS7      = mr.makeExtendedTrapezoid('z','times', GS7times, 'amplitudes', GS7amp);
     
     % Gx and its spoiler gradients
