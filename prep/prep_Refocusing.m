@@ -61,6 +61,6 @@ function [RF, Grad] = prep_Refocusing(RF, Grad, params, sys)
     end
 
     Grad.amplitudeRef = amplitude;
-    RF.rfref          = rfref;
+    RF.rfRef          = rfref;
     Grad.GSref        = GSref;
 end

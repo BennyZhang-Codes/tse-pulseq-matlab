@@ -8,9 +8,14 @@ addpath(genpath('plot'  ));
 addpath(genpath('VERSE' ));
 % Instantiation and gradient limits
 sys = mr.opts('MaxGrad', 40, 'GradUnit', 'mT/m', ...
-    'MaxSlew', 180, 'SlewUnit', 'T/m/s', 'rfRingdownTime', 100e-6, ...
-    'rfDeadTime', 100e-6, 'adcDeadTime', 10e-6);
+    'MaxSlew', 180, 'SlewUnit', 'T/m/s', 'rfRingdownTime', 0e-6, ...
+    'rfDeadTime', 0e-6, 'adcDeadTime', 10e-6);
 seq=mr.Sequence(sys);
+
+Grad  = struct();
+RF    = struct();
+ADC   = struct();
+Delay = struct(); 
 %% Sequence Parameters
 params.PEMode           = 'CentricFull'; % 'Centric', 'Linear'
 params.AccelerationMode = 'PI';          % 'PI', 'CS'
@@ -29,13 +34,13 @@ params.fovPhase         = 120e-3;
 params.nX               = 300; 
 params.nY               = 300; 
 params.nEcho            = 10; 
-params.nSlice           = 5; 
+params.nSlice           = 1; 
 params.nRep             = 1;
 
 params.SliceThickness   = 2e-3;
 params.SliceGap         = 0/100 * params.SliceThickness;
 
-params.TE1              = 14e-3; % echo time of the first echo in the train
+params.TE1              = 12e-3; % echo time of the first echo in the train
 params.TR               = 5000e-3;
 params.TEeff            = 14e-3; % the desired echo time 
 
@@ -78,10 +83,10 @@ params.paramsRF         = paramsRF;
 %% init
 params.BWPerPixel       = 1 / params.roDuration;
 params.readoutTime      = params.roDuration + 2 * sys.adcDeadTime;
-params.tExwd            = paramsRF.tEx  + sys.rfRingdownTime + sys.rfDeadTime;
-params.tRefwd           = paramsRF.tRef + sys.rfRingdownTime + sys.rfDeadTime;
+params.tEx              = paramsRF.tEx ;
+params.tRefwd           = paramsRF.tRef+sys.rfRingdownTime+sys.rfDeadTime;
 params.tSp              = 0.5 * (params.TE1 - params.readoutTime - params.tRefwd);
-params.tSpex            = 0.5 * (params.TE1 - params.tExwd       - params.tRefwd);
+params.tSpex            = 0.5 * (params.TE1 - params.tEx       - params.tRefwd);
 
 %% multi-slice
 [Slice.SliceLabel, Slice.SliceOrder, Slice.SlicePositions] = prep_SlicePositions(params);
@@ -90,27 +95,25 @@ params.Slice = Slice;
 %% Phase encoding
 [params.nAcq, params.nExcit, PE] = prep_PEOrder(params);
 params.PE = PE;
-plot_PE(params.R, params.nX, params.nY, PE.pe_Img, PE.pe_Ref, PE.pe_ImgAndRef, PE.pe_full)
-plot_PEOrder(params.R, params.nX, params.nY, PE.PElabel);
+% plot_PE(params.R, params.nX, params.nY, PE.pe_Img, PE.pe_Ref, PE.pe_ImgAndRef, PE.pe_full)
+% plot_PEOrder(params.R, params.nX, params.nY, PE.PElabel);
 
 %% RF and Gz
-Grad = struct();
-RF   = struct();
 [RF, Grad] = prep_Excitation(RF, Grad, params, sys);
 [RF, Grad] = prep_Refocusing(RF, Grad, params, sys);
-[Grad] = prep_Gradient_GZSpoiler(Grad, params, sys);
+% [Grad] = prep_Gradient_GZSpoiler(Grad, params, sys);
 if strcmp(params.IR, 'on')
     [RF, Grad] = prep_Inversion(RF, Grad, params, sys);
 end
 %%
-[ADC, Grad] = prep_Gradient_GR(Grad, params, sys); % readout gradients
+[ADC, Grad] = prep_Gradient_GR(Grad, ADC, params, sys); % readout gradients
 
-[Grad] = prep_Gradient_Block(Grad, params);        % split gradients and recombine into blocks
+[Grad, RF, Delay] = prep_Gradient_Block(Grad, RF, ADC, Delay, params, sys);        % split gradients and recombine into blocks
 
 %% Define sequence blocks
 [seq, Label] = prep_Kernel(seq, params, ADC);
 
-[seq] = prep_Seqloop(seq, params, RF, Grad, ADC, Label, sys);
+[seq] = prep_Seqloop(seq, params, RF, Grad, ADC, Delay, Label, sys);
 
 %% k-space trajectory calculation
 [ktraj_adc, t_adc, ktraj, t_ktraj, t_excitation, t_refocusing] = seq.calculateKspacePP();
@@ -140,7 +143,9 @@ xlabel('adc number');
 
 %% timing & PNS & definition
 [seq] = check_Timing(seq);
-[seq] = check_PNS(seq);
+disp(seq.getDefinition('TotalDuration'));
+
+% [seq] = check_PNS(seq);
 
 [seq, prefix] = prep_Definition(seq, params, PE);
 outpath = 'E:/pulseq/idea/pulseq_150/TSE/';

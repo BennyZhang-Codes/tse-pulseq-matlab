@@ -1,4 +1,4 @@
-function [seq] = prep_Seqloop(seq, params, RF, Grad, ADC, Label, sys)
+function [seq] = prep_Seqloop(seq, params, RF, Grad, ADC, Delay, Label, sys)
     TR             = params.TR;
     nRep           = params.nRep;
     nSlice         = params.nSlice;
@@ -19,28 +19,25 @@ function [seq] = prep_Seqloop(seq, params, RF, Grad, ADC, Label, sys)
     phaseEx        = params.paramsRF.phaseEx;
     phaseRef       = params.paramsRF.phaseRef;
 
-    rfex           = RF.rfex;
-    rfref          = RF.rfref;
-
+    rfex           = RF.rfEx;
+    rfref          = RF.rfRef;
 
     amplitudeEx    = Grad.amplitudeEx;
     amplitudeRef   = Grad.amplitudeRef;
-    GSex           = Grad.GSex;
-    GSref          = Grad.GSref;
-    GS1            = Grad.GS1;
-    GS2            = Grad.GS2;
-    GS3            = Grad.GS3;
-    GS4            = Grad.GS4;
-    GS5            = Grad.GS5;
-    GS7            = Grad.GS7;
+
+    GS_exref        = Grad.GS_exref;
+    GS_RefCrusherL = Grad.GS_RefCrusherL;
+    GS_RefCrusherR = Grad.GS_RefCrusherR;
+    GS_RefFlat     = Grad.GS_RefFlat;
     
-    GR3            = Grad.GR3;
-    GR5            = Grad.GR5;
-    GR6            = Grad.GR6;
-    GR7            = Grad.GR7;
+    GRpre          = Grad.GRpre;
+    GR_adc         = Grad.GR_adc;
+
     tETrain        = Grad.tETrain;
 
     adc            = ADC.adc;
+
+    % delay_TE1      = Delay.delay_TE1;
 
     lblSetRefScan            = Label.lblSetRefScan;
     lblSetRefAndImaScan      = Label.lblSetRefAndImaScan;
@@ -70,12 +67,10 @@ function [seq] = prep_Seqloop(seq, params, RF, Grad, ADC, Label, sys)
                 rfex.phaseOffset  = phaseEx  - 2 * pi *  rfex.freqOffset * mr.calcRfCenter(rfex) ; % align the phase for off-center slices
                 rfref.phaseOffset = phaseRef - 2 * pi * rfref.freqOffset * mr.calcRfCenter(rfref); % dito
                 
-                dPhi = rfex.phaseOffset - rfref.phaseOffset;
-                fprintf('Ex: %f, Ref: %f, %f\n', rfex.phaseOffset/pi*180, rfref.phaseOffset/pi*180, dPhi/pi*180);
+                % dPhi = rfex.phaseOffset - rfref.phaseOffset;
+                % fprintf('Ex: %f, Ref: %f, %f\n', rfex.phaseOffset/pi*180, rfref.phaseOffset/pi*180, dPhi/pi*180);
 
-                seq.addBlock(GS1);
-                seq.addBlock(GS2, rfex);
-                seq.addBlock(GS3, GR3);
+                seq.addBlock(GS_exref, rfex, GRpre);
         
                 seq.addBlock(mr.makeLabel('SET', 'SEG', 0));
                 for iseg = 1:nEcho
@@ -95,18 +90,22 @@ function [seq] = prep_Seqloop(seq, params, RF, Grad, ADC, Label, sys)
                     end
                     GPpre = mr.makeTrapezoid('y', sys, 'Area',  phaseArea, 'Duration', tSp, 'riseTime', dG);
                     GPrew = mr.makeTrapezoid('y', sys, 'Area', -phaseArea, 'Duration', tSp, 'riseTime', dG);
-                    seq.addBlock(GS4, rfref);
-                    seq.addBlock(GS5, GR5, GPpre);
-                    if (iexcit > 0)
-                        seq.addBlock(GR6, adc);
+                    if iseg == 1
+                        seq.addBlock(GS_RefFlat, rfref);
                     else
-                        seq.addBlock(GR6);
+                        seq.addBlock(GS_RefCrusherL);
+                        seq.addBlock(GS_RefFlat, rfref);
                     end
-                    seq.addBlock(GS7, GR7, GPrew);
+
+                    if (iexcit > 0)
+                        seq.addBlock(GS_RefCrusherR, GPpre, GR_adc, adc);
+                    else
+                        seq.addBlock(GS_RefCrusherR, GPpre, GR_adc);
+                    end
+                    seq.addBlock(GPrew);
                     seq.addBlock(mr.makeLabel('INC', 'SEG', 1));
                 end
-                seq.addBlock(GS4);
-                seq.addBlock(GS5);
+
                 seq.addBlock(delayTR);
                 seq.addBlock(mr.makeLabel('INC', 'SLC', 1));
             end

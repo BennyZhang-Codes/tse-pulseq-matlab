@@ -1,8 +1,7 @@
 function [RF, Grad] = prep_Excitation(RF, Grad, params, sys)
     flipex          = params.flipex;
     SliceThickness  = params.SliceThickness;
-    tExwd           = params.tExwd;
-    dG              = params.dG;
+    % tExwd           = params.tExwd;
 
     VERSE           = params.VERSE;
     
@@ -10,6 +9,8 @@ function [RF, Grad] = prep_Excitation(RF, Grad, params, sys)
     tEx             = params.paramsRF.tEx;
     tbpEx           = params.paramsRF.tbpEx;
     phaseEx         = params.paramsRF.phaseEx;
+
+
 
     switch lower(typeEx)
         case 'sinc'
@@ -40,9 +41,7 @@ function [RF, Grad] = prep_Excitation(RF, Grad, params, sys)
             BW = tbpEx / tEx;
             amplitude = BW / SliceThickness;
     end
-    
-    GSex         = mr.makeTrapezoid('z', sys, 'amplitude', amplitude, 'FlatTime', tExwd, 'riseTime', dG);
-    rfex.delay   = rfex.deadTime;
+
 
     if strcmpi(VERSE, 'on')
         [rf_verse, t_rf, g_verse, t_g] = prep_minSAR_VERSE(rfex, tbpEx, SliceThickness, 15, 40, 100, sys);
@@ -62,6 +61,7 @@ function [RF, Grad] = prep_Excitation(RF, Grad, params, sys)
     end
 
     Grad.amplitudeEx = amplitude;
-    RF.rfex          = rfex;
-    Grad.GSex        = GSex;
+    RF.rfEx          = rfex;
+    % Grad.GSex        = GSex;
+    % Grad.delay_GRpreph = delay_GRpreph;
 end
