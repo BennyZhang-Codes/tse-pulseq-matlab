@@ -67,9 +67,12 @@ function [seq] = prep_Seqloop(seq, params, RF, Grad, ADC, Label, sys)
             for isli = 1:nSlice
                 rfex.freqOffset   = amplitudeEx  * SlicePositions(isli);
                 rfref.freqOffset  = amplitudeRef * SlicePositions(isli);
-                rfex.phaseOffset  = phaseEx  - 2 * pi *  rfex.freqOffset * mr.calcRfCenter(rfex); % align the phase for off-center slices
+                rfex.phaseOffset  = phaseEx  - 2 * pi *  rfex.freqOffset * mr.calcRfCenter(rfex) ; % align the phase for off-center slices
                 rfref.phaseOffset = phaseRef - 2 * pi * rfref.freqOffset * mr.calcRfCenter(rfref); % dito
-            
+                
+                dPhi = rfex.phaseOffset - rfref.phaseOffset;
+                fprintf('Ex: %f, Ref: %f, %f\n', rfex.phaseOffset/pi*180, rfref.phaseOffset/pi*180, dPhi/pi*180);
+
                 seq.addBlock(GS1);
                 seq.addBlock(GS2, rfex);
                 seq.addBlock(GS3, GR3);

@@ -45,7 +45,7 @@ function [RF, Grad] = prep_Excitation(RF, Grad, params, sys)
     rfex.delay   = rfex.deadTime;
 
     if strcmpi(VERSE, 'on')
-        [rf_verse, t_rf, g_verse, t_g] = prep_minSAR_VERSE(rfex, tbpEx, SliceThickness, 15, 25, 100, sys);
+        [rf_verse, t_rf, g_verse, t_g] = prep_minSAR_VERSE(rfex, tbpEx, SliceThickness, 15, 40, 100, sys);
         rf_verse = rf_verse * 1e-3 * sys.gamma; % [Hz]
         rfex.signal = rf_verse;
         rfex.t      = t_rf;

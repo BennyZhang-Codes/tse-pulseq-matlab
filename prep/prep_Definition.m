@@ -42,6 +42,9 @@ function [seq, prefix] = prep_Definition(seq, params, PE)
     end
     prefix = [num2str(a),'p',num2str(b),'_',num2str(nX)];
 
+    Rot_Matrix = [-1, 0, 0, 0, -1, 0, 0, 0, -1];    % reverse the polarity of gradients.
+    seq.setDefinition('Rot_Matrix'           , Rot_Matrix                );
+
     % readout oversampling 
     seq.setDefinition('ReadoutOversamplingFactor', readoutOS             );
     

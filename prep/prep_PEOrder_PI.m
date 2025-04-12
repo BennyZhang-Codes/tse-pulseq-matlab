@@ -10,7 +10,7 @@ function [...
 
     left   = 0:-R:min(pe_full(:)); 
     right  = R:R:max(pe_full(:));          
-    pe_Img = [fliplr(left(2:end)), 0, right];
+    pe_Img = [fliplr(left(2:end)), 0, right, pe_full(end)];
     pe_Img = sort(pe_Img, "ascend");
 
 
@@ -20,7 +20,7 @@ function [...
     nImg      = length(pe_Img);
     nRef      = round(nY * RefLinesRatio * (R-1)/R);
 
-    nExcit    = round((nImg+nRef) / nEcho);
+    nExcit    = ceil((nImg+nRef) / nEcho);
     nRef      = nExcit * nEcho - nImg; 
 
     % 2. Ref

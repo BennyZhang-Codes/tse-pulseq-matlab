@@ -2,7 +2,10 @@ clc; clear; close all;
 % for R=1:5
 %% 2D TSE Sequence
 addpath(genpath('pulseq'));
-addpath(genpath('plot'));
+addpath(genpath('prep'  ));
+addpath(genpath('check' ));
+addpath(genpath('plot'  ));
+addpath(genpath('VERSE' ));
 % Instantiation and gradient limits
 sys = mr.opts('MaxGrad', 40, 'GradUnit', 'mT/m', ...
     'MaxSlew', 180, 'SlewUnit', 'T/m/s', 'rfRingdownTime', 100e-6, ...
@@ -17,7 +20,7 @@ params.IR               = 'on';          % Inversion Recovery
 params.IRMode           = 'Interleaved'; % 'Interleaved' or 'Sequential'
 
 params.NoiseScan        = 'on';  
-params.VERSE            = 'on';
+params.VERSE            = 'off';
 
 params.nDummy           = 1;             % number of pre-scans
 
@@ -36,7 +39,7 @@ params.TE1              = 14e-3; % echo time of the first echo in the train
 params.TR               = 5000e-3;
 params.TEeff            = 14e-3; % the desired echo time 
 
-params.R                = 3;              % Acceleration factor
+params.R                = 2;              % Acceleration factor
 params.RefLinesRatio    = 29/params.nY;          % PI
 params.p                = 20;             % CS
 params.r                = 0.1;            % CS
@@ -54,8 +57,8 @@ params.tInvwd           = paramsRF.tInv + sys.rfRingdownTime + sys.rfDeadTime;
 paramsRF.rfinv_phase    = 0;
 
 paramsRF.typeEx         = 'sinc'   ;
-paramsRF.typeRef        = 'slr'   ;
-paramsRF.typeInv        = 'slr'   ;
+paramsRF.typeRef        = 'sinc'   ;
+paramsRF.typeInv        = 'sinc'   ;
 paramsRF.tEx            = 2.5e-3   ; 
 paramsRF.tRef           = 3e-3     ; 
 paramsRF.tInv           = 3e-3     ;
@@ -109,17 +112,6 @@ end
 
 [seq] = prep_Seqloop(seq, params, RF, Grad, ADC, Label, sys);
 
-%% check whether the timing of the sequence is correct
-[ok, error_report]=seq.checkTiming;
-
-if (ok)
-    fprintf('Timing check passed successfully\n');
-else
-    fprintf('Timing check failed! Error listing follows:\n');
-    fprintf([error_report{:}]);
-    fprintf('\n');
-end
-
 %% k-space trajectory calculation
 [ktraj_adc, t_adc, ktraj, t_ktraj, t_excitation, t_refocusing] = seq.calculateKspacePP();
 
@@ -146,17 +138,10 @@ legend(lbl_names(:));
 title('evolution of labels/counters/flags');
 xlabel('adc number');
 
-%% PNS calc
-warning('OFF', 'mr:restoreShape');
-[pns_ok, pns_n, pns_c, tpns] = seq.calcPNS('MP_GPA_K2259_2000V_650A_SC72CD_EGA.asc'); % TERRA-XJ
+%% timing & PNS & definition
+[seq] = check_Timing(seq);
+[seq] = check_PNS(seq);
 
-if (pns_ok)
-    fprintf('PNS check passed successfully\n');
-else
-    fprintf('PNS check failed! The sequence will probably be stopped by the Gradient Watchdog\n');
-end
-
-%% Write to file
 [seq, prefix] = prep_Definition(seq, params, PE);
 outpath = 'E:/pulseq/idea/pulseq_150/TSE/';
 % seqname = sprintf('TSE_%s_sli%s_tr%s_te%s_t%s_bw%s_%s', prefix, num2str(nSlice), num2str(TR*1e3), num2str(TEeff*1e3), num2str(nEcho), num2str(round(BWPerPixel)), PEMode);
