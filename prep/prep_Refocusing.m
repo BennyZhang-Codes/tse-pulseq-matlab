@@ -1,8 +1,6 @@
 function [RF, Grad] = prep_Refocusing(RF, Grad, params, sys)
     flipref          = params.flipref;
     SliceThickness   = params.SliceThickness;
-    tRefwd           = params.tRefwd;
-    dG               = params.dG;
 
     VERSE            = params.VERSE;
 
@@ -39,10 +37,6 @@ function [RF, Grad] = prep_Refocusing(RF, Grad, params, sys)
             amplitude = BW / SliceThickness;
     end
             
-    GSref        = mr.makeTrapezoid('z', sys, 'amplitude', amplitude, 'FlatTime', tRefwd, 'riseTime', dG);
-    rfref.delay  = rfref.deadTime;
-
-
     if strcmpi(VERSE, 'on')
         [rf_verse, t_rf, g_verse, t_g] = prep_minSAR_VERSE(rfref, tbpRef, SliceThickness, 15, 25, 100, sys);
         rf_verse = rf_verse * 1e-3 * sys.gamma; % [Hz]
@@ -62,5 +56,4 @@ function [RF, Grad] = prep_Refocusing(RF, Grad, params, sys)
 
     Grad.amplitudeRef = amplitude;
     RF.rfRef          = rfref;
-    Grad.GSref        = GSref;
 end

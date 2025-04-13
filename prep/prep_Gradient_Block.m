@@ -11,71 +11,85 @@ function [Grad, RF, Delay] = prep_Gradient_Block(Grad, RF, ADC, Delay, params, s
     tRef         = params.paramsRF.tRef;
 
     fspS         = params.fspS;
-
+    tSp          = params.tSp;
 
     TE1          = params.TE1;
-
     TE1_gap      = TE1 - (tEx+tRef) / 2;
+
+    GR_adc       = Grad.GR_adc;
+    GR_SpoilPre  = Grad.GR_SpoilPre;
+    GR_SpoilPost = Grad.GR_SpoilPost;
+
 
     %% split gradients and recombine into blocks
     g = mr.makeTrapezoid('z', 'system', sys, 'Amplitude', amplitudeRef, 'FlatTime', tRef);
     gs = mr.splitGradient(g);
     GS_RefCrusherL1       = gs(1); 
-    if mr.calcDuration(GS_RefCrusherL1) < sys.rfDeadTime
-        GS_RefCrusherL1.delay = sys.rfDeadTime - mr.calcDuration(GS_RefCrusherL1);
-    end
+ 
     area_GS_RefSpoilLeft1 = GS_RefCrusherL1.area;
-
-
-    % 40 mT/m·ms
-    area_GS_ExSpoilPre  = 40*1e-6*sys.gamma;
-    area_GS_ExSpoilPost = (amplitudeEx*tEx/2) * fspS - area_GS_RefSpoilLeft1;
+    area_GS_ExSpoilPre    = 40*1e-6*sys.gamma; % 40 mT/m·ms
+    area_GS_ExSpoilPost   = (amplitudeEx*tEx/2) * fspS - area_GS_RefSpoilLeft1;
 
     area_GS_RefSpoilLeft  = (amplitudeEx*tEx/2) * (1 + fspS);
     area_GS_RefSpoilRight = (amplitudeEx*tEx/2) * (1 + fspS);
 
-    GS_ExSpoilPre  = mr.makeExtendedTrapezoidArea('z', 0, amplitudeEx, area_GS_ExSpoilPre , sys);
-    GS_ExSpoilPost = mr.makeExtendedTrapezoidArea('z', amplitudeEx, 0, area_GS_ExSpoilPost, sys);
+    % GS_ExSpoilPre, GS_ExFlat, GS_ExSpoilPost
+    [g_ExSpoilPre, t_ExSpoilPre, duExSpoilPre] = design_gradient_min_time(area_GS_ExSpoilPre, 10e-3, 0, amplitudeEx, sys.maxGrad, sys.maxSlew, sys.gradRasterTime);
+    GS_ExSpoilPre = mr.makeExtendedTrapezoid('z', 'system', sys, 'amplitudes', g_ExSpoilPre, 'times', t_ExSpoilPre);
 
-    delay_GSex  = GS_ExSpoilPre.shape_dur + tEx;
+    [g_ExSpoilPost, t_ExSpoilPost] = design_gradient_waveform(area_GS_ExSpoilPost, TE1_gap, amplitudeEx, amplitudeRef, sys.maxGrad, sys.maxSlew, sys.gradRasterTime);
+    GS_ExSpoilPost = mr.makeExtendedTrapezoid('z', 'system', sys, 'amplitudes', g_ExSpoilPost, 'times', t_ExSpoilPost);
 
-    GSex_t = [GS_ExSpoilPre.tt'       delay_GSex   GS_ExSpoilPost.tt(2:end)'+delay_GSex];
-    GSex_a = [GS_ExSpoilPre.waveform' amplitudeEx  GS_ExSpoilPost.waveform(2:end)'];
-    GSex          = mr.makeExtendedTrapezoid('z', 'times', GSex_t, 'amplitudes', GSex_a);
-    RF.rfEx.delay = GS_ExSpoilPre.shape_dur;
+    GS_ExFlat      = mr.makeExtendedTrapezoid('z', 'system', sys, 'times', [0, tEx], 'amplitudes', [amplitudeEx, amplitudeEx]);         
+    RF.rfEx.delay  = GS_ExSpoilPre.shape_dur;
+ 
 
-    assert(mr.calcDuration(GS_ExSpoilPost)            < (TE1_gap - mr.calcDuration(GS_RefCrusherL1)));
-    delay_TE1 = TE1_gap - mr.calcDuration(GS_RefCrusherL1) - mr.calcDuration(GS_ExSpoilPost);
+    % GS_RefCrusherL, GS_RefFlat, GS_RefCrusherR
+    [g_GS_RefCrusherL, t_GS_RefCrusherL] = design_gradient_waveform(area_GS_RefSpoilLeft , tSp, 0, amplitudeRef, sys.maxGrad, sys.maxSlew, sys.gradRasterTime);
+    GS_RefCrusherL = mr.makeExtendedTrapezoid('z', 'system', sys, 'amplitudes', g_GS_RefCrusherL, 'times', t_GS_RefCrusherL);
 
-    delay_GSref1 = GSex.shape_dur + delay_TE1;
-    GS_exref_t = [GSex.tt'       delay_GSref1  GS_RefCrusherL1.tt(2:end)'+delay_GSref1];
-    GS_exref_a = [GSex.waveform' 0             GS_RefCrusherL1.waveform(2:end)'];
-    GS_exref   = mr.makeExtendedTrapezoid('z', 'times', GS_exref_t, 'amplitudes', GS_exref_a);
+    [g_GS_RefCrusherR, t_GS_RefCrusherR] = design_gradient_waveform(area_GS_RefSpoilRight, tSp, amplitudeRef, 0, sys.maxGrad, sys.maxSlew, sys.gradRasterTime);
+    GS_RefCrusherR = mr.makeExtendedTrapezoid('z', 'system', sys, 'amplitudes', g_GS_RefCrusherR, 'times', t_GS_RefCrusherR);
 
-
-    GS_RefCrusherL  = mr.makeExtendedTrapezoidArea('z', 0, amplitudeRef, area_GS_RefSpoilLeft , sys);
-    GS_RefCrusherR  = mr.makeExtendedTrapezoidArea('z', amplitudeRef, 0, area_GS_RefSpoilRight, sys);
-    GS_RefFlat      = mr.makeExtendedTrapezoid('z', 'times', [0, tRef], 'amplitudes', [amplitudeRef, amplitudeRef]);
-    RF.rfRef.delay = 0;
+    GS_RefFlat      = mr.makeExtendedTrapezoid('z', 'system', sys, 'times', [0, tRef], 'amplitudes', [amplitudeRef, amplitudeRef]);
    
 
-    % Gx and its spoiler gradients
-    GRpre    = mr.makeTrapezoid('x', sys, 'Area', ADC.AGRpreph, 'duration', TE1_gap, 'delay', delay_GSex);
 
-    
+    % Gx and its spoiler gradients
+    GRpre    = mr.makeTrapezoid('x', 'system', sys, 'Area', ADC.AGRpreph, 'duration', TE1_gap);
+
+    GS_Ex_Ref1 = concatGrads({GS_ExSpoilPre, GS_ExFlat, GS_ExSpoilPost, GS_RefFlat, GS_RefCrusherR}, sys); 
+    GS_Ref     = concatGrads({GS_RefCrusherL, GS_RefFlat, GS_RefCrusherR}, sys); 
+
+    [GS_Ex, GS_Ref1] = mr.splitGradientAt(GS_Ex_Ref1, TE1_gap/2 + GS_ExSpoilPre.shape_dur + tEx, 'system', sys);
+    GS_Ref1.delay = 0;
+    [GRpreL, GRpreR] = mr.splitGradientAt(GRpre, TE1_gap/2, 'system', sys);
+
+    GRpreL.delay = GS_ExSpoilPre.shape_dur + tEx;
+    GRpreR.delay = 0;
+
+    GR_SpoilPre1 = GR_SpoilPre; GR_SpoilPre1.delay = tRef;
+    GRpreR = concatGrads({GRpreR, GR_SpoilPre1}, sys);
+
+    GR_SpoilPre.delay = tRef;
+    GR_Spoil = concatGrads({GR_SpoilPost, GR_SpoilPre}, sys);
 
     % fill times
-    tex  = mr.calcDuration(GSex);
+    tex  = mr.calcDuration(GS_Ex_Ref1);
     tref = mr.calcDuration(GS_RefCrusherL) + mr.calcDuration(GS_RefFlat) + mr.calcDuration(GS_RefCrusherR) + readoutTime;
     tend = mr.calcDuration(GS_RefCrusherL) + mr.calcDuration(GS_RefFlat) + mr.calcDuration(GS_RefCrusherR);
     tETrain = tex + nEcho*tref + tend;
 
-    Grad.GS_exref = GS_exref;
+    Grad.GS_Ex   = GS_Ex;
+    Grad.GS_Ref1 = GS_Ref1;
+    Grad.GS_Ref = GS_Ref;
     
     Grad.GS_RefCrusherL = GS_RefCrusherL;
     Grad.GS_RefCrusherR = GS_RefCrusherR;
     Grad.GS_RefFlat     = GS_RefFlat;
     
-    Grad.GRpre   = GRpre;
+    Grad.GRpreL   = GRpreL;
+    Grad.GRpreR   = GRpreR;
+    Grad.GR_Spoil = GR_Spoil;
     Grad.tETrain = tETrain;
 end

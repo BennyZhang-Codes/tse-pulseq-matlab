@@ -5,11 +5,12 @@ addpath(genpath('pulseq'));
 addpath(genpath('prep'  ));
 addpath(genpath('check' ));
 addpath(genpath('plot'  ));
+addpath(genpath('utils' ));
 addpath(genpath('VERSE' ));
 % Instantiation and gradient limits
 sys = mr.opts('MaxGrad', 40, 'GradUnit', 'mT/m', ...
-    'MaxSlew', 180, 'SlewUnit', 'T/m/s', 'rfRingdownTime', 0e-6, ...
-    'rfDeadTime', 0e-6, 'adcDeadTime', 10e-6);
+    'MaxSlew', 180, 'SlewUnit', 'T/m/s', 'rfRingdownTime', 20e-6, ...
+    'rfDeadTime', 100e-6, 'adcDeadTime', 10e-6);
 seq=mr.Sequence(sys);
 
 Grad  = struct();
@@ -41,7 +42,7 @@ params.SliceThickness   = 2e-3;
 params.SliceGap         = 0/100 * params.SliceThickness;
 
 params.TE1              = 12e-3; % echo time of the first echo in the train
-params.TR               = 5000e-3;
+params.TR               = 1000e-3;
 params.TEeff            = 14e-3; % the desired echo time 
 
 params.R                = 2;              % Acceleration factor
@@ -74,7 +75,7 @@ paramsRF.phaseEx        = pi/2     ;
 paramsRF.phaseRef       = 0        ;
 paramsRF.phaseInv       = 0        ;
 
-params.fspR             = 1        ; % ratio of spoiling area to readout area
+params.fspR             = 0.5        ; % ratio of spoiling area to readout area
 params.fspS             = 0.5      ; % ratio of spoiling area to Gz rephasing area
 params.dG               = 250e-6   ; % 'standard' ramp time - makes sequence structure much simpler
 params.readoutOS        = 2        ; % oversampling factor for readout direction
@@ -84,9 +85,9 @@ params.paramsRF         = paramsRF;
 params.BWPerPixel       = 1 / params.roDuration;
 params.readoutTime      = params.roDuration + 2 * sys.adcDeadTime;
 params.tEx              = paramsRF.tEx ;
-params.tRefwd           = paramsRF.tRef+sys.rfRingdownTime+sys.rfDeadTime;
-params.tSp              = 0.5 * (params.TE1 - params.readoutTime - params.tRefwd);
-params.tSpex            = 0.5 * (params.TE1 - params.tEx       - params.tRefwd);
+params.tRef             = paramsRF.tRef;
+params.tSp              = 0.5 * (params.TE1 - params.readoutTime - params.tRef);
+params.tSpex            = 0.5 * (params.TE1 - params.tEx       - params.tRef);
 
 %% multi-slice
 [Slice.SliceLabel, Slice.SliceOrder, Slice.SlicePositions] = prep_SlicePositions(params);
@@ -127,7 +128,7 @@ title('2D k-space');
 
 %%
 % Display the first few lines of the output file
-seq.plot('Label', 'LIN,SLC,SEG,REP', 'timeRange', [0*params.TR, 5*params.TR] + 1);
+seq.plot('Label', 'LIN,SLC,SEG,REP', 'timeRange', [3*params.TR, 5*params.TR] + 1);
 
 %% evaluate label settings more specifically
 
@@ -145,14 +146,21 @@ xlabel('adc number');
 [seq] = check_Timing(seq);
 disp(seq.getDefinition('TotalDuration'));
 
-% [seq] = check_PNS(seq);
+[seq] = check_PNS(seq);
 
 [seq, prefix] = prep_Definition(seq, params, PE);
-outpath = 'E:/pulseq/idea/pulseq_150/TSE/';
+outpath = 'E:/pulseq/idea/pulseq_150/TSE_dev/';
 % seqname = sprintf('TSE_%s_sli%s_tr%s_te%s_t%s_bw%s_%s', prefix, num2str(nSlice), num2str(TR*1e3), num2str(TEeff*1e3), num2str(nEcho), num2str(round(BWPerPixel)), PEMode);
 seqname = sprintf('TSE_%s_r%s_nRef%s_sli%s', prefix, num2str(params.R), num2str(PE.nRef), num2str(params.nSlice));
-% seq.write(strcat(outpath, seqname,'.seq'))
+seq.write(strcat(outpath, seqname,'.seq'))
 %% very optional slow step, but useful for testing during development e.g. for the real TE, TR or for staying within slew rate limits  
 % end
 % rep = seq.testReport; 
 % fprintf([rep{:}]); 
+
+%%
+gw = seq.waveforms_and_times();
+figure;
+plot(gw{1}(1,:),gw{1}(2,:),gw{2}(1,:),gw{2}(2,:),gw{3}(1,:),gw{3}(2,:)); % plot the entire gradient shape
+title('gradient wave form, in T/m');
+
