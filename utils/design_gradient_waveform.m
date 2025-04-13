@@ -146,11 +146,13 @@ end
 function [lb, ub] = determine_search_bounds(A, G0, G1, Gmax)
 
     if A > 0
-        lb = max(-Gmax, min([G0, G1]) - 0.2*Gmax);
+        % lb = max(-Gmax, min([G0, G1]) - 0.2*Gmax);
+        lb = -Gmax;
         ub = Gmax;
     else
         lb = -Gmax;
-        ub = min(Gmax, max([G0, G1]) + 0.2*Gmax);
+        ub = Gmax;
+        % ub = min(Gmax, max([G0, G1]) + 0.2*Gmax);
     end
     
     % make sure the bounds

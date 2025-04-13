@@ -41,7 +41,7 @@ params.nRep             = 1;
 params.SliceThickness   = 2e-3;
 params.SliceGap         = 0/100 * params.SliceThickness;
 
-params.TE1              = 12e-3; % echo time of the first echo in the train
+params.TE1              = 11.5e-3; % echo time of the first echo in the train
 params.TR               = 1000e-3;
 params.TEeff            = 14e-3; % the desired echo time 
 
