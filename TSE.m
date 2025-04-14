@@ -9,7 +9,7 @@ addpath(genpath('utils' ));
 addpath(genpath('VERSE' ));
 % Instantiation and gradient limits
 sys = mr.opts('MaxGrad', 40, 'GradUnit', 'mT/m', ...
-    'MaxSlew', 180, 'SlewUnit', 'T/m/s', 'rfRingdownTime', 20e-6, ...
+    'MaxSlew', 150, 'SlewUnit', 'T/m/s', 'rfRingdownTime', 20e-6, ...
     'rfDeadTime', 100e-6, 'adcDeadTime', 10e-6);
 seq=mr.Sequence(sys);
 
@@ -23,7 +23,7 @@ params.AccelerationMode = 'PI';          % 'PI', 'CS'
 params.MultiSliceMode   = 'Interleaved'; % 'Interleaved' or 'Sequential'
 
 params.IR               = 'on';          % Inversion Recovery
-params.IRMode           = 'Interleaved'; % 'Interleaved' or 'Sequential'
+params.IRMode           = 'Sequential'; % 'Interleaved' or 'Sequential'
 
 params.NoiseScan        = 'on';  
 params.VERSE            = 'off';
@@ -32,17 +32,17 @@ params.nDummy           = 1;             % number of pre-scans
 
 params.fovRead          = 120e-3;
 params.fovPhase         = 120e-3;
-params.nX               = 300; 
-params.nY               = 300; 
+params.nX               = 120; 
+params.nY               = 120; 
 params.nEcho            = 10; 
-params.nSlice           = 1; 
+params.nSlice           = 5; 
 params.nRep             = 1;
 
 params.SliceThickness   = 2e-3;
 params.SliceGap         = 0/100 * params.SliceThickness;
 
-params.TE1              = 11.5e-3; % echo time of the first echo in the train
-params.TR               = 1000e-3;
+params.TE1              = 12e-3; % echo time of the first echo in the train
+params.TR               = 5000e-3;
 params.TEeff            = 14e-3; % the desired echo time 
 
 params.R                = 2;              % Acceleration factor
@@ -55,7 +55,7 @@ params.flipex           = 90 * pi / 180;
 params.flipref          = params.rflip(1)*pi/180;
 params.flipinv          = 180 * pi / 180;
 
-params.roDuration       = 6.3e-3;
+params.roDuration       = 6.0e-3;
 
 params.TI               = 1700e-3; % time of inversion recovery
 paramsRF.tInv           = 3e-3;    % duration of IR RF pulse
@@ -75,7 +75,7 @@ paramsRF.phaseEx        = pi/2     ;
 paramsRF.phaseRef       = 0        ;
 paramsRF.phaseInv       = 0        ;
 
-params.fspR             = 0.5        ; % ratio of spoiling area to readout area
+params.fspR             = 1        ; % ratio of spoiling area to readout area
 params.fspS             = 0.5      ; % ratio of spoiling area to Gz rephasing area
 params.dG               = 250e-6   ; % 'standard' ramp time - makes sequence structure much simpler
 params.readoutOS        = 2        ; % oversampling factor for readout direction
@@ -102,7 +102,6 @@ params.PE = PE;
 %% RF and Gz
 [RF, Grad] = prep_Excitation(RF, Grad, params, sys);
 [RF, Grad] = prep_Refocusing(RF, Grad, params, sys);
-% [Grad] = prep_Gradient_GZSpoiler(Grad, params, sys);
 if strcmp(params.IR, 'on')
     [RF, Grad] = prep_Inversion(RF, Grad, params, sys);
 end
@@ -114,53 +113,40 @@ end
 %% Define sequence blocks
 [seq, Label] = prep_Kernel(seq, params, ADC);
 
-[seq] = prep_Seqloop(seq, params, RF, Grad, ADC, Delay, Label, sys);
 
-%% k-space trajectory calculation
-[ktraj_adc, t_adc, ktraj, t_ktraj, t_excitation, t_refocusing] = seq.calculateKspacePP();
-
-% plot k-spaces
-figure; plot(t_ktraj,ktraj'); title('k-space components as functions of time'); % plot the entire k-space trajectory
-figure; plot(ktraj(1,:),ktraj(2,:),'b',...
-             ktraj_adc(1,:),ktraj_adc(2,:),'r.'); % a 2D plot
-axis('equal'); % enforce aspect ratio for the correct trajectory display
-title('2D k-space');
-
-%%
-% Display the first few lines of the output file
-seq.plot('Label', 'LIN,SLC,SEG,REP', 'timeRange', [3*params.TR, 5*params.TR] + 1);
-
-%% evaluate label settings more specifically
-
-lbls=seq.evalLabels('evolution','adc');
-lbl_names=fieldnames(lbls);
-figure; hold on;
-for n=1:length(lbl_names)
-    plot(lbls.(lbl_names{n}));
+if strcmpi(params.IR, 'on')
+    [seq] = prep_Seqloop_IR(seq, params, RF, Grad, ADC, Delay, Label, sys);
+else
+    [seq] = prep_Seqloop(seq, params, RF, Grad, ADC, Delay, Label, sys);
 end
-legend(lbl_names(:));
-title('evolution of labels/counters/flags');
-xlabel('adc number');
 
 %% timing & PNS & definition
 [seq] = check_Timing(seq);
 disp(seq.getDefinition('TotalDuration'));
-
-[seq] = check_PNS(seq);
+% check_Label(seq);
+% check_PNS(seq);
 
 [seq, prefix] = prep_Definition(seq, params, PE);
 outpath = 'E:/pulseq/idea/pulseq_150/TSE_dev/';
 % seqname = sprintf('TSE_%s_sli%s_tr%s_te%s_t%s_bw%s_%s', prefix, num2str(nSlice), num2str(TR*1e3), num2str(TEeff*1e3), num2str(nEcho), num2str(round(BWPerPixel)), PEMode);
 seqname = sprintf('TSE_%s_r%s_nRef%s_sli%s', prefix, num2str(params.R), num2str(PE.nRef), num2str(params.nSlice));
 seq.write(strcat(outpath, seqname,'.seq'))
+
+%% plot
+seq.plot('Label', 'LIN,SLC,SEG,REP', 'timeRange', [0*params.TR, 2*params.TR+1] + 0);
+
+[ktraj_adc, t_adc, ktraj, t_ktraj, t_excitation, t_refocusing] = seq.calculateKspacePP();
+% figure; plot(t_ktraj,ktraj'); title('k-space components as functions of time');
+plot_kspace(ktraj, ktraj_adc)
+
 %% very optional slow step, but useful for testing during development e.g. for the real TE, TR or for staying within slew rate limits  
 % end
 % rep = seq.testReport; 
 % fprintf([rep{:}]); 
 
 %%
-gw = seq.waveforms_and_times();
-figure;
-plot(gw{1}(1,:),gw{1}(2,:),gw{2}(1,:),gw{2}(2,:),gw{3}(1,:),gw{3}(2,:)); % plot the entire gradient shape
-title('gradient wave form, in T/m');
+% gw = seq.waveforms_and_times();
+% figure;
+% plot(gw{1}(1,:),gw{1}(2,:),gw{2}(1,:),gw{2}(2,:),gw{3}(1,:),gw{3}(2,:)); % plot the entire gradient shape
+% title('gradient wave form, in T/m');
 

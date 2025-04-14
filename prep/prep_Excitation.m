@@ -62,6 +62,4 @@ function [RF, Grad] = prep_Excitation(RF, Grad, params, sys)
 
     Grad.amplitudeEx = amplitude;
     RF.rfEx          = rfex;
-    % Grad.GSex        = GSex;
-    % Grad.delay_GRpreph = delay_GRpreph;
 end

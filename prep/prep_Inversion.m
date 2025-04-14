@@ -13,7 +13,7 @@ function [RF, Grad] = prep_Inversion(RF, Grad, params, sys)
 
     switch lower(typeInv)
         case 'sinc'
-            [rfinv, gz_inv]   = mr.makeSincPulse(flipinv, sys, 'Duration', tInv,...
+            [rfInv, gz_inv]   = mr.makeSincPulse(flipinv, sys, 'Duration', tInv,...
                 'SliceThickness', SliceThickness, 'apodization', 0.5, 'timeBwProduct', tbpInv, ...
                 'PhaseOffset',  phaseInv, 'use', 'inversion');
             amplitude = gz_inv.amplitude;
@@ -31,7 +31,7 @@ function [RF, Grad] = prep_Inversion(RF, Grad, params, sys)
             t_origin       = linspace(0.5, nPoint_origin-0.5, nPoint_origin) * dt_origin;
             rf             = (nPoint_origin / nPoint_target) .* interp1(t_origin, rf, t_target);
 
-            [rfinv] = mr.makeArbitraryRf(rf, flipinv, 'system', sys, ...
+            [rfInv] = mr.makeArbitraryRf(rf, flipinv, 'system', sys, ...
                 'timeBwProduct', tbpInv, 'SliceThickness', SliceThickness, ...
                 'center', tInv/2, 'dwell', dt_target, 'use', 'inversion', ...
                 'PhaseOffset', phaseInv);
@@ -39,14 +39,14 @@ function [RF, Grad] = prep_Inversion(RF, Grad, params, sys)
             amplitude = BW / SliceThickness;
     end
     GSinv         = mr.makeTrapezoid('z', sys, 'amplitude', amplitude, 'FlatTime', tInvwd, 'riseTime', dG);
-    rfinv.delay   = rfinv.deadTime;
+    rfInv.delay   = rfInv.deadTime;
 
 
     if strcmpi(VERSE, 'on')
-        [rf_verse, t_rf, g_verse, t_g] = prep_minSAR_VERSE(rfinv, tbpInv, SliceThickness, 15, 25, 100, sys);
+        [rf_verse, t_rf, g_verse, t_g] = prep_minSAR_VERSE(rfInv, tbpInv, SliceThickness, 15, 25, 100, sys);
         rf_verse = rf_verse * 1e-3 * sys.gamma; % [Hz]
-        rfinv.signal = rf_verse;
-        rfinv.t      = t_rf;
+        rfInv.signal = rf_verse;
+        rfInv.t      = t_rf;
             
         g_verse  = g_verse(:, 3) *1e-3 * sys.gamma;   % [Hz]
 
@@ -60,6 +60,5 @@ function [RF, Grad] = prep_Inversion(RF, Grad, params, sys)
     end
 
     Grad.amplitudeInv  = amplitude;
-    RF.rfinv           = rfinv;
-    Grad.GSinv         = GSinv;
+    RF.rfInv           = rfInv;
 end

@@ -6,10 +6,7 @@ function [ADC, Grad] = prep_Gradient_GR(Grad, ADC, params, sys)
     roDuration   = params.roDuration;
     fspR         = params.fspR;
 
-    TE1          = params.TE1;
     tSp          = params.tSp;
-
-    delay_GR_adc = (TE1 - readoutTime) / 2;
 
 
     % Readout gradient

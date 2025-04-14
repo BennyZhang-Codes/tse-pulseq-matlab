@@ -38,6 +38,8 @@ function [g, t] = design_gradient_waveform(A, T_total, G0, G1, Gmax, Smax, GradR
         
         t = [t0, t1, t2, t3];
         g = [G0, Gp, Gp, G1];
+
+        % fprintf('# design_gradient_waveform >>> : %.0f us | %.2f 1/m\n', t(end)*1e6, A);
         return;
     end
     

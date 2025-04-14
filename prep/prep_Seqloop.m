@@ -6,22 +6,21 @@ function [seq] = prep_Seqloop(seq, params, RF, Grad, ADC, Delay, Label, sys)
     nExcit         = params.nExcit;
     nDummy         = params.nDummy;
 
-    tSp            = params.tSp;
-    dG             = params.dG;
-    
     SlicePositions = params.Slice.SlicePositions;
+    SliceLabel     = params.Slice.SliceLabel;
     phaseAreas     = params.PE.phaseAreas;
     PElabel        = params.PE.PElabel;
     PEorder        = params.PE.PEorder;
     pe_Ref         = params.PE.pe_Ref;
     pe_ImgAndRef   = params.PE.pe_ImgAndRef;
 
+    tSp            = params.tSp;
+
     phaseEx        = params.paramsRF.phaseEx;
     phaseRef       = params.paramsRF.phaseRef;
 
-    rfex           = RF.rfEx;
-    rfref          = RF.rfRef;
-
+    rfEx           = RF.rfEx;
+    rfRef          = RF.rfRef;
     amplitudeEx    = Grad.amplitudeEx;
     amplitudeRef   = Grad.amplitudeRef;
 
@@ -32,6 +31,7 @@ function [seq] = prep_Seqloop(seq, params, RF, Grad, ADC, Delay, Label, sys)
     GS_RefCrusherL = Grad.GS_RefCrusherL;
     GS_RefCrusherR = Grad.GS_RefCrusherR;
     GS_RefFlat     = Grad.GS_RefFlat;
+    GS_EndSpoil    = Grad.GS_EndSpoil;
     
     GRpreL         = Grad.GRpreL;
     GRpreR         = Grad.GRpreR;
@@ -43,8 +43,6 @@ function [seq] = prep_Seqloop(seq, params, RF, Grad, ADC, Delay, Label, sys)
     tETrain        = Grad.tETrain;
 
     adc            = ADC.adc;
-
-    % delay_TE1      = Delay.delay_TE1;
 
     lblSetRefScan            = Label.lblSetRefScan;
     lblSetRefAndImaScan      = Label.lblSetRefAndImaScan;
@@ -69,21 +67,24 @@ function [seq] = prep_Seqloop(seq, params, RF, Grad, ADC, Delay, Label, sys)
         for iexcit = (1-nDummy):nExcit 
             seq.addBlock(mr.makeLabel('SET', 'SLC', 0));
             for isli = 1:nSlice
-                rfex.freqOffset   = amplitudeEx  * SlicePositions(isli);
-                rfref.freqOffset  = amplitudeRef * SlicePositions(isli);
-                rfex.phaseOffset  = phaseEx  - 2 * pi *  rfex.freqOffset * mr.calcRfCenter(rfex) ; % align the phase for off-center slices
-                rfref.phaseOffset = phaseRef - 2 * pi * rfref.freqOffset * mr.calcRfCenter(rfref); % dito
+                rfEx.freqOffset   = amplitudeEx  * SlicePositions(isli);
+                rfRef.freqOffset  = amplitudeRef * SlicePositions(isli);
+                rfEx.phaseOffset  = phaseEx  - 2 * pi *  rfEx.freqOffset * mr.calcRfCenter(rfEx) ; % align the phase for off-center slices
+                rfRef.phaseOffset = phaseRef - 2 * pi * rfRef.freqOffset * mr.calcRfCenter(rfRef); % dito
                 
-                % dPhi = rfex.phaseOffset - rfref.phaseOffset;
-                % fprintf('Ex: %f, Ref: %f, %f\n', rfex.phaseOffset/pi*180, rfref.phaseOffset/pi*180, dPhi/pi*180);
+                % dPhi = rfEx.phaseOffset - rfRef.phaseOffset;
+                % fprintf('Ex: %f, Ref: %f, %f\n', rfEx.phaseOffset/pi*180, rfRef.phaseOffset/pi*180, dPhi/pi*180);
 
                 
-                seq.addBlock(rfex, GS_Ex, GRpreL);
+                seq.addBlock(rfEx, GS_Ex, GRpreL);
         
                 seq.addBlock(mr.makeLabel('SET', 'SEG', 0));
                 for iseg = 1:nEcho
                     if (iexcit > 0)
-                        phaseArea = phaseAreas(iseg, iexcit);
+                        phaseArea      = phaseAreas(iseg  , iexcit);
+                        if iseg < nEcho
+                            phaseArea_next = phaseAreas(iseg+1, iexcit);
+                        end
                         seq.addBlock(mr.makeLabel('SET', 'LIN', PElabel(iseg, iexcit)));
                         
                         if ismember(PEorder(iseg, iexcit), pe_Ref)
@@ -94,61 +95,43 @@ function [seq] = prep_Seqloop(seq, params, RF, Grad, ADC, Delay, Label, sys)
                             seq.addBlock(lblResetRefAndImaScan, lblResetRefScan) ;
                         end
                     else
-                        phaseArea = 0;
+                        phaseArea      = 0;
+                        phaseArea_next = 0;
                     end
-                    GPpre = mr.makeTrapezoid('y', sys, 'Area',  phaseArea, 'Duration', tSp, 'riseTime', dG);
-                    GPrew = mr.makeTrapezoid('y', sys, 'Area', -phaseArea, 'Duration', tSp, 'riseTime', dG);
-                    if (iexcit > 0)
-                        if iseg == 1
-                            rfref.delay = mr.calcDuration(GS_Ref1) - tSp - rfref.shape_dur;
-                            GPpre.delay = mr.calcDuration(GS_Ref1) - tSp;
-                            seq.addBlock(rfref, GRpreR, GPpre, GS_Ref1);
-    
-                            rfref.delay = mr.calcDuration(GS_RefCrusherL);
+                    GPpre      = mr.makeTrapezoid('y', sys, 'Area',  phaseArea     , 'Duration', tSp, 'riseTime', 200e-6);
+                    GPrew      = mr.makeTrapezoid('y', sys, 'Area', -phaseArea     , 'Duration', tSp, 'riseTime', 200e-6);
+                    GPpre_next = mr.makeTrapezoid('y', sys, 'Area',  phaseArea_next, 'Duration', tSp, 'riseTime', 200e-6);
+                    GPpre_next.delay = rfRef.shape_dur;
+                    GP         = concatGrads({GPrew, GPpre_next}, sys);
 
+                    if iseg == 1
+                        rfRef.delay = mr.calcDuration(GS_Ref1) - tSp - rfRef.shape_dur;
+                        GPpre.delay = mr.calcDuration(GS_Ref1) - tSp;
+                        seq.addBlock(rfRef, GRpreR, GPpre, GS_Ref1);
+
+                        rfRef.delay = mr.calcDuration(GS_RefCrusherL);
+
+                        if iexcit > 0
                             seq.addBlock(GR_adc, adc);
-    
-                            GPpre_next = mr.makeTrapezoid('y', sys, 'Area',  phaseAreas(iseg+1, iexcit), 'Duration', tSp, 'riseTime', dG);
-                            GPpre_next.delay = rfref.shape_dur;
-                            GP         = concatGrads({GPrew, GPpre_next}, sys);
-
-                            seq.addBlock(rfref, GR_Spoil, GP, GS_Ref);
-                        elseif iseg == nEcho
-                            seq.addBlock(GR_adc, adc);
-                            seq.addBlock(GR_SpoilPost, GPrew);
-
-                        else
-                            seq.addBlock(GR_adc, adc);
-
-                            GPpre_next = mr.makeTrapezoid('y', sys, 'Area',  phaseAreas(iseg+1, iexcit), 'Duration', tSp, 'riseTime', dG);
-                            GPpre_next.delay = rfref.shape_dur;
-                            GP         = concatGrads({GPrew, GPpre_next}, sys);
                             
-                            seq.addBlock(rfref, GR_Spoil, GP, GS_Ref);
-                        end
-                    else
-                        GPpre_next = mr.makeTrapezoid('y', sys, 'Area',  phaseArea, 'Duration', tSp, 'riseTime', dG);
-                        GPpre_next.delay = rfref.shape_dur;
-                        GP         = concatGrads({GPrew, GPpre_next}, sys);
-                        if iseg == 1
-                            rfref.delay = mr.calcDuration(GS_Ref1) - tSp - rfref.shape_dur;
-                            GPpre.delay = mr.calcDuration(GS_Ref1) - tSp;
-                            seq.addBlock(rfref, GRpreR, GPpre, GS_Ref1);
-    
-                            rfref.delay = mr.calcDuration(GS_RefCrusherL);
-
-                            seq.addBlock(GR_adc);
-    
-                            seq.addBlock(rfref, GR_Spoil, GP, GS_Ref);
-                        elseif iseg == nEcho
-                            seq.addBlock(GR_SpoilPost, GPrew);
                         else
-                            seq.addBlock(rfref, GR_Spoil, GS_Ref);
+                            seq.addBlock(GR_adc);
+                        end
+                        seq.addBlock(rfRef, GR_Spoil, GP, GS_Ref);
+                    else
+                        if iexcit > 0
+                            seq.addBlock(GR_adc, adc);
+                        else
+                            seq.addBlock(GR_adc);
+                        end
+                        if iseg == nEcho
+                            seq.addBlock(GR_SpoilPost, GPrew, GS_EndSpoil);
+                        else
+                            seq.addBlock(rfRef, GR_Spoil, GP, GS_Ref);
                         end
                     end
                     seq.addBlock(mr.makeLabel('INC', 'SEG', 1));
                 end
-
                 seq.addBlock(delayTR);
                 seq.addBlock(mr.makeLabel('INC', 'SLC', 1));
             end
