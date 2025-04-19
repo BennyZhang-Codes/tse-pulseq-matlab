@@ -14,7 +14,7 @@ function [Grad, RF, Delay] = prep_Gradient_Block(Grad, RF, ADC, Delay, params, s
     tSp          = params.tSp;
 
     TE1          = params.TE1;
-    TE1_gap      = TE1 - (tEx+tRef) / 2;
+    TE1_gap      = round((TE1 - tEx - tRef) / 2 / sys.gradRasterTime) * sys.gradRasterTime;
 
     GR_SpoilPre  = Grad.GR_SpoilPre;
     GR_SpoilPost = Grad.GR_SpoilPost;
@@ -42,10 +42,11 @@ function [Grad, RF, Delay] = prep_Gradient_Block(Grad, RF, ADC, Delay, params, s
  
     area_GS_RefSpoilLeft1 = GS_RefCrusherL1.area;
     area_GS_ExSpoilPre    = 40*1e-6*sys.gamma; % 40 mT/m·ms
-    area_GS_ExSpoilPost   = (amplitudeEx*tEx/2) * fspS - area_GS_RefSpoilLeft1;
 
-    area_GS_RefSpoilLeft  = (amplitudeEx*tEx/2) * (1 + fspS);
-    area_GS_RefSpoilRight = (amplitudeEx*tEx/2) * (1 + fspS);
+    area_GS_Crusher       = 4/SliceThickness;   % 8pi
+    area_GS_ExSpoilPost   = area_GS_Crusher - amplitudeEx*tEx/2;
+    area_GS_RefSpoilLeft  = area_GS_Crusher;
+    area_GS_RefSpoilRight = area_GS_Crusher;
 
     % GS_ExSpoilPre, GS_ExFlat, GS_ExSpoilPost
     [g_ExSpoilPre, t_ExSpoilPre, duExSpoilPre] = design_gradient_min_time(area_GS_ExSpoilPre, 10e-3, 0, amplitudeEx, sys.maxGrad, sys.maxSlew, sys.gradRasterTime);

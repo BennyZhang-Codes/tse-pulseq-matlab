@@ -1,4 +1,6 @@
 function [seq] = prep_Seqloop(seq, params, RF, Grad, ADC, Delay, Label, sys)
+    PhaseCorrection = params.PhaseCorrection;
+
     TR             = params.TR;
     nRep           = params.nRep;
     nSlice         = params.nSlice;
@@ -95,8 +97,19 @@ function [seq] = prep_Seqloop(seq, params, RF, Grad, ADC, Delay, Label, sys)
                             seq.addBlock(lblResetRefAndImaScan, lblResetRefScan) ;
                         end
                     else
-                        phaseArea      = 0;
+                        [isegCenter, iexcitCenter] = find(PElabel == params.PE.kSpaceCenterLine);
+                        phaseArea      = phaseAreas(isegCenter, iexcitCenter);
                         phaseArea_next = 0;
+
+                        seq.addBlock(mr.makeLabel('SET', 'LIN', PElabel(isegCenter, iexcitCenter)));
+                        
+                        if ismember(PEorder(isegCenter, iexcitCenter), pe_Ref)
+                            seq.addBlock(lblResetRefAndImaScan, lblSetRefScan) ;
+                        elseif ismember(PEorder(isegCenter, iexcitCenter),pe_ImgAndRef)
+                            seq.addBlock(lblSetRefAndImaScan, lblSetRefScan) ;
+                        else
+                            seq.addBlock(lblResetRefAndImaScan, lblResetRefScan) ;
+                        end
                     end
                     GPpre      = mr.makeTrapezoid('y', sys, 'Area',  phaseArea     , 'Duration', tSp, 'riseTime', 200e-6);
                     GPrew      = mr.makeTrapezoid('y', sys, 'Area', -phaseArea     , 'Duration', tSp, 'riseTime', 200e-6);
@@ -113,16 +126,27 @@ function [seq] = prep_Seqloop(seq, params, RF, Grad, ADC, Delay, Label, sys)
 
                         if iexcit > 0
                             seq.addBlock(GR_adc, adc);
-                            
                         else
-                            seq.addBlock(GR_adc);
+                            if strcmpi(PhaseCorrection, 'on')
+                                seq.addBlock(mr.makeLabel('SET', 'NAV', 1));
+                                seq.addBlock(GR_adc, adc);
+                                seq.addBlock(mr.makeLabel('SET', 'NAV', 0));
+                            else
+                                seq.addBlock(GR_adc);
+                            end
                         end
                         seq.addBlock(rfRef, GR_Spoil, GP, GS_Ref);
                     else
                         if iexcit > 0
                             seq.addBlock(GR_adc, adc);
                         else
-                            seq.addBlock(GR_adc);
+                            if strcmpi(PhaseCorrection, 'on')
+                                seq.addBlock(mr.makeLabel('SET', 'NAV', 1));
+                                seq.addBlock(GR_adc, adc);
+                                seq.addBlock(mr.makeLabel('SET', 'NAV', 0));
+                            else
+                                seq.addBlock(GR_adc);
+                            end
                         end
                         if iseg == nEcho
                             seq.addBlock(GR_SpoilPost, GPrew, GS_EndSpoil);

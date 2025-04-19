@@ -32,6 +32,7 @@ function [seq, prefix] = prep_Definition(seq, params, PE)
     FirstRefLine     = PE.FirstRefLine;
     nRef             = PE.nRef;
 
+    PhaseCorrection  = params.PhaseCorrection;
 
     % prepare sequence export
     res = round(1e3*fovRead/nX, 2);
@@ -71,7 +72,6 @@ function [seq, prefix] = prep_Definition(seq, params, PE)
     seq.setDefinition('nSlice'               , nSlice                    );
     seq.setDefinition('nDummy'               , nDummy                    );
     seq.setDefinition('BW'                   , BWPerPixel                );
-    seq.setDefinition('TuborFactor'          , nEcho                     );
     seq.setDefinition('nExcit'               , nExcit                    );
     seq.setDefinition('nRep'                 , nRep                      );
    
@@ -80,6 +80,9 @@ function [seq, prefix] = prep_Definition(seq, params, PE)
     seq.setDefinition('AccelerationMode'     , AccelerationMode          );
     seq.setDefinition('IRMode'               , IRMode                    );
     seq.setDefinition('IR'                   , IR                        );
+
+    seq.setDefinition('TuborFactor'          , nEcho                     );
+    seq.setDefinition('PhaseCorrection'      , lower(PhaseCorrection)    );
 
     seq.setDefinition('Developer'            , 'Jinyuan Zhang'           );
     seq.setDefinition('Name'                 , 'tse'                     );

@@ -1,8 +1,6 @@
 function [RF, Grad] = prep_Inversion(RF, Grad, params, sys)
     flipinv         = params.flipinv;
     SliceThickness  = params.SliceThickness;
-    tInvwd           = params.tInvwd;
-    dG              = params.dG;
 
     VERSE           = params.VERSE;
   
@@ -38,7 +36,7 @@ function [RF, Grad] = prep_Inversion(RF, Grad, params, sys)
             BW = tbpInv / tInv;
             amplitude = BW / SliceThickness;
     end
-    GSinv         = mr.makeTrapezoid('z', sys, 'amplitude', amplitude, 'FlatTime', tInvwd, 'riseTime', dG);
+
     rfInv.delay   = rfInv.deadTime;
 
 
