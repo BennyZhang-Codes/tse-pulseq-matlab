@@ -56,4 +56,5 @@ function [RF, Grad] = prep_Refocusing(RF, Grad, params, sys)
 
     Grad.amplitudeRef = amplitude;
     RF.rfRef          = rfref;
+    RF.rfenvelopeRef  = rfref.signal;
 end
