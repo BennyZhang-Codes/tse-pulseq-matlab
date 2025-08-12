@@ -14,8 +14,13 @@ function [g] = concatGrads(g_list, sys)
                 dur = g_i.shape_dur; 
                 delay = g_i.delay;
             case 'trap'
-                tt  = [0 g_i.riseTime  g_i.riseTime+g_i.flatTime g_i.riseTime+g_i.flatTime+g_i.fallTime];
-                a   = [0 g_i.amplitude g_i.amplitude             0                                     ];
+                if g_i.flatTime > 0
+                    tt  = [0 g_i.riseTime  g_i.riseTime+g_i.flatTime g_i.riseTime+g_i.flatTime+g_i.fallTime];
+                    a   = [0 g_i.amplitude g_i.amplitude             0                                     ];
+                else
+                    tt  = [0 g_i.riseTime  g_i.riseTime+g_i.fallTime];
+                    a   = [0 g_i.amplitude 0                        ];
+                end
                 dur = g_i.riseTime+g_i.flatTime+g_i.fallTime;
                 delay = g_i.delay;
             otherwise

@@ -1,4 +1,21 @@
 function [fig] = plot_PEOrder(R, nX, nY, PElabel)
+    color_facecolor = "#FFFFFF";
+    color_label     = "#CCCCCC";
+    fig_width       = 800;
+    fig_height      = 800;
+    position = [(1920-fig_width)/2, (1080-fig_height)/2, fig_width, fig_height];
+
+    fig_width_cm  = 10;
+    fig_height_cm = 6;
+    position_cm   = [5, 5, fig_width_cm, fig_height_cm];  % 显示位置
+
+    figname = 'PE Order';
+    fig = figure('Name', figname, 'Position', position, 'Color', color_facecolor);
+    % fig = figure('Name', figname, ...
+    %              'Units', 'centimeters', ...
+    %              'Position', position_cm, ...
+    %              'Color', color_facecolor);
+
     [nEcho, nExcit] = size(PElabel);
     im_PEOrder = zeros(nX, nY);
     for iecho = 1:nEcho
@@ -8,7 +25,6 @@ function [fig] = plot_PEOrder(R, nX, nY, PElabel)
     end
     cmap = jet(nEcho+1);
     cmap(1,:) = [0,0,0];
-    fig = figure;
     imshow(im_PEOrder');      % 显示矩阵
 
     title(sprintf('R = %d, nEcho = %d, nExcit = %d', R, nEcho, nExcit), 'FontWeight', 'bold', 'Color', 'r');
@@ -33,6 +49,8 @@ function [fig] = plot_PEOrder(R, nX, nY, PElabel)
     ax = gca;
     ax.Position = [0. 0.03 0.85 0.9];      
     ax.LooseInset = [0 0 0 0]; 
-    set(fig, 'Color', '#1F1F1F');  
+    set(fig, 'Color', '#000000');  
     set(fig, 'InvertHardcopy', 'off');  
+    set(fig, 'PaperUnits', 'centimeters');
+    set(fig, 'PaperPosition', [0, 0, fig_width_cm, fig_height_cm]);
 end

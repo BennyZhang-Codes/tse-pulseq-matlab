@@ -41,14 +41,14 @@ params.fovPhase         = 160e-3;
 params.nX               = 500; 
 params.nY               = 400; 
 params.nEcho            = 10; 
-params.nSlice           = 5; 
+params.nSlice           = 10; 
 params.nRep             = 5;
 
 params.SliceThickness   = 2e-3;
 params.SliceGap         = 0/100 * params.SliceThickness;
 
 params.TE1              = 13e-3; % echo time of the first echo in the train
-params.TR               = 5000e-3;
+params.TR               = 5600e-3;
 params.TEeff            = 13e-3; % the desired echo time 
 
 params.R                = R;              % Acceleration factor
@@ -58,7 +58,8 @@ params.r                = 0.1;            % CS
 
 params.rflip = 180; if isscalar(params.rflip), params.rflip=params.rflip+zeros([1 params.nEcho]); end
 if strcmpi(params.TRAPS, 'on')
-    [params.faRef, ~] = fliptraps(180,params.nEcho,5,'opt',0,2,0,120,90,[1 5 5 params.nEcho]);
+    k0_echo = max(round(params.TEeff/params.TE1), 1); % echo to be aligned to the k-space center 
+    [params.faRef, ~] = fliptraps(180,params.nEcho,5,'opt',0,2,0,70,70,[k0_echo k0_echo+4 k0_echo+4 params.nEcho]);
 end
 
 params.flipex           = 90 * pi / 180;
@@ -67,7 +68,7 @@ params.flipinv          = 180 * pi / 180;
 
 params.roDuration       = 6.0e-3;
 
-params.TI               = 1700e-3; % time of inversion recovery
+params.TI               = 2000e-3; % time of inversion recovery
 
 paramsRF.typeEx         = 'gSlider'   ;
 paramsRF.typeRef        = 'slr'   ;
@@ -104,8 +105,8 @@ params.Slice = Slice;
 [params.nAcq, params.nExcit, PE] = prep_PEOrder(params);
 params.PE = PE;
 % plot_PE(params.R, params.nX, params.nY, PE.pe_Img, PE.pe_Ref, PE.pe_ImgAndRef, PE.pe_full)
-% plot_PEOrder(params.R, params.nX, params.nY, PE.PElabel);
-
+% fig = plot_PEOrder(params.R, params.nX, params.nY, PE.PElabel);
+% print(fig, '-dpng', '-loose', '-r300', '-image', sprintf('PEMode_%s_%s_R%s.png', params.PEMode, params.AccelerationMode, num2str(params.R)));
 %% RF and Gz
 [RF, Grad] = prep_Excitation(RF, Grad, params, sys);
 [RF, Grad] = prep_Refocusing(RF, Grad, params, sys);
@@ -138,12 +139,39 @@ outpath = 'E:/pulseq/idea/pulseq_150/TSE_dev/';
 % seqname = sprintf('IRTSE_Sequential_PC%s_%s_%s_%s_%s_r%s_nRef%s_sli%s', params.PhaseCorrection, paramsRF.typeEx, paramsRF.typeRef, paramsRF.typeInv, ...
 %     prefix, num2str(params.R), num2str(PE.nRef), num2str(params.nSlice));
 
-% seqname = sprintf('gSlider_%s%s_%s_r%s_nRef%s_sli%s', paramsRF.typeInv, num2str(paramsRF.tbpInv), ...
-%     prefix, num2str(params.R), num2str(PE.nRef), num2str(params.nSlice));
-% seq.write(strcat(outpath, seqname,'.seq'))
+seqname = sprintf('gSliderT1_TRAPS70_TI%s%s%s_%s_r%s_nRef%s_sli%s', num2str(params.TI*1e3), paramsRF.typeInv, num2str(paramsRF.tbpInv),...
+    prefix, num2str(params.R), num2str(PE.nRef), num2str(params.nSlice));
+seq.write(strcat(outpath, seqname,'.seq'))
 
 %% plot
-seq.plot('Label', 'LIN,SLC,SEG,REP,NAV', 'timeRange', [0*params.TR, 2*params.TR+1] + 0);
+% fig = seq.plot('Label', 'LIN,SLC,SEG,REP,NAV', 'timeRange', [0*params.TR, 2*params.TR+1] + 0);
+% fig = fig.f;
+%%
+% % set(fig, 'InvertHardcopy', 'off');  
+% set(fig, 'PaperUnits', 'centimeters');
+% set(fig, 'PaperPosition', [0, 0, 7, 5]);
+% ax = findall(fig, 'Type', 'axes');  % 如果有多个 axes，也能同时处理
+% set(findall(fig, '-property', 'FontSize'), 'FontSize',5);
+% lgds = findall(fig, 'Type', 'legend');
+% for i = 1:length(lgds)
+%     % lgds(i).Location = 'northeast';
+%     lgds(i).FontSize = 3;
+%     % lgds(i).Box = 'off';  % 去掉边框
+%     lgds(i).ItemTokenSize = [2, 2];
+% end
+% 
+% % for i = 1:length(ax)
+% %     outerpos = ax(i).OuterPosition;
+% %     ti = ax(i).TightInset;
+% %     left = outerpos(1) + ti(1);
+% %     bottom = outerpos(2) + ti(2);
+% %     width = outerpos(3) - ti(1) - ti(3);
+% %     height = outerpos(4) - ti(2) - ti(4);
+% %     ax(i).Position = [left, bottom, width, height];
+% % end
+% outpath = sprintf('D:/0_/中期报告_2025/gSliderTSE/%s_1TR.png', seqname);
+% % exportgraphics(fig, outpath, 'Resolution', 300, 'ContentType', 'image', 'BackgroundColor', 'none');
+% print(fig, '-dpng', '-loose', '-r300', '-image', outpath);
 
 % [ktraj_adc, t_adc, ktraj, t_ktraj, t_excitation, t_refocusing] = seq.calculateKspacePP();
 % % figure; plot(t_ktraj,ktraj'); title('k-space components as functions of time');
