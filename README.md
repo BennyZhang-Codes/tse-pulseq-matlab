@@ -67,6 +67,12 @@ The sequence scripts start with a `Setup` structure and copy it to `Actual` befo
 
 `TSE_gSlider.m` additionally exposes `TRAPS` and uses `fliptraps` to construct the refocusing flip-angle schedule.
 
+## Citation
+
+If you use `TSE_gSlider.m`, please cite:
+
+> Zhang J, Wu Y, Xue R, Zhuo Y, Zhang Z. gSlider-TSE for high-resolution isotropic T2-weighted imaging with high contrast and high SNR. In: *Proceedings of the 2024 ISMRM and ISMRT Annual Meeting and Exhibition*, Singapore, Singapore. Program #3256.
+
 ## Generated sequence metadata
 
 `prep/prep_Definition.m` writes sequence definitions needed for reconstruction and export, including FOV, matrix size, TR/TE, slice positions, acceleration settings, reference-line information, echo-train length, and phase-correction status.
