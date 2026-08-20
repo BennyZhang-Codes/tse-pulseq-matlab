@@ -1,81 +1,80 @@
 clc; clear; close all;
-% for R=2:2
-R=2;
-close all;
-% R = 3;
-%% 2D TSE Sequence
+%% 2D TSE-gSlider Sequence
 addpath(genpath('pulseq'));
 addpath(genpath('prep'  ));
 addpath(genpath('check' ));
 addpath(genpath('plot'  ));
 addpath(genpath('utils' ));
 addpath(genpath('VERSE' ));
-% Instantiation and gradient limits
-sys = mr.opts('MaxGrad', 40, 'GradUnit', 'mT/m', ...
-    'MaxSlew', 150, 'SlewUnit', 'T/m/s', 'rfRingdownTime', 20e-6, ...
-    'rfDeadTime', 100e-6, 'adcDeadTime', 10e-6);
-seq=mr.Sequence(sys);
 
 Grad  = struct();
 RF    = struct();
 ADC   = struct();
 Delay = struct(); 
-%% Sequence Parameters
-params.PEMode           = 'CentricFull'; % 'Centric', 'Linear'
-params.AccelerationMode = 'PI';          % 'PI', 'CS'
-params.MultiSliceMode   = 'Interleaved'; % 'Interleaved' or 'Sequential'
 
-params.IR               = 'on';          % Inversion Recovery
-params.IRMode           = 'Interleaved'; % 'Interleaved' or 'Sequential'
-params.PhaseCorrection  = 'on';
+Setup.SeqDimension     = '2D';
+%% Setup
+% Scanner
+Setup.ScannerType      = 'Terra-XJ';  % for pns_check
+Setup.MaxGrad_soft     = 40;
+Setup.MaxSlew_soft     = 150;
 
-params.TRAPS            = 'on';
+% Sequence events
+Setup.NoiseScan        = 'on';  
+Setup.VERSE            = 'off';
+Setup.PhaseCorrection  = 'on';
 
-params.NoiseScan        = 'on';  
-params.VERSE            = 'off';
+Setup.IR               = 'off';         % Inversion Recovery
+Setup.IRMode           = 'Interleaved'; % 'Interleaved' or 'Sequential'
 
-params.nDummy           = 1;             % number of pre-scans
+Setup.PEMode           = 'CentricFull'; % 'Centric', 'Linear'
+Setup.AccelerationMode = 'PI';          % 'PI', 'CS'
+Setup.MultiSliceMode   = 'Interleaved'; % 'Interleaved' or 'Sequential'
 
-params.fovRead          = 200e-3;
-params.fovPhase         = 160e-3;
-params.nX               = 500; 
-params.nY               = 400; 
-params.nEcho            = 10; 
-params.nSlice           = 10; 
-params.nRep             = 5;
+Setup.TRAPS            = 'on';
 
-params.SliceThickness   = 2e-3;
-params.SliceGap         = 0/100 * params.SliceThickness;
+Setup.nDummy           = 1;             % number of pre-scans
 
-params.TE1              = 13e-3; % echo time of the first echo in the train
-params.TR               = 5600e-3;
-params.TEeff            = 13e-3; % the desired echo time 
+Setup.fovRead          = 200e-3;
+Setup.fovPhase         = 160e-3;
+Setup.nX               = 500; 
+Setup.nY               = 400; 
+Setup.nEcho            = 10; 
+Setup.nSlice           = 10; 
+Setup.nRep             = 5;
 
-params.R                = R;              % Acceleration factor
-params.RefLinesRatio    = 30/params.nY;          % PI
-params.p                = 20;             % CS
-params.r                = 0.1;            % CS
+Setup.SliceThickness   = 2e-3;
+Setup.SliceGap         = 0/100 * Setup.SliceThickness;
 
-params.rflip = 180; if isscalar(params.rflip), params.rflip=params.rflip+zeros([1 params.nEcho]); end
-if strcmpi(params.TRAPS, 'on')
-    k0_echo = max(round(params.TEeff/params.TE1), 1); % echo to be aligned to the k-space center 
-    [params.faRef, ~] = fliptraps(180,params.nEcho,5,'opt',0,2,0,70,70,[k0_echo k0_echo+4 k0_echo+4 params.nEcho]);
+Setup.TE1              = 13e-3; % echo time of the first echo in the train
+Setup.TR               = 5600e-3;
+Setup.TEeff            = 13e-3; % the desired echo time 
+
+Setup.R                = 2;              % Acceleration factor
+Setup.RefLinesRatio    = 30/Setup.nY;    % PI
+Setup.p                = 20;             % CS
+Setup.r                = 0.1;            % CS
+
+Setup.rflip = 180; if isscalar(Setup.rflip), Setup.rflip=Setup.rflip+zeros([1 Setup.nEcho]); end
+if strcmpi(Setup.TRAPS, 'on')
+    k0_echo = max(round(Setup.TEeff/Setup.TE1), 1); % echo to be aligned to the k-space center 
+    [Setup.faRef, ~] = fliptraps(180,Setup.nEcho,5,'opt',0,2,0,70,70,[k0_echo k0_echo+4 k0_echo+4 Setup.nEcho]);
 end
 
-params.flipex           = 90 * pi / 180;
-params.flipref          = params.rflip(1)*pi/180;
-params.flipinv          = 180 * pi / 180;
+Setup.flipex           = 90 * pi / 180;
+Setup.flipref          = Setup.rflip(1)*pi/180;
+Setup.flipinv          = 180 * pi / 180;
 
-params.roDuration       = 6.0e-3;
+Setup.roDuration       = 6.0e-3;
 
-params.TI               = 2000e-3; % time of inversion recovery
+Setup.TI               = 2000e-3; % time of inversion recovery
 
-paramsRF.typeEx         = 'gSlider'   ;
-paramsRF.typeRef        = 'slr'   ;
-paramsRF.typeInv        = 'slr'   ;
-paramsRF.tEx            = 5.12e-3   ; 
-paramsRF.tRef           = 3.84e-3     ; 
-paramsRF.tInv           = 3.84e-3     ;
+paramsRF.typeEx         = 'gSlider';
+paramsRF.typeRef        = 'slr'    ;
+paramsRF.typeInv        = 'slr'    ;
+paramsRF.tEx            = 5.12e-3  ; 
+paramsRF.tRef           = 3.84e-3  ; 
+paramsRF.tInv           = 3.84e-3  ;
 paramsRF.tbpEx          = 12       ;
 paramsRF.tbpRef         = 6        ;
 paramsRF.tbpInv         = 6        ;
@@ -83,68 +82,77 @@ paramsRF.phaseEx        = pi/2     ;
 paramsRF.phaseRef       = 0        ;
 paramsRF.phaseInv       = 0        ;
 
-params.fspR             = 0.5       ; % ratio of spoiling area to readout area
-params.fspS             = 0.5      ; % ratio of spoiling area to Gz rephasing area
-params.dG               = 250e-6   ; % 'standard' ramp time - makes sequence structure much simpler
-params.readoutOS        = 2        ; % oversampling factor for readout direction
+Setup.fspR             = 0.5       ; % ratio of spoiling area to readout area
+Setup.fspS             = 0.5       ; % ratio of spoiling area to Gz rephasing area
+Setup.dG               = 250e-6    ; % 'standard' ramp time - makes sequence structure much simpler
+Setup.readoutOS        = 2         ; % oversampling factor for readout direction
 
-params.paramsRF         = paramsRF;
+Setup.paramsRF         = paramsRF;
 %% init
-params.BWPerPixel       = 1 / params.roDuration;
-params.readoutTime      = params.roDuration + 2 * sys.adcDeadTime;
-params.tEx              = paramsRF.tEx ;
-params.tRef             = paramsRF.tRef;
-params.tSp              = 0.5 * (params.TE1 - params.readoutTime - params.tRef);
-params.tSpex            = 0.5 * (params.TE1 - params.tEx       - params.tRef);
+Setup.BWPerPixel       = 1 / Setup.roDuration;
+Setup.readoutTime      = Setup.roDuration + 2 * 10e-6; % + 2 x adcDeadTime
+Setup.tEx              = paramsRF.tEx ;
+Setup.tRef             = paramsRF.tRef;
+Setup.tSp              = 0.5 * (Setup.TE1 - Setup.readoutTime - Setup.tRef);
+Setup.tSpex            = 0.5 * (Setup.TE1 - Setup.tEx       - Setup.tRef);
+
+%% Initialize Actual Params
+% Initialize Actual to be the same as Setup
+Actual = Setup ;
+
+%% prep system
+[sys, sys_soft, seq, Actual] = prep_System(Actual);
 
 %% multi-slice
-[Slice.SliceLabel, Slice.SliceOrder, Slice.SlicePositions] = prep_SlicePositions(params);
-params.Slice = Slice;
+[Slice.SliceLabel, Slice.SliceOrder, Slice.SlicePositions] = prep_SlicePositions(Actual);
+Actual.Slice = Slice;
 
 %% Phase encoding
-[params.nAcq, params.nExcit, PE] = prep_PEOrder(params);
-params.PE = PE;
-% plot_PE(params.R, params.nX, params.nY, PE.pe_Img, PE.pe_Ref, PE.pe_ImgAndRef, PE.pe_full)
-% fig = plot_PEOrder(params.R, params.nX, params.nY, PE.PElabel);
-% print(fig, '-dpng', '-loose', '-r300', '-image', sprintf('PEMode_%s_%s_R%s.png', params.PEMode, params.AccelerationMode, num2str(params.R)));
+[Actual.nAcq, Actual.nExcit, PE] = prep_PEOrder(Actual);
+Actual.PE = PE;
+% plot_PE(Actual.R, Actual.nX, Actual.nY, PE.pe_Img, PE.pe_Ref, PE.pe_ImgAndRef, PE.pe_full)
+% fig = plot_PEOrder(Actual.R, Actual.nX, Actual.nY, PE.PElabel);
+% print(fig, '-dpng', '-loose', '-r300', '-image', sprintf('PEMode_%s_%s_R%s.png', Actual.PEMode, Actual.AccelerationMode, num2str(Actual.R)));
 %% RF and Gz
-[RF, Grad] = prep_Excitation(RF, Grad, params, sys);
-[RF, Grad] = prep_Refocusing(RF, Grad, params, sys);
-if strcmp(params.IR, 'on')
-    [RF, Grad] = prep_Inversion(RF, Grad, params, sys);
+[RF, Grad] = prep_Excitation(RF, Grad, Actual, sys);
+[RF, Grad] = prep_Refocusing(RF, Grad, Actual, sys);
+if strcmp(Actual.IR, 'on')
+    [RF, Grad] = prep_Inversion(RF, Grad, Actual, sys);
 end
 %%
-[ADC, Grad] = prep_Gradient_GR(Grad, ADC, params, sys); % readout gradients
+[ADC, Grad] = prep_Gradient_GR(Grad, ADC, Actual, sys); % readout gradients
 
-[Grad, RF, Delay] = prep_Gradient_Block(Grad, RF, ADC, Delay, params, sys);        % split gradients and recombine into blocks
+[Grad, RF, Delay] = prep_Gradient_Block(Grad, RF, ADC, Delay, Actual, sys);        % split gradients and recombine into blocks
 
 %% Define sequence blocks
-[seq, Label] = prep_Kernel(seq, params, ADC);
+[seq, Label, sys] = prep_Kernel(seq, Actual, ADC, sys);
 
 
-if strcmpi(params.IR, 'on')
-    [seq] = prep_Seqloop_IR_gSlider(seq, params, RF, Grad, ADC, Delay, Label, sys);
+if strcmpi(Actual.IR, 'on')
+    [seq] = prep_Seqloop_IR_gSlider(seq, Actual, RF, Grad, ADC, Delay, Label, sys);
 else
-    [seq] = prep_Seqloop_gSlider(seq, params, RF, Grad, ADC, Delay, Label, sys);
+    [seq] = prep_Seqloop_gSlider(seq, Actual, RF, Grad, ADC, Delay, Label, sys);
 end
 
 %% timing & PNS & definition
 [seq] = check_Timing(seq);
 disp(seq.getDefinition('TotalDuration'));
-% check_Label(seq);
-% check_PNS(seq);
+check_Label(seq);
+check_PNS(seq, Actual);
+[seq, prefix] = prep_Definition(seq, Actual, PE);
 
-[seq, prefix] = prep_Definition(seq, params, PE);
-outpath = 'E:/pulseq/idea/pulseq_150/TSE_dev/';
-% seqname = sprintf('IRTSE_Sequential_PC%s_%s_%s_%s_%s_r%s_nRef%s_sli%s', params.PhaseCorrection, paramsRF.typeEx, paramsRF.typeRef, paramsRF.typeInv, ...
-%     prefix, num2str(params.R), num2str(PE.nRef), num2str(params.nSlice));
-
-seqname = sprintf('gSliderT1_TRAPS70_TI%s%s%s_%s_r%s_nRef%s_sli%s', num2str(params.TI*1e3), paramsRF.typeInv, num2str(paramsRF.tbpInv),...
-    prefix, num2str(params.R), num2str(PE.nRef), num2str(params.nSlice));
+%%
+outpath = 'seq/';
+seqname = sprintf('gSliderT1_TRAPS70_TI%s%s%s_%s_r%s_nRef%s_sli%s', num2str(Actual.TI*1e3), paramsRF.typeInv, num2str(paramsRF.tbpInv),...
+    prefix, num2str(Actual.R), num2str(PE.nRef), num2str(Actual.nSlice));
 seq.write(strcat(outpath, seqname,'.seq'))
 
 %% plot
-% fig = seq.plot('Label', 'LIN,SLC,SEG,REP,NAV', 'timeRange', [0*params.TR, 2*params.TR+1] + 0);
+timeRange = [(Actual.nDummy)*Actual.TR, (Actual.nDummy+1)*Actual.TR];
+if strcmp(Actual.NoiseScan, 'on'); timeRange = timeRange + Actual.TR; end
+fig = seq.plot('showBlock',true,'showGuides',1,'stacked',0,'timeDisp','s', 'timeRange', timeRange); %'Label', 'LIN,PAR,ECO,REP';
+
+% fig = seq.plot('Label', 'LIN,SLC,SEG,REP,NAV', 'timeRange', [0*Actual.TR, 2*Actual.TR+1] + 0);
 % fig = fig.f;
 %%
 % % set(fig, 'InvertHardcopy', 'off');  

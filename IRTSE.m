@@ -1,5 +1,5 @@
 clc; clear; close all;
-%% 2D TSE Sequence
+%% 2D IR-TSE sequence
 addpath(genpath('pulseq'));
 addpath(genpath('plot'));
 % Instantiation and gradient limits

@@ -1,6 +1,7 @@
-function [seq, Label] = prep_Kernel(seq, params, ADC)
-    NoiseScan  = params.NoiseScan;
+function [seq, Label, sys] = prep_Kernel(seq, Actual, ADC, sys)
+    NoiseScan  = Actual.NoiseScan;
     adc        = ADC.adc;
+    TR         = round(Actual.TR / sys.gradRasterTime) * sys.gradRasterTime;
 
 
     %% Define sequence blocks
@@ -17,9 +18,11 @@ function [seq, Label] = prep_Kernel(seq, params, ADC)
     % Add noise scans.
     if strcmpi(NoiseScan, 'on')
         seq.addBlock(mr.makeLabel('SET', 'LIN', 0), mr.makeLabel('SET','SLC', 0));
-        seq.addBlock(adc, mr.makeLabel('SET', 'NOISE', true), lblResetRefScan, lblResetRefAndImaScan);
+        seq.addBlock(adc, ...
+            mr.makeDelay(TR), ... % set to TR for convenient
+            mr.makeLabel('SET', 'NOISE', true), ...
+            lblResetRefScan, lblResetRefAndImaScan);
         seq.addBlock(mr.makeLabel('SET', 'NOISE', false));
-        seq.addBlock(mr.makeDelay(1 - mr.calcDuration(adc)));
     end
 
 

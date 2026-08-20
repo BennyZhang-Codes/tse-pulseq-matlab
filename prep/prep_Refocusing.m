@@ -1,13 +1,17 @@
-function [RF, Grad] = prep_Refocusing(RF, Grad, params, sys)
-    flipref          = params.flipref;
-    SliceThickness   = params.SliceThickness;
+function [RF, Grad] = prep_Refocusing(RF, Grad, Actual, sys)
+    % mapping of RO/PE/3D to X/Y/Z
+    Axis3D   = Actual.Axis3D   ; 
+    SignCorr = Actual.SignCorr ; 
 
-    VERSE            = params.VERSE;
+    flipref          = Actual.flipref;
+    SliceThickness   = Actual.SliceThickness;
 
-    typeRef          = params.paramsRF.typeRef;
-    tRef             = params.paramsRF.tRef;
-    tbpRef           = params.paramsRF.tbpRef;
-    phaseRef         = params.paramsRF.phaseRef;
+    VERSE            = Actual.VERSE;
+
+    typeRef          = Actual.paramsRF.typeRef;
+    tRef             = Actual.paramsRF.tRef;
+    tbpRef           = Actual.paramsRF.tbpRef;
+    phaseRef         = Actual.paramsRF.phaseRef;
 
     switch lower(typeRef)
         case 'sinc'
@@ -54,7 +58,7 @@ function [RF, Grad] = prep_Refocusing(RF, Grad, params, sys)
         figure;plot(abs(g_verse(2:end)-g_verse(1:end-1))./sys.gradRasterTime/sys.gamma)
     end
 
-    Grad.amplitudeRef = amplitude;
+    Grad.amplitudeRef = SignCorr.(Axis3D) * amplitude;
     RF.rfRef          = rfref;
     RF.rfenvelopeRef  = rfref.signal;
 end

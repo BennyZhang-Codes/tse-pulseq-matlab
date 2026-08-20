@@ -1,25 +1,25 @@
-function [seq] = prep_Seqloop_IR(seq, params, RF, Grad, ADC, Delay, Label, sys)
-    PhaseCorrection = params.PhaseCorrection;
+function [seq] = prep_Seqloop_IR(seq, Actual, RF, Grad, ADC, Delay, Label, sys)
+    PhaseCorrection = Actual.PhaseCorrection;
 
-    TR             = params.TR;
-    nRep           = params.nRep;
-    nSlice         = params.nSlice;
-    nEcho          = params.nEcho;
-    nExcit         = params.nExcit;
-    nDummy         = params.nDummy;
+    TR             = Actual.TR;
+    nRep           = Actual.nRep;
+    nSlice         = Actual.nSlice;
+    nEcho          = Actual.nEcho;
+    nExcit         = Actual.nExcit;
+    nDummy         = Actual.nDummy;
 
-    SlicePositions = params.Slice.SlicePositions;
-    SliceLabel     = params.Slice.SliceLabel;
-    phaseAreas     = params.PE.phaseAreas;
-    PElabel        = params.PE.PElabel;
-    PEorder        = params.PE.PEorder;
-    pe_Ref         = params.PE.pe_Ref;
-    pe_ImgAndRef   = params.PE.pe_ImgAndRef;
+    SlicePositions = Actual.Slice.SlicePositions;
+    SliceLabel     = Actual.Slice.SliceLabel;
+    phaseAreas     = Actual.PE.phaseAreas;
+    PElabel        = Actual.PE.PElabel;
+    PEorder        = Actual.PE.PEorder;
+    pe_Ref         = Actual.PE.pe_Ref;
+    pe_ImgAndRef   = Actual.PE.pe_ImgAndRef;
 
-    tSp            = params.tSp;
+    tSp            = Actual.tSp;
 
-    phaseEx        = params.paramsRF.phaseEx;
-    phaseRef       = params.paramsRF.phaseRef;
+    phaseEx        = Actual.paramsRF.phaseEx;
+    phaseRef       = Actual.paramsRF.phaseRef;
 
     rfEx           = RF.rfEx;
     rfRef          = RF.rfRef;
@@ -56,11 +56,11 @@ function [seq] = prep_Seqloop_IR(seq, params, RF, Grad, ADC, Delay, Label, sys)
     lblResetRefAndImaScan    = Label.lblResetRefAndImaScan;
  
     % IR specific
-    IRMode         = params.IRMode;
-    TI             = params.TI;
+    IRMode         = Actual.IRMode;
+    TI             = Actual.TI;
     GS_Inv         = Grad.GS_Inv;
     rfInv          = RF.rfInv;
-    phaseInv       = params.paramsRF.phaseInv;
+    phaseInv       = Actual.paramsRF.phaseInv;
     amplitudeInv   = Grad.amplitudeInv;
     
 
@@ -173,7 +173,7 @@ function [seq] = prep_Seqloop_IR(seq, params, RF, Grad, ADC, Delay, Label, sys)
                     seq.addBlock(lblResetRefAndImaScan, lblResetRefScan) ;
                 end
             else
-                [isegCenter, iexcitCenter] = find(PElabel == params.PE.kSpaceCenterLine);
+                [isegCenter, iexcitCenter] = find(PElabel == Actual.PE.kSpaceCenterLine);
                 phaseArea      = phaseAreas(isegCenter, iexcitCenter);
                 phaseArea_next = 0;
 

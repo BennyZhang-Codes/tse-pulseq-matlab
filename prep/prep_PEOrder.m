@@ -1,15 +1,15 @@
-function [nAcq, nExcit, PE] = prep_PEOrder(params)
-    AccelerationMode = params.AccelerationMode;
-    PEMode           = params.PEMode;
-    nY               = params.nY;
-    nEcho            = params.nEcho;
-    TEeff            = params.TEeff;
-    TE1              = params.TE1;
-    fovPhase         = params.fovPhase;
-    R                = params.R;
-    RefLinesRatio    = params.RefLinesRatio;  % PI
-    p                = params.p;              % CS
-    r                = params.r;              % CS
+function [nAcq, nExcit, PE] = prep_PEOrder(Actual)
+    AccelerationMode = Actual.AccelerationMode;
+    PEMode           = Actual.PEMode;
+    nY               = Actual.nY;
+    nEcho            = Actual.nEcho;
+    TEeff            = Actual.TEeff;
+    TE1              = Actual.TE1;
+    fovPhase         = Actual.fovPhase;
+    R                = Actual.R;
+    RefLinesRatio    = Actual.RefLinesRatio;  % PI
+    p                = Actual.p;              % CS
+    r                = Actual.r;              % CS
 
     deltak   = 1 / fovPhase;
     if R == 1

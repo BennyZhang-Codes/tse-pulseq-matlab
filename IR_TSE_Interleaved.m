@@ -1,5 +1,5 @@
 clc; clear; close all;
-%% Create a TSE sequence
+%% 2D IR-TSE sequence (Interleaved)
 addpath(genpath('pulseq'));
 addpath(genpath('plot'));
 

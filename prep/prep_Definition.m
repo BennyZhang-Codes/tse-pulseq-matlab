@@ -1,38 +1,38 @@
-function [seq, prefix] = prep_Definition(seq, params, PE)
-    MultiSliceMode   = params.MultiSliceMode;
-    PEMode           = params.PEMode;
-    AccelerationMode = params.AccelerationMode;
-    IRMode           = params.IRMode;
-    IR               = params.IR;
+function [seq, prefix] = prep_Definition(seq, Actual, PE)
+    MultiSliceMode   = Actual.MultiSliceMode;
+    PEMode           = Actual.PEMode;
+    AccelerationMode = Actual.AccelerationMode;
+    IRMode           = Actual.IRMode;
+    IR               = Actual.IR;
 
-    fovRead          = params.fovRead;
-    fovPhase         = params.fovPhase;
-    nX               = params.nX;
-    nY               = params.nY;
+    fovRead          = Actual.fovRead;
+    fovPhase         = Actual.fovPhase;
+    nX               = Actual.nX;
+    nY               = Actual.nY;
 
-    TR               = params.TR;
-    TEeff            = params.TEeff;
-    nRep             = params.nRep;
-    nSlice           = params.nSlice;
-    nEcho            = params.nEcho;
-    nExcit           = params.nExcit;
-    nDummy           = params.nDummy;
+    TR               = Actual.TR;
+    TEeff            = Actual.TEeff;
+    nRep             = Actual.nRep;
+    nSlice           = Actual.nSlice;
+    nEcho            = Actual.nEcho;
+    nExcit           = Actual.nExcit;
+    nDummy           = Actual.nDummy;
 
-    BWPerPixel       = params.BWPerPixel;
-    readoutOS        = params.readoutOS;
+    BWPerPixel       = Actual.BWPerPixel;
+    readoutOS        = Actual.readoutOS;
 
-    SliceThickness   = params.SliceThickness;
-    SliceGap         = params.SliceGap;
+    SliceThickness   = Actual.SliceThickness;
+    SliceGap         = Actual.SliceGap;
 
-    SlicePositions   = params.Slice.SlicePositions;
-    SliceLabel       = params.Slice.SliceLabel;
+    SlicePositions   = Actual.Slice.SlicePositions;
+    SliceLabel       = Actual.Slice.SliceLabel;
 
-    R                = params.R;
+    R                = Actual.R;
     kSpaceCenterLine = PE.kSpaceCenterLine;
     FirstRefLine     = PE.FirstRefLine;
     nRef             = PE.nRef;
 
-    PhaseCorrection  = params.PhaseCorrection;
+    PhaseCorrection  = Actual.PhaseCorrection;
 
     % prepare sequence export
     res = round(1e3*fovRead/nX, 2);

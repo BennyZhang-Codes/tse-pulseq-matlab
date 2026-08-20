@@ -1,28 +1,28 @@
-function [seq] = prep_Seqloop_gSlider(seq, params, RF, Grad, ADC, Delay, Label, sys)
-    PhaseCorrection = params.PhaseCorrection;
+function [seq] = prep_Seqloop_gSlider(seq, Actual, RF, Grad, ADC, Delay, Label, sys)
+    PhaseCorrection = Actual.PhaseCorrection;
 
-    TR             = params.TR;
-    nRep           = params.nRep;
-    nSlice         = params.nSlice;
-    nEcho          = params.nEcho;
-    nExcit         = params.nExcit;
-    nDummy         = params.nDummy;
+    TR             = Actual.TR;
+    nRep           = Actual.nRep;
+    nSlice         = Actual.nSlice;
+    nEcho          = Actual.nEcho;
+    nExcit         = Actual.nExcit;
+    nDummy         = Actual.nDummy;
 
-    SlicePositions = params.Slice.SlicePositions;
-    SliceLabel     = params.Slice.SliceLabel;
-    phaseAreas     = params.PE.phaseAreas;
-    PElabel        = params.PE.PElabel;
-    PEorder        = params.PE.PEorder;
-    pe_Ref         = params.PE.pe_Ref;
-    pe_ImgAndRef   = params.PE.pe_ImgAndRef;
+    SlicePositions = Actual.Slice.SlicePositions;
+    SliceLabel     = Actual.Slice.SliceLabel;
+    phaseAreas     = Actual.PE.phaseAreas;
+    PElabel        = Actual.PE.PElabel;
+    PEorder        = Actual.PE.PEorder;
+    pe_Ref         = Actual.PE.pe_Ref;
+    pe_ImgAndRef   = Actual.PE.pe_ImgAndRef;
 
-    tSp            = params.tSp;
+    tSp            = Actual.tSp;
 
-    phaseEx        = params.paramsRF.phaseEx;
-    phaseRef       = params.paramsRF.phaseRef;
+    phaseEx        = Actual.paramsRF.phaseEx;
+    phaseRef       = Actual.paramsRF.phaseRef;
 
-    if strcmpi(params.TRAPS, 'on')
-        faRef          = params.faRef;
+    if strcmpi(Actual.TRAPS, 'on')
+        faRef          = Actual.faRef;
     end
 
     rfEx           = RF.rfEx;
@@ -72,7 +72,7 @@ function [seq] = prep_Seqloop_gSlider(seq, params, RF, Grad, ADC, Delay, Label, 
     % Next, the blocks are put together to form the sequence
     seq.addBlock(mr.makeLabel('SET', 'REP', 0));
     for irep = 1:nRep
-        if strcmpi(params.paramsRF.typeEx, 'gslider')
+        if strcmpi(Actual.paramsRF.typeEx, 'gslider')
             rfEx.signal = RF.rfex_gSlider(irep).signal;
         end
         for iexcit = (1-nDummy):nExcit 
@@ -106,7 +106,7 @@ function [seq] = prep_Seqloop_gSlider(seq, params, RF, Grad, ADC, Delay, Label, 
                             seq.addBlock(lblResetRefAndImaScan, lblResetRefScan) ;
                         end
                     else
-                        [isegCenter, iexcitCenter] = find(PElabel == params.PE.kSpaceCenterLine);
+                        [isegCenter, iexcitCenter] = find(PElabel == Actual.PE.kSpaceCenterLine);
                         phaseArea      = phaseAreas(isegCenter, iexcitCenter);
                         phaseArea_next = 0;
 
@@ -127,7 +127,7 @@ function [seq] = prep_Seqloop_gSlider(seq, params, RF, Grad, ADC, Delay, Label, 
                     GP         = concatGrads({GPrew, GPpre_next}, sys);
 
                     if iseg == 1
-                        if strcmpi(params.TRAPS, 'on')
+                        if strcmpi(Actual.TRAPS, 'on')
                             rfRef.signal = rfenvelopeRef * faRef(1)/180;
                         end
                         rfRef.delay = mr.calcDuration(GS_Ref1) - tSp - rfRef.shape_dur;
@@ -147,7 +147,7 @@ function [seq] = prep_Seqloop_gSlider(seq, params, RF, Grad, ADC, Delay, Label, 
                                 seq.addBlock(GR_adc);
                             end
                         end
-                        if strcmpi(params.TRAPS, 'on')
+                        if strcmpi(Actual.TRAPS, 'on')
                             rfRef.signal = rfenvelopeRef * faRef(2)/180;
                         end
                         seq.addBlock(rfRef, GR_Spoil, GP, GS_Ref);
@@ -166,7 +166,7 @@ function [seq] = prep_Seqloop_gSlider(seq, params, RF, Grad, ADC, Delay, Label, 
                         if iseg == nEcho
                             seq.addBlock(GR_SpoilPost, GPrew, GS_EndSpoil);
                         else
-                            if strcmpi(params.TRAPS, 'on')
+                            if strcmpi(Actual.TRAPS, 'on')
                                 rfRef.signal = rfenvelopeRef * faRef(iseg+1)/180;
                             end
                             seq.addBlock(rfRef, GR_Spoil, GP, GS_Ref);

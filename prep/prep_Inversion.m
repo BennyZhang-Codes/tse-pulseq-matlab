@@ -1,13 +1,17 @@
-function [RF, Grad] = prep_Inversion(RF, Grad, params, sys)
-    flipinv         = params.flipinv;
-    SliceThickness  = params.SliceThickness;
+function [RF, Grad] = prep_Inversion(RF, Grad, Actual, sys)
+    % mapping of RO/PE/3D to X/Y/Z
+    Axis3D   = Actual.Axis3D   ; 
+    SignCorr = Actual.SignCorr ; 
 
-    VERSE           = params.VERSE;
+    flipinv         = Actual.flipinv;
+    SliceThickness  = Actual.SliceThickness;
+
+    VERSE           = Actual.VERSE;
   
-    typeInv          = params.paramsRF.typeInv;
-    tInv             = params.paramsRF.tInv;
-    tbpInv           = params.paramsRF.tbpInv;
-    phaseInv         = params.paramsRF.phaseInv;
+    typeInv          = Actual.paramsRF.typeInv;
+    tInv             = Actual.paramsRF.tInv;
+    tbpInv           = Actual.paramsRF.tbpInv;
+    phaseInv         = Actual.paramsRF.phaseInv;
 
     switch lower(typeInv)
         case 'sinc'
@@ -57,6 +61,6 @@ function [RF, Grad] = prep_Inversion(RF, Grad, params, sys)
         figure;plot(abs(g_verse(2:end)-g_verse(1:end-1))./sys.gradRasterTime/sys.gamma)
     end
 
-    Grad.amplitudeInv  = amplitude;
+    Grad.amplitudeInv  = SignCorr.(Axis3D) * amplitude;
     RF.rfInv           = rfInv;
 end
