@@ -1,4 +1,8 @@
 function [seq] = prep_Seqloop_IR_gSlider(seq, Actual, RF, Grad, ADC, Delay, Label, sys)
+    % mapping of RO/PE/3D to X/Y/Z
+    AxisPE   = Actual.AxisPE   ; 
+    SignCorr = Actual.SignCorr ; 
+
     PhaseCorrection = Actual.PhaseCorrection;
 
     TR             = Actual.TR;
@@ -192,9 +196,9 @@ function [seq] = prep_Seqloop_IR_gSlider(seq, Actual, RF, Grad, ADC, Delay, Labe
                     seq.addBlock(lblResetRefAndImaScan, lblResetRefScan) ;
                 end
             end
-            GPpre      = mr.makeTrapezoid('y', sys, 'Area',  phaseArea     , 'Duration', tSp, 'riseTime', 200e-6);
-            GPrew      = mr.makeTrapezoid('y', sys, 'Area', -phaseArea     , 'Duration', tSp, 'riseTime', 200e-6);
-            GPpre_next = mr.makeTrapezoid('y', sys, 'Area',  phaseArea_next, 'Duration', tSp, 'riseTime', 200e-6);
+            GPpre      = mr.makeTrapezoid(AxisPE, sys, 'Area',  phaseArea     , 'Duration', tSp, 'riseTime', 200e-6);
+            GPrew      = mr.makeTrapezoid(AxisPE, sys, 'Area', -phaseArea     , 'Duration', tSp, 'riseTime', 200e-6);
+            GPpre_next = mr.makeTrapezoid(AxisPE, sys, 'Area',  phaseArea_next, 'Duration', tSp, 'riseTime', 200e-6);
             GPpre_next.delay = rfRef.shape_dur;
             GP         = concatGrads({GPrew, GPpre_next}, sys);
     

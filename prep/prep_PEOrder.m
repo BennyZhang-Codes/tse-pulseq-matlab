@@ -1,4 +1,8 @@
 function [nAcq, nExcit, PE] = prep_PEOrder(Actual)
+    % mapping of RO/PE/3D to X/Y/Z
+    AxisPE   = Actual.AxisPE   ; 
+    SignCorr = Actual.SignCorr ; 
+
     AccelerationMode = Actual.AccelerationMode;
     PEMode           = Actual.PEMode;
     nY               = Actual.nY;
@@ -73,7 +77,7 @@ function [nAcq, nExcit, PE] = prep_PEOrder(Actual)
 
     PE.PEorder           = PEorder;
     PE.PElabel           = PElabel;
-    PE.phaseAreas        = phaseAreas;
+    PE.phaseAreas        = SignCorr.(AxisPE) * phaseAreas;
     PE.nRef              = nRef;
     PE.pe_full           = pe_full;
     PE.pe_Img            = pe_Img;
