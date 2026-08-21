@@ -2,25 +2,19 @@ function [seq] = prep_Seqloop(seq, Actual, RF, Grad, ADC, Delay, Label, sys)
     tStart_loop = tic();
     MinTRActual = 0 ;
 
-    % mapping of RO/PE/3D to X/Y/Z
-    AxisPE   = Actual.AxisPE   ; 
-    SignCorr = Actual.SignCorr ; 
 
-    SliceLabel     = Actual.Slice.SliceLabel;
-    phaseAreas     = Actual.PE3D.phaseAreas;
-    PElabel        = Actual.PE3D.PElabel;
-    PEorder        = Actual.PE3D.PEorder;
-    pe_Ref         = Actual.PE3D.pe_Ref;
-    pe_ImgAndRef   = Actual.PE3D.pe_ImgAndRef;
+    PE3D         = Actual.PE3D;
+    pe_Ref       = Actual.PE3D.pe_Ref;
+    pe_ImgAndRef = Actual.PE3D.pe_ImgAndRef;
 
-    
     % filltimes
     SliceTime  = RoundRaster(Actual.TR / Actual.nSlice , sys.gradRasterTime, 'down');
 
     % Next, the blocks are put together to form the sequence
     seq.addBlock(Label.lblResetREP);
     for irep = 1:Actual.nRep
-        for iexcit = (1-Actual.nDummy):Actual.nExcit 
+        TRStart = -Actual.nDummy+1;
+        for TRCounter = TRStart:Actual.nExcit 
             % Reset duration of current TR
             TimeInTR = 0 ; % [s]
 
@@ -40,30 +34,30 @@ function [seq] = prep_Seqloop(seq, Actual, RF, Grad, ADC, Delay, Label, sys)
         
                 seq.addBlock(Label.lblResetSEG);
                 for iseg = 1:Actual.nEcho
-                    if (iexcit > 0)
-                        phaseArea      = phaseAreas(iseg  , iexcit);
+                    if (TRCounter > 0)
+                        phaseArea      = PE3D.phaseAreas(iseg  , TRCounter);
                         if iseg < Actual.nEcho
-                            phaseArea_next = phaseAreas(iseg+1, iexcit);
+                            phaseArea_next = PE3D.phaseAreas(iseg+1, TRCounter);
                         end
-                        seq.addBlock(mr.makeLabel('SET', 'LIN', PElabel(iseg, iexcit)));
+                        seq.addBlock(mr.makeLabel('SET', 'LIN', PE3D.PE3DLabel(iseg, TRCounter)));
                         
-                        if ismember(PEorder(iseg, iexcit), pe_Ref)
+                        if ismember(PE3D.PE3DOrder(iseg, TRCounter), pe_Ref)
                             seq.addBlock(Label.lblResetRefAndImaScan, Label.lblSetRefScan) ;
-                        elseif ismember(PEorder(iseg, iexcit),pe_ImgAndRef)
+                        elseif ismember(PE3D.PE3DOrder(iseg, TRCounter),pe_ImgAndRef)
                             seq.addBlock(Label.lblSetRefAndImaScan, Label.lblSetRefScan) ;
                         else
                             seq.addBlock(Label.lblResetRefAndImaScan, Label.lblResetRefScan) ;
                         end
                     else
-                        [isegCenter, iexcitCenter] = find(PElabel == Actual.PE3D.kSpaceCenterLine);
-                        phaseArea      = phaseAreas(isegCenter, iexcitCenter);
+                        [isegCenter, TRCounterCenter] = find(PE3D.PE3DLabel == Actual.PE3D.kSpaceCenterLine);
+                        phaseArea      = PE3D.phaseAreas(isegCenter, TRCounterCenter);
                         phaseArea_next = 0;
 
-                        seq.addBlock(mr.makeLabel('SET', 'LIN', PElabel(isegCenter, iexcitCenter)));
+                        seq.addBlock(mr.makeLabel('SET', 'LIN', PE3D.PE3DLabel(isegCenter, TRCounterCenter)));
                         
-                        if ismember(PEorder(isegCenter, iexcitCenter), pe_Ref)
+                        if ismember(PE3D.PE3DOrder(isegCenter, TRCounterCenter), pe_Ref)
                             seq.addBlock(Label.lblResetRefAndImaScan, Label.lblSetRefScan) ;
-                        elseif ismember(PEorder(isegCenter, iexcitCenter),pe_ImgAndRef)
+                        elseif ismember(PE3D.PE3DOrder(isegCenter, TRCounterCenter),pe_ImgAndRef)
                             seq.addBlock(Label.lblSetRefAndImaScan, Label.lblSetRefScan) ;
                         else
                             seq.addBlock(Label.lblResetRefAndImaScan, Label.lblResetRefScan) ;
@@ -82,7 +76,7 @@ function [seq] = prep_Seqloop(seq, Actual, RF, Grad, ADC, Delay, Label, sys)
 
                         RF.rfRef.delay = mr.calcDuration(Grad.G3D_RefCrusherL);
 
-                        if iexcit > 0
+                        if TRCounter > 0
                             seq.addBlock(Grad.GRO_adc, ADC.adc);
                             TimeInTR    = TimeInTR    + seq.blockDurations(end); % Update duration within TR
                             TimeInSlice = TimeInSlice + seq.blockDurations(end); % Update duration within Slice
@@ -102,7 +96,7 @@ function [seq] = prep_Seqloop(seq, Actual, RF, Grad, ADC, Delay, Label, sys)
                         TimeInTR    = TimeInTR    + seq.blockDurations(end); % Update duration within TR
                         TimeInSlice = TimeInSlice + seq.blockDurations(end); % Update duration within Slice
                     else
-                        if iexcit > 0
+                        if TRCounter > 0
                             seq.addBlock(Grad.GRO_adc, ADC.adc);
                             TimeInTR    = TimeInTR    + seq.blockDurations(end); % Update duration within TR
                             TimeInSlice = TimeInSlice + seq.blockDurations(end); % Update duration within Slice
@@ -128,6 +122,11 @@ function [seq] = prep_Seqloop(seq, Actual, RF, Grad, ADC, Delay, Label, sys)
                     seq.addBlock(Label.lblIncSEG1);
                 end
                 % -----------------------------------------------------------------------
+                % Update minimum possible TR (for information only)
+                % -----------------------------------------------------------------------
+                MinTRActual = max(MinTRActual, TimeInSlice * Actual.nSlice) ; % update minimum possible TR (before adding the TR fill time)
+
+                % -----------------------------------------------------------------------
                 % SliceTime fill block
                 % -----------------------------------------------------------------------
                 SliceTRFill = RoundRaster(SliceTime - TimeInSlice, sys.gradRasterTime, 'down'); % Set filler delay to achieve requested TR (rounded up later)
@@ -151,7 +150,7 @@ function [seq] = prep_Seqloop(seq, Actual, RF, Grad, ADC, Delay, Label, sys)
            
             % Sanity check
             if (TRFill < -eps(0))
-                error('Total time (%f ms) of blocks within current TR (#%d) is longer than desired TR (%f ms)!', 1e3*TimeInTR, iexcit, 1e3*Actual.TR);
+                error('Total time (%f ms) of blocks within current TR (#%d) is longer than desired TR (%f ms)!', 1e3*TimeInTR, TRCounter, 1e3*Actual.TR);
             end
 
             Delay.Delay_TRFill.delay = TRFill ; % update delay of eTRFill

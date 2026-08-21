@@ -29,7 +29,7 @@ function [...
 end
 
 % plot_PE(R, nRO, nPE, pe_Img, pe_Ref, pe_ImgAndRef, pe_full)
-% plot_PEOrder(R, nRO, nPE, PElabel);
+% plot_PEOrder(R, nRO, nPE, PE3DLabel);
 
 % %%
 % % R1 = round(nPE/R/nEcho)*nEcho / nPE;

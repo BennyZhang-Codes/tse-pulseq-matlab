@@ -1,4 +1,4 @@
-function [fig] = plot_PEOrder(R, nRO, nPE, PElabel)
+function [fig] = plot_PEOrder(R, nRO, nPE, PE3DLabel)
     color_facecolor = "#FFFFFF";
     color_label     = "#CCCCCC";
     fig_width       = 800;
@@ -16,11 +16,11 @@ function [fig] = plot_PEOrder(R, nRO, nPE, PElabel)
     %              'Position', position_cm, ...
     %              'Color', color_facecolor);
 
-    [nEcho, nExcit] = size(PElabel);
+    [nEcho, nExcit] = size(PE3DLabel);
     im_PEOrder = zeros(nRO, nPE);
     for iecho = 1:nEcho
         for iexcit = 1:nExcit
-            im_PEOrder(:, PElabel(iecho, iexcit) + 1) = nEcho - iecho+2;
+            im_PEOrder(:, PE3DLabel(iecho, iexcit) + 1) = nEcho - iecho+2;
         end
     end
     cmap = jet(nEcho+1);

@@ -5,7 +5,7 @@ function [PE3D, Actual] = prep_PE3DOrder(Actual)
 
     AccelerationMode = Actual.AccelerationMode;
     PEMode           = Actual.PEMode;
-    nPE               = Actual.nPE;
+    nPE              = Actual.nPE;
     nEcho            = Actual.nEcho;
     TEeff            = Actual.TEeff;
     TE1              = Actual.TE1;
@@ -65,8 +65,8 @@ function [PE3D, Actual] = prep_PE3DOrder(Actual)
                 error('Invalid PEMode');
         end
 
-        PEorder    = circshift(pe_steps, k0prescr - k0curr);
-        phaseAreas = PEorder * deltak;
+        PE3DOrder    = circshift(pe_steps, k0prescr - k0curr);
+        phaseAreas = PE3DOrder * deltak;
        
         FirstFourierLine = 0;
         
@@ -83,17 +83,17 @@ function [PE3D, Actual] = prep_PE3DOrder(Actual)
             % ky =    0 -> LIN 150
             % ky = +150 -> LIN   0
             % ky = -149 -> LIN   1
-            PElabel = PEorder + floor(nPE/2);
+            PE3DLabel = PE3DOrder + floor(nPE/2);
         else
-            PElabel = PEorder - pe_step_min; % Preserve the existing R=1 and CS behavior.
+            PE3DLabel = PE3DOrder - pe_step_min; % Preserve the existing R=1 and CS behavior.
         end
         
         % Locate the unique physical ky=0 acquisition.
-        [row, col] = find(PEorder == 0);
+        [row, col] = find(PE3DOrder == 0);
         
         if numel(row) ~= 1; error('PE order must contain exactly one ky=0 line.'); end
         
-        kSpaceCenterLine = PElabel(row, col);
+        kSpaceCenterLine = PE3DLabel(row, col);
         
         if isPI
             imageLIN = mod(pe_Img(:) + centerLIN, nPE); % Regular accelerated imaging lines, excluding added ACS-only lines.
@@ -107,20 +107,20 @@ function [PE3D, Actual] = prep_PE3DOrder(Actual)
             % Siemens consistency checks.
             if kSpaceCenterLine ~= centerLIN; error('Incorrect PI center LIN: got %d, expected %d.', kSpaceCenterLine, centerLIN); end
             if any(mod(imageLIN-kSpaceCenterLine, R) ~= 0); error('PI imaging LINs do not satisfy mod(LIN-center,R)==0.'); end
-            if any(PElabel(:) < 0 | PElabel(:) >= nPE); error('PI LIN labels must be in [0,nPE-1].'); end
-            if numel(unique(PElabel(:))) ~= numel(PElabel); error('Duplicate PI LIN labels detected.'); end
+            if any(PE3DLabel(:) < 0 | PE3DLabel(:) >= nPE); error('PI LIN labels must be in [0,nPE-1].'); end
+            if numel(unique(PE3DLabel(:))) ~= numel(PE3DLabel); error('Duplicate PI LIN labels detected.'); end
         
         elseif R > 1
-            [row, col] = find(PEorder == min(union(pe_ImgAndRef, pe_Ref))); % Preserve the existing non-PI accelerated behavior.
-            FirstRefLine = PElabel(row, col);
+            [row, col] = find(PE3DOrder == min(union(pe_ImgAndRef, pe_Ref))); % Preserve the existing non-PI accelerated behavior.
+            FirstRefLine = PE3DLabel(row, col);
         else
             FirstFourierLine = 0;
             FirstRefLine     = -1;
         end
 
 
-        PE3D.PEorder           = PEorder;
-        PE3D.PElabel           = PElabel;
+        PE3D.PE3DOrder         = PE3DOrder;
+        PE3D.PE3DLabel         = PE3DLabel;
         PE3D.phaseAreas        = SignCorr.(AxisPE) * phaseAreas;
         PE3D.nRef              = nRef;
         PE3D.pe_full           = pe_full;
@@ -130,7 +130,23 @@ function [PE3D, Actual] = prep_PE3DOrder(Actual)
         PE3D.kSpaceCenterLine  = kSpaceCenterLine;
         PE3D.FirstFourierLine  = FirstFourierLine;
         PE3D.FirstRefLine      = FirstRefLine;
+
+        IdxCenter_PE = kSpaceCenterLine + 1;
+        IdxMax_PE    = nPE - IdxCenter_PE; % Find start and end indices of y phase encoding.
+        IdxMin_PE    = IdxMax_PE  - nPE + 1;
+        IdxAbsMax_PE = max(abs([IdxMax_PE, IdxMin_PE])) ; % Find largest index of the two, in absolute value.
+
+        PE3D.IdxCenter_PE   = IdxCenter_PE  ; 
+        PE3D.IdxMax_PE      = IdxMax_PE     ;
+        PE3D.IdxMin_PE      = IdxMin_PE     ;
+        PE3D.IdxAbsMax_PE   = IdxAbsMax_PE  ;
+
+        PE3D.IdxCenter_3D   = 0             ; 
+        PE3D.IdxMax_3D      = 0             ;
+        PE3D.IdxMin_3D      = 0             ;
+        PE3D.IdxAbsMax_3D   = 0             ;
     end
+
 
     Actual.nAcq   = nAcq;
     Actual.nExcit = nExcit; 
@@ -145,7 +161,7 @@ function [PE3D, Actual] = prep_PE3DOrder(Actual)
     fprintf('prep PE3DOrder >>> FirstFourierLine    = %s\n', num2str(FirstFourierLine));
     fprintf('prep PE3DOrder >>> ACS Lines           = %s (%s-%s)\n', num2str(nRef), num2str(FirstRefLine), num2str(FirstRefLine+nRef-1));
     fprintf('prep PE3DOrder >>> Imaging Lines       = %s:%s:%s (%s:%s:%s)\n', ...
-        num2str(min(PEorder(:))), num2str(R), num2str(max(PEorder(:))), ...
-        num2str(min(PElabel(:))), num2str(R), num2str(max(PElabel(:))));
+        num2str(min(PE3DOrder(:))), num2str(R), num2str(max(PE3DOrder(:))), ...
+        num2str(min(PE3DLabel(:))), num2str(R), num2str(max(PE3DLabel(:))));
 
 end 

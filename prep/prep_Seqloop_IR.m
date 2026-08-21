@@ -3,11 +3,10 @@ function [seq] = prep_Seqloop_IR(seq, Actual, RF, Grad, ADC, Delay, Label, sys)
     AxisPE   = Actual.AxisPE   ;
     SignCorr = Actual.SignCorr ;
     SliceLabel     = Actual.Slice.SliceLabel;
-    phaseAreas     = Actual.PE3D.phaseAreas;
-    PElabel        = Actual.PE3D.PElabel;
-    PEorder        = Actual.PE3D.PEorder;
-    pe_Ref         = Actual.PE3D.pe_Ref;
-    pe_ImgAndRef   = Actual.PE3D.pe_ImgAndRef;
+
+    PE3D         = Actual.PE3D;
+    pe_Ref       = Actual.PE3D.pe_Ref;
+    pe_ImgAndRef = Actual.PE3D.pe_ImgAndRef;
 
 
     delayEtrain = mr.makeDelay(Grad.tETrain);
@@ -104,30 +103,30 @@ function [seq] = prep_Seqloop_IR(seq, Actual, RF, Grad, ADC, Delay, Label, sys)
 
         seq.addBlock(Label.lblResetSEG);
         for iseg = 1:Actual.nEcho
-            if (iexcit > 0)
-                phaseArea      = phaseAreas(iseg  , iexcit);
+            if (TRCounter > 0)
+                phaseArea      = PE3D.phaseAreas(iseg  , TRCounter);
                 if iseg < Actual.nEcho
-                    phaseArea_next = phaseAreas(iseg+1, iexcit);
+                    phaseArea_next = PE3D.phaseAreas(iseg+1, TRCounter);
                 end
-                seq.addBlock(mr.makeLabel('SET', 'LIN', PElabel(iseg, iexcit)));
+                seq.addBlock(mr.makeLabel('SET', 'LIN', PE3D.PE3DLabel(iseg, TRCounter)));
 
-                if ismember(PEorder(iseg, iexcit), pe_Ref)
+                if ismember(PE3D.PE3DOrder(iseg, TRCounter), pe_Ref)
                     seq.addBlock(Label.lblResetRefAndImaScan, Label.lblSetRefScan) ;
-                elseif ismember(PEorder(iseg, iexcit),pe_ImgAndRef)
+                elseif ismember(PE3D.PE3DOrder(iseg, TRCounter),pe_ImgAndRef)
                     seq.addBlock(Label.lblSetRefAndImaScan, Label.lblSetRefScan) ;
                 else
                     seq.addBlock(Label.lblResetRefAndImaScan, Label.lblResetRefScan) ;
                 end
             else
-                [isegCenter, iexcitCenter] = find(PElabel == Actual.PE3D.kSpaceCenterLine);
-                phaseArea      = phaseAreas(isegCenter, iexcitCenter);
+                [isegCenter, TRCounterCenter] = find(PE3D.PE3DLabel == Actual.PE3D.kSpaceCenterLine);
+                phaseArea      = PE3D.phaseAreas(isegCenter, TRCounterCenter);
                 phaseArea_next = 0;
 
-                seq.addBlock(mr.makeLabel('SET', 'LIN', PElabel(isegCenter, iexcitCenter)));
+                seq.addBlock(mr.makeLabel('SET', 'LIN', PE3D.PE3DLabel(isegCenter, TRCounterCenter)));
 
-                if ismember(PEorder(isegCenter, iexcitCenter), pe_Ref)
+                if ismember(PE3D.PE3DOrder(isegCenter, TRCounterCenter), pe_Ref)
                     seq.addBlock(Label.lblResetRefAndImaScan, Label.lblSetRefScan) ;
-                elseif ismember(PEorder(isegCenter, iexcitCenter),pe_ImgAndRef)
+                elseif ismember(PE3D.PE3DOrder(isegCenter, TRCounterCenter),pe_ImgAndRef)
                     seq.addBlock(Label.lblSetRefAndImaScan, Label.lblSetRefScan) ;
                 else
                     seq.addBlock(Label.lblResetRefAndImaScan, Label.lblResetRefScan) ;
@@ -146,7 +145,7 @@ function [seq] = prep_Seqloop_IR(seq, Actual, RF, Grad, ADC, Delay, Label, sys)
 
                 RF.rfRef.delay = mr.calcDuration(Grad.G3D_RefCrusherL);
 
-                if iexcit > 0
+                if TRCounter > 0
                     seq.addBlock(Grad.GRO_adc, ADC.adc);
 
                 else
@@ -160,7 +159,7 @@ function [seq] = prep_Seqloop_IR(seq, Actual, RF, Grad, ADC, Delay, Label, sys)
                 end
                 seq.addBlock(RF.rfRef, Grad.GRO_Spoil, GPE, Grad.G3D_Ref);
             else
-                if iexcit > 0
+                if TRCounter > 0
                     seq.addBlock(Grad.GRO_adc, ADC.adc);
                 else
                    if strcmpi(Actual.PhaseCorrection, 'on')
@@ -191,7 +190,8 @@ function [seq] = prep_Seqloop_IR(seq, Actual, RF, Grad, ADC, Delay, Label, sys)
     % Next, the blocks are put together to form the sequence
     seq.addBlock(Label.lblResetREP);
     for irep = 1:Actual.nRep
-        for iexcit = (1-Actual.nDummy):Actual.nExcit
+        TRStart = -Actual.nDummy+1;
+        for TRCounter = TRStart:Actual.nExcit
             seq.addBlock(Label.lblResetSLC);
             switch lower(Actual.IRMode)
                 case 'interleaved'

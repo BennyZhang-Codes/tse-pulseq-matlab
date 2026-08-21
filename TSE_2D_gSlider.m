@@ -134,14 +134,14 @@ Actual.ActualRF = SetupRF;
 %% prep system
 [sys, sys_soft, seq, Actual] = prep_System(Actual);
 
-%% multi-slice
+%% prep Slice
 [Slice.SliceLabel, Slice.SliceOrder, Slice.SlicePositions] = prep_SlicePositions(Actual);
 Actual.Slice = Slice;
 
 %% Phase encoding
 [PE3D, Actual] = prep_PE3DOrder(Actual);
 % plot_PE(Actual.R, Actual.nRO, Actual.nPE, PE.pe_Img, PE.pe_Ref, PE.pe_ImgAndRef, PE.pe_full)
-% fig = plot_PEOrder(Actual.R, Actual.nRO, Actual.nPE, PE.PElabel);
+% fig = plot_PEOrder(Actual.R, Actual.nRO, Actual.nPE, PE.PE3DLabel);
 % print(fig, '-dpng', '-loose', '-r300', '-image', sprintf('PEMode_%s_%s_R%s.png', Actual.PEMode, Actual.AccelerationMode, num2str(Actual.R)));
 %% RF and Gz
 [RF, Grad] = prep_Excitation(RF, Grad, Actual, sys_soft);
@@ -149,10 +149,13 @@ Actual.Slice = Slice;
 if strcmp(Actual.IR, 'on')
     [RF, Grad] = prep_Inversion(RF, Grad, Actual, sys_soft);
 end
-%%
-[ADC, Grad] = prep_Gradient_GR(Grad, ADC, Actual, sys_soft); % readout gradients
 
+%% Gradient events
+[ADC, Grad] = prep_Gradient_GR(Grad, ADC, Actual, sys_soft); % readout gradients
 [Grad, RF, Delay] = prep_Gradient_Block(Grad, RF, ADC, Delay, Actual, sys_soft);        % split gradients and recombine into blocks
+
+%% Prephaser & Rephaser
+% [Grad] = prep_PreRephaser(Actual, Grad, PE3D, sys);
 
 %% Label
 [seq, Label] = prep_Label(seq, Actual, Label);

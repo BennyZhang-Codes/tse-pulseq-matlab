@@ -1,5 +1,5 @@
 function [...
-    PEorder, PElabel, phaseAreas, ...
+    PE3DOrder, PE3DLabel, phaseAreas, ...
     nAcq, nRef, nExcit, ...
     pe_full, pe_Img, pe_Ref, pe_ImgAndRef, ...
     kSpaceCenterLine, FirstRefLine...
@@ -75,15 +75,15 @@ function [...
         otherwise
             error('Invalid PEMode');
     end
-    PEorder    = circshift(pe_steps, k0prescr - k0curr);
-    phaseAreas = PEorder * deltak;
-    PElabel    = PEorder - pe_step_min;
+    PE3DOrder    = circshift(pe_steps, k0prescr - k0curr);
+    phaseAreas = PE3DOrder * deltak;
+    PE3DLabel    = PE3DOrder - pe_step_min;
 
-    [row, col] = find(PEorder == 0);
-    kSpaceCenterLine = PElabel(row, col);
+    [row, col] = find(PE3DOrder == 0);
+    kSpaceCenterLine = PE3DLabel(row, col);
     if R > 1
-        [row, col] = find(PEorder == min(union(pe_ImgAndRef, pe_Ref)));
-        FirstRefLine = PElabel(row, col);
+        [row, col] = find(PE3DOrder == min(union(pe_ImgAndRef, pe_Ref)));
+        FirstRefLine = PE3DLabel(row, col);
     else
         FirstRefLine = -1;
     end
