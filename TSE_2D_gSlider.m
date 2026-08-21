@@ -90,11 +90,11 @@ Setup.readoutOS        = 2         ; % oversampling factor for readout direction
 
 %% init
 Setup.BWPerPixel       = 1 / Setup.roDuration;
-Setup.readoutTime      = Setup.roDuration + 2 * 10e-6; % + 2 x adcDeadTime
-Setup.tEx              = SetupRF.tEx ;
-Setup.tRef             = SetupRF.tRef;
-Setup.tSp              = 0.5 * (Setup.TE1 - Setup.readoutTime - Setup.tRef);
-Setup.tSpex            = 0.5 * (Setup.TE1 - Setup.tEx       - Setup.tRef);
+Setup.ReadoutTime      = RoundRaster(Setup.roDuration + 2 * 10e-6, 10e-6, 'round'); % + 2 x adcDeadTime
+Setup.tEx              = RoundRaster(SetupRF.tEx , 10e-6, 'round');
+Setup.tRef             = RoundRaster(SetupRF.tRef, 10e-6, 'round');
+Setup.tSp              = RoundRaster(0.5 * (Setup.TE1 - Setup.ReadoutTime - Setup.tRef), 10e-6, 'round');
+Setup.tSpex            = RoundRaster(0.5 * (Setup.TE1 - Setup.tEx         - Setup.tRef), 10e-6, 'round');
 
 % Spoiler area
 % [1] explicitly in mT*us/m
@@ -106,6 +106,11 @@ Setup.SpoilerArea_3D = [] ; % [mT*us/m]
 Setup.SpoilerAreaFactor_RO = 4 ;
 Setup.SpoilerAreaFactor_PE = 4 ;
 Setup.SpoilerAreaFactor_3D = 4 ;
+
+Setup.fovSG            = Setup.nSlice * (Setup.SliceThickness + Setup.SliceGap) - Setup.SliceGap;
+Setup.n3D              = 1;
+Setup.FOV              = [Setup.fovRO, Setup.fovPE, Setup.fovSG]; % [m] RO x PE x SliceGroup
+Setup.MatrixSize       = [Setup.nRO, Setup.nPE, Setup.nSlice]; % [a.u.] RO x PE x nSlice
 
 %% Set orienation (non-oblique)
 % Set axes (X/Y/Z vs. RO/PE/3D - oblique not supported) 
