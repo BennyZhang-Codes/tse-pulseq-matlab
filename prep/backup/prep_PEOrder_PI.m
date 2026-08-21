@@ -3,10 +3,10 @@ function [...
     nAcq, nRef, nExcit, ...
     pe_full, pe_Img, pe_Ref, pe_ImgAndRef, ...
     kSpaceCenterLine, FirstRefLine...
-    ] = prep_PEOrder_PI(PEMode, nY, nEcho, TEeff, TE1, deltak, R, RefLinesRatio)
-    deltak   = 1 / fovPhase;
+    ] = prep_PEOrder_PI(PEMode, nPE, nEcho, TEeff, TE1, deltak, R, RefLinesRatio)
+    deltak   = 1 / fovPE;
     if R == 1
-        nExcit  = floor(nY / nEcho);
+        nExcit  = floor(nPE / nEcho);
         pe_full = (1:(nEcho * nExcit)) - floor(0.5 * nEcho * nExcit) -1;
         pe_step_min = min(pe_full(:));
         pe_Img = pe_full;
@@ -15,7 +15,7 @@ function [...
         pe_steps  = pe_full;
     elseif R > 1 % for parallel imaging
         % 1. determine nRef (to make mod(nRef+nImg, nEcho) == 0)
-        pe_full   = (1:(nY)) - floor(0.5 * nY) - 1;
+        pe_full   = (1:(nPE)) - floor(0.5 * nPE) - 1;
         pe_step_min = min(pe_full(:));
 
 
@@ -30,7 +30,7 @@ function [...
         % pe_Img    = sort([pe_Img 0], "ascend");
         
         nImg      = length(pe_Img);
-        nRef      = round(nY * RefLinesRatio * (R-1)/R);
+        nRef      = round(nPE * RefLinesRatio * (R-1)/R);
 
         nExcit    = round((nImg+nRef) / nEcho);
         nRef      = nExcit * nEcho - nImg; 

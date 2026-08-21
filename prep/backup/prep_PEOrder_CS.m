@@ -4,10 +4,10 @@ function [...
     pe_full, pe_Img, pe_Ref, pe_ImgAndRef, ...
     kSpaceCenterLine, FirstRefLine,...
     mask, pdf...
-    ] = prep_PEOrder_CS(PEMode, nY, nEcho, TEeff, TE1, deltakY, R, p, r)
+    ] = prep_PEOrder_CS(PEMode, nPE, nEcho, TEeff, TE1, deltakY, R, p, r)
 
     if R == 1
-        nExcit  = floor(nY / nEcho);
+        nExcit  = floor(nPE / nEcho);
         pe_full = (1:(nEcho * nExcit)) - floor(0.5 * nEcho * nExcit) -1;
         pe_step_min = min(pe_full(:));
         pe_Img = pe_full;
@@ -15,15 +15,15 @@ function [...
         pe_ImgAndRef = [];
         pe_steps  = pe_full;
     elseif R > 1 % for parallel imaging
-        pe_full   = (1:(nY)) - floor(0.5 * nY) - 1;
+        pe_full   = (1:(nPE)) - floor(0.5 * nPE) - 1;
         pe_step_min = min(pe_full(:));
         
-        nAcq      = round(nY/R/nEcho)*nEcho;
-        R1        = nAcq / nY;
-        [pdf, ~]  = genPDF(nY, p, R1, 2, r, 1);
+        nAcq      = round(nPE/R/nEcho)*nEcho;
+        R1        = nAcq / nPE;
+        [pdf, ~]  = genPDF(nPE, p, R1, 2, r, 1);
         mask      = genSampling_TSE(pdf,500,0.3,nAcq);
 
-        % [pdf, ~]  = genPDF(nY, p, 1/R, 2, r, 1);
+        % [pdf, ~]  = genPDF(nPE, p, 1/R, 2, r, 1);
         % mask      = genSampling(pdf,500,1);
         % mask(end) = 1;
         
@@ -82,14 +82,14 @@ function [...
     end
 end
 
-% plot_PE(R, nX, nY, pe_Img, pe_Ref, pe_ImgAndRef, pe_full)
-% plot_PEOrder(R, nX, nY, PElabel);
+% plot_PE(R, nX, nPE, pe_Img, pe_Ref, pe_ImgAndRef, pe_full)
+% plot_PEOrder(R, nX, nPE, PElabel);
 
 % %%
-% % R1 = round(nY/R/nEcho)*nEcho / nY;
+% % R1 = round(nPE/R/nEcho)*nEcho / nPE;
 % % 
 % % r = 0.15 + 0.001 * count;
-% % [pdf, ~]  = genPDF(nY, 10, R1, 2, r, 1);
+% % [pdf, ~]  = genPDF(nPE, 10, R1, 2, r, 1);
 % % i = find(pdf==1);
 % % pdf(i(1)) = pdf(i(1)-1);
 % % pdf(end) = 1;
@@ -98,8 +98,8 @@ end
 % % disp(sum(mask))
 % 
 % 
-% R1 = round(nY/R/nEcho)*nEcho / nY;
-% [pdf, ~]  = genPDF(nY, p, R1, 2, r, 1);
-% mask      = genSampling_TSE(pdf,500,0.3,round(nY/R/nEcho)*nEcho);
+% R1 = round(nPE/R/nEcho)*nEcho / nPE;
+% [pdf, ~]  = genPDF(nPE, p, R1, 2, r, 1);
+% mask      = genSampling_TSE(pdf,500,0.3,round(nPE/R/nEcho)*nEcho);
 % % mask(end) = 1;
 % disp(sum(mask))

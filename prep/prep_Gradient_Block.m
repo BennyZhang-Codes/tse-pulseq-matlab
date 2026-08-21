@@ -19,7 +19,8 @@ function [Grad, RF, Delay] = prep_Gradient_Block(Grad, RF, ADC, Delay, Actual, s
     tSp          = Actual.tSp;
 
     TE1          = Actual.TE1;
-    TE1_gap      = round((TE1 - tEx - tRef) / 2 / sys.gradRasterTime) * sys.gradRasterTime;
+    TE1_gap      = RoundRaster((TE1 - tEx - tRef) / 2, sys.gradRasterTime, 'round');
+    
 
     GR_SpoilPre  = Grad.GR_SpoilPre;
     GR_SpoilPost = Grad.GR_SpoilPost;

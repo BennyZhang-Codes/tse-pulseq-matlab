@@ -63,9 +63,8 @@ function [seq] = prep_Seqloop_gSlider(seq, Actual, RF, Grad, ADC, Delay, Label, 
 
 
     % filltimes
-    TRfill  = (TR - nSlice * tETrain) / nSlice;
-    % round to gradient raster
-    TRfill  = sys.gradRasterTime * round(TRfill / sys.gradRasterTime);
+    TRfill  = RoundRaster((TR - nSlice * tETrain) / nSlice, sys.gradRasterTime, 'down');
+
     if TRfill<0, TRfill=1e-3; 
         disp(strcat('Warning!!! TR too short, adapted to include all slices to : ',num2str(1000*nSlice*(tETrain+TRfill)),' ms')); 
     else

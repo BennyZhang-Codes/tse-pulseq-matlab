@@ -1,4 +1,4 @@
-function [fig] = plot_PEMode2(PElabel, nY, nEcho)
+function [fig] = plot_PEMode2(PElabel, nPE, nEcho)
     % [nEcho, nExcit]
     cmap = gray(nEcho+5);
     fig = figure;
@@ -11,7 +11,7 @@ function [fig] = plot_PEMode2(PElabel, nY, nEcho)
             hold on;
         end
     end
-    ylim([-10, nY+10])
+    ylim([-10, nPE+10])
     xlim([1, 2])
     axis off;
     ax = gca;

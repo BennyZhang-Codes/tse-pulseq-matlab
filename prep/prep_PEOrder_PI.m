@@ -1,10 +1,10 @@
 function [...
     nExcit, pe_steps, pe_step_min, pe_full, pe_Img, pe_Ref, pe_ImgAndRef ...
-    ] = prep_PEOrder_PI(nY, nEcho, R, RefLinesRatio)
+    ] = prep_PEOrder_PI(nPE, nEcho, R, RefLinesRatio)
 
     % for parallel imaging
     % 1. determine nRef (to make mod(nRef+nImg, nEcho) == 0)
-    pe_full   = (1:(nY)) - floor(0.5 * nY);
+    pe_full   = (1:(nPE)) - floor(0.5 * nPE);
     pe_step_min = min(pe_full(:));
 
 
@@ -18,13 +18,13 @@ function [...
     % pe_Img    = sort([pe_Img 0], "ascend");
 
 
-    iLine = 0 : (nY - 1);
+    iLine = 0 : (nPE - 1);
     KSpaceCenterLine = find(pe_full == 0)-1;
     pe_Img = pe_full(mod(iLine - KSpaceCenterLine, R) == 0);
 
     
     nImg      = length(pe_Img);
-    nRef      = round(nY * RefLinesRatio * (R-1)/R);
+    nRef      = round(nPE * RefLinesRatio * (R-1)/R);
 
     nExcit    = ceil((nImg+nRef) / nEcho);
     nRef      = nExcit * nEcho - nImg; 

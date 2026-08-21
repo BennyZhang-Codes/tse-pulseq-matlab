@@ -92,15 +92,15 @@ function [seq] = prep_Seqloop_IR_gSlider(seq, Actual, RF, Grad, ADC, Delay, Labe
             assert(TRfill >= 0, 'TRfill [%f ms] must be >= 0 ms, please increase TR or adjust other parameters', ...
                 TRfill*1e3);
              
-            fill_per_slice = round(TRfill/nSlice /sys.gradRasterTime) * sys.gradRasterTime;  % delay between slices
+            fill_per_slice = RoundRaster(TRfill/nSlice, sys.gradRasterTime, 'round');  % delay between slices
             delayTI_slice = mr.makeDelay(fill_per_slice);
             delayETrain   = mr.makeDelay(fill_per_slice+mr.calcDuration(GS_Inv));
         
             TIfill_end_even = TIfill - (nSlice_even-1) * (tETrain + mr.calcDuration(GS_Inv)) - nSlice_even * fill_per_slice;
-            TIfill_end_even = floor(TIfill_end_even/sys.gradRasterTime) * sys.gradRasterTime;
+            TIfill_end_even = RoundRaster(TIfill_end_even, sys.gradRasterTime, 'down');
 
             TIfill_end_odd  = TIfill - (nSlice_odd -1) * (tETrain + mr.calcDuration(GS_Inv)) - nSlice_odd * fill_per_slice;
-            TIfill_end_odd  = floor(TIfill_end_odd/sys.gradRasterTime) * sys.gradRasterTime;
+            TIfill_end_odd  = RoundRaster(TIfill_end_odd, sys.gradRasterTime, 'down');
 
             assert(TIfill_end_even >= 0, 'TIfill_end_even [%f ms] must be >= 0 ms, please increase TI or adjust other parameters', ...
                 TIfill_end_even*1e3);
@@ -110,7 +110,8 @@ function [seq] = prep_Seqloop_IR_gSlider(seq, Actual, RF, Grad, ADC, Delay, Labe
         
             % compensate for accurate TR
             TRfill_end = TR - nSlice * (tETrain + fill_per_slice + mr.calcDuration(GS_Inv)) - 2*TIfill - 2* mr.calcDuration(GS_Inv);
-            TRfill_end = round(TRfill_end/sys.gradRasterTime) * sys.gradRasterTime;
+            TRfill_end = RoundRaster(TRfill_end, sys.gradRasterTime, 'round');
+            
         
             disp(strcat('TRfill : ',num2str(1000*TRfill),' ms')); 
             disp(strcat('TIfill_slice_even : ',num2str(1e3*TIfill_end_even),' ms')); 
@@ -118,7 +119,7 @@ function [seq] = prep_Seqloop_IR_gSlider(seq, Actual, RF, Grad, ADC, Delay, Labe
         case 'sequential'
             fprintf('# IR-TSE >>> Sequential mode\n');
             TIfill  = TI - mr.calcDuration(GS_Inv)/2 - mr.calcDuration(GS_ExSpoilPre) - mr.calcDuration(GS_ExFlat)/2;
-            TIfill  = round(TIfill/sys.gradRasterTime) * sys.gradRasterTime;
+            TIfill  = RoundRaster(TIfill, sys.gradRasterTime, 'round');
 
             TRfill = TR - (TIfill + nSlice * (tETrain + mr.calcDuration(GS_Inv)));
 
@@ -128,18 +129,18 @@ function [seq] = prep_Seqloop_IR_gSlider(seq, Actual, RF, Grad, ADC, Delay, Labe
 
 
             fill_per_slice  = (min(TIfill-tETrain*(nSlice-1), TRfill) - (nSlice-1)* mr.calcDuration(GS_Inv))/(nSlice);
-            fill_per_slice  = floor(fill_per_slice/sys.gradRasterTime) * sys.gradRasterTime;
-
+            fill_per_slice  = RoundRaster(fill_per_slice, sys.gradRasterTime, 'down');
+            
             delayTI_slice = mr.makeDelay(fill_per_slice);
 
             TIfill_end = TIfill - (nSlice-1) * (tETrain + mr.calcDuration(GS_Inv)) - nSlice * fill_per_slice;
-            TIfill_end = floor(TIfill_end/sys.gradRasterTime) * sys.gradRasterTime;
+            TIfill_end = RoundRaster(TIfill_end, sys.gradRasterTime, 'down');
             delayTIfill_end = mr.makeDelay(TIfill_end);
 
             delayETrain = mr.makeDelay(fill_per_slice+mr.calcDuration(GS_Inv));
 
             TRfill_end = TR - nSlice * (tETrain + fill_per_slice+mr.calcDuration(GS_Inv)) - TIfill - mr.calcDuration(GS_Inv);
-            TRfill_end = round(TRfill_end/sys.gradRasterTime) * sys.gradRasterTime;
+            TRfill_end = RoundRaster(TRfill_end, sys.gradRasterTime, 'round');
         otherwise
             error('invalid IRMode %s', IRMode);
     end

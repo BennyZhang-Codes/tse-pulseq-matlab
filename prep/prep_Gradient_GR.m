@@ -1,10 +1,10 @@
 function [ADC, Grad] = prep_Gradient_GR(Grad, ADC, Actual, sys)
     % mapping of RO/PE/3D to X/Y/Z
-    AxisRO   = Actual.AxisRO   ; 
-    SignCorr = Actual.SignCorr ; 
+    AxisRO       = Actual.AxisRO   ; 
+    SignCorr     = Actual.SignCorr ; 
 
-    fovRead      = Actual.fovRead;
-    nX           = Actual.nX;
+    fovRO        = Actual.fovRO;
+    nRO          = Actual.nRO;
     readoutOS    = Actual.readoutOS;
     readoutTime  = Actual.readoutTime;
     roDuration   = Actual.roDuration;
@@ -14,8 +14,8 @@ function [ADC, Grad] = prep_Gradient_GR(Grad, ADC, Actual, sys)
 
 
     % Readout gradient
-    deltakX  = 1 / fovRead;
-    GRacq    = mr.makeTrapezoid(AxisRO, sys, 'FlatArea', SignCorr.(AxisRO) * nX * deltakX, 'FlatTime', readoutTime);
+    deltakX  = 1 / fovRO;
+    GRacq    = mr.makeTrapezoid(AxisRO, sys, 'FlatArea', SignCorr.(AxisRO) * nRO * deltakX, 'FlatTime', readoutTime);
 
     area_GR_Spoil = GRacq.flatArea*fspR;
 
@@ -27,7 +27,7 @@ function [ADC, Grad] = prep_Gradient_GR(Grad, ADC, Actual, sys)
 
     GR_adc   = mr.makeExtendedTrapezoid(AxisRO, 'times', [0, readoutTime], 'amplitudes', [GRacq.amplitude, GRacq.amplitude]);
 
-    adc      = mr.makeAdc(nX*readoutOS, 'Duration', roDuration, 'Delay', sys.adcDeadTime, 'system', sys);%,'Delay',GRacq.riseTime);
+    adc      = mr.makeAdc(nRO*readoutOS, 'Duration', roDuration, 'Delay', sys.adcDeadTime, 'system', sys);%,'Delay',GRacq.riseTime);
     
     AGRpreph = GRacq.flatArea * (0.5+fspR);
 

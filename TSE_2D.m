@@ -33,10 +33,10 @@ Setup.MultiSliceMode   = 'Interleaved'; % 'Interleaved' or 'Sequential'
 
 Setup.nDummy           = 1;             % number of pre-scans
 
-Setup.fovRead          = 120e-3;
-Setup.fovPhase         = 120e-3;
-Setup.nX               = 300; 
-Setup.nY               = 300; 
+Setup.fovRO            = 120e-3;
+Setup.fovPE            = 120e-3;
+Setup.nRO              = 120; 
+Setup.nPE              = 120; 
 Setup.nEcho            = 10; 
 Setup.nSlice           = 5; 
 Setup.nRep             = 1;
@@ -49,7 +49,7 @@ Setup.TR               = 5000e-3;
 Setup.TEeff            = 14e-3; % the desired echo time 
 
 Setup.R                = 2;              % Acceleration factor
-Setup.RefLinesRatio    = 30/Setup.nY;    % PI
+Setup.RefLinesRatio    = 30/Setup.nPE;    % PI
 Setup.p                = 20;             % CS
 Setup.r                = 0.1;            % CS
 
@@ -128,8 +128,8 @@ Actual.Slice = Slice;
 %% Phase encoding
 [Actual.nAcq, Actual.nExcit, PE] = prep_PEOrder(Actual);
 Actual.PE = PE;
-% plot_PE(Actual.R, Actual.nX, Actual.nY, PE.pe_Img, PE.pe_Ref, PE.pe_ImgAndRef, PE.pe_full)
-% plot_PEOrder(Actual.R, Actual.nX, Actual.nY, PE.PElabel);
+% plot_PE(Actual.R, Actual.nRO, Actual.nPE, PE.pe_Img, PE.pe_Ref, PE.pe_ImgAndRef, PE.pe_full)
+% plot_PEOrder(Actual.R, Actual.nRO, Actual.nPE, PE.PElabel);
 
 %% RF and Gz
 [RF, Grad] = prep_Excitation(RF, Grad, Actual, sys_soft);

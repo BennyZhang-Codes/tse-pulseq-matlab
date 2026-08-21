@@ -5,19 +5,19 @@ function [nAcq, nExcit, PE] = prep_PEOrder(Actual)
 
     AccelerationMode = Actual.AccelerationMode;
     PEMode           = Actual.PEMode;
-    nY               = Actual.nY;
+    nPE               = Actual.nPE;
     nEcho            = Actual.nEcho;
     TEeff            = Actual.TEeff;
     TE1              = Actual.TE1;
-    fovPhase         = Actual.fovPhase;
+    fovPE         = Actual.fovPE;
     R                = Actual.R;
     RefLinesRatio    = Actual.RefLinesRatio;  % PI
     p                = Actual.p;              % CS
     r                = Actual.r;              % CS
 
-    deltak   = 1 / fovPhase;
+    deltak   = 1 / fovPE;
     if R == 1
-        nExcit  = floor(nY / nEcho);
+        nExcit  = floor(nPE / nEcho);
         pe_full = (1:(nEcho * nExcit)) - floor(0.5 * nEcho * nExcit) -1;
         pe_step_min = min(pe_full(:));
         pe_Img = pe_full;
@@ -28,10 +28,10 @@ function [nAcq, nExcit, PE] = prep_PEOrder(Actual)
         switch lower(AccelerationMode)
             case 'pi'
                 [nExcit, pe_steps, pe_step_min, pe_full, pe_Img, pe_Ref, pe_ImgAndRef] = ...
-                    prep_PEOrder_PI(nY, nEcho, R, RefLinesRatio);
+                    prep_PEOrder_PI(nPE, nEcho, R, RefLinesRatio);
             case 'cs'
                 [nExcit, pe_steps, pe_step_min, pe_full, pe_Img, pe_Ref, pe_ImgAndRef, ~, ~] = ...
-                    prep_PEOrder_CS(nY, nEcho, R, p, r);
+                    prep_PEOrder_CS(nPE, nEcho, R, p, r);
             otherwise
                 error('Invalid Acceleration Mode');
         end

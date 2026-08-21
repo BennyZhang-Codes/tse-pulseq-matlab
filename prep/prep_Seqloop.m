@@ -57,9 +57,8 @@ function [seq] = prep_Seqloop(seq, Actual, RF, Grad, ADC, Delay, Label, sys)
 
 
     % filltimes
-    TRfill  = (TR - nSlice * tETrain) / nSlice;
-    % round to gradient raster
-    TRfill  = sys.gradRasterTime * round(TRfill / sys.gradRasterTime);
+    TRfill  = RoundRaster((TR - nSlice * tETrain) / nSlice, sys.gradRasterTime, 'down');
+
     if TRfill<0, TRfill=1e-3; 
         disp(strcat('Warning!!! TR too short, adapted to include all slices to : ',num2str(1000*nSlice*(tETrain+TRfill)),' ms')); 
     else
@@ -77,11 +76,7 @@ function [seq] = prep_Seqloop(seq, Actual, RF, Grad, ADC, Delay, Label, sys)
                 rfRef.freqOffset  = amplitudeRef * SlicePositions(isli);
                 rfEx.phaseOffset  = phaseEx  - 2 * pi *  rfEx.freqOffset * mr.calcRfCenter(rfEx) ; % align the phase for off-center slices
                 rfRef.phaseOffset = phaseRef - 2 * pi * rfRef.freqOffset * mr.calcRfCenter(rfRef); % dito
-                
-                % dPhi = rfEx.phaseOffset - rfRef.phaseOffset;
-                % fprintf('Ex: %f, Ref: %f, %f\n', rfEx.phaseOffset/pi*180, rfRef.phaseOffset/pi*180, dPhi/pi*180);
-
-                
+                               
                 seq.addBlock(rfEx, GS_Ex, GRpreL);
         
                 seq.addBlock(mr.makeLabel('SET', 'SEG', 0));

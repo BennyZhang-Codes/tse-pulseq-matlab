@@ -1,17 +1,17 @@
 function [...
     nExcit, pe_steps, pe_step_min, pe_full, pe_Img, pe_Ref, pe_ImgAndRef ...
     , mask, pdf...
-    ] = prep_PEOrder_CS(nY, nEcho, R, p, r)
+    ] = prep_PEOrder_CS(nPE, nEcho, R, p, r)
 
-    pe_full   = (1:(nY)) - floor(0.5 * nY) - 1;
+    pe_full   = (1:(nPE)) - floor(0.5 * nPE) - 1;
     pe_step_min = min(pe_full(:));
     
-    nAcq      = round(nY/R/nEcho)*nEcho;
-    R1        = nAcq / nY;
-    [pdf, ~]  = genPDF(nY, p, R1, 2, r, 1);
+    nAcq      = round(nPE/R/nEcho)*nEcho;
+    R1        = nAcq / nPE;
+    [pdf, ~]  = genPDF(nPE, p, R1, 2, r, 1);
     mask      = genSampling_TSE(pdf,500,0.3,nAcq);
 
-    % [pdf, ~]  = genPDF(nY, p, 1/R, 2, r, 1);
+    % [pdf, ~]  = genPDF(nPE, p, 1/R, 2, r, 1);
     % mask      = genSampling(pdf,500,1);
     % mask(end) = 1;
     
@@ -28,14 +28,14 @@ function [...
     pe_steps    = [pe_steps pe_null'];
 end
 
-% plot_PE(R, nX, nY, pe_Img, pe_Ref, pe_ImgAndRef, pe_full)
-% plot_PEOrder(R, nX, nY, PElabel);
+% plot_PE(R, nRO, nPE, pe_Img, pe_Ref, pe_ImgAndRef, pe_full)
+% plot_PEOrder(R, nRO, nPE, PElabel);
 
 % %%
-% % R1 = round(nY/R/nEcho)*nEcho / nY;
+% % R1 = round(nPE/R/nEcho)*nEcho / nPE;
 % % 
 % % r = 0.15 + 0.001 * count;
-% % [pdf, ~]  = genPDF(nY, 10, R1, 2, r, 1);
+% % [pdf, ~]  = genPDF(nPE, 10, R1, 2, r, 1);
 % % i = find(pdf==1);
 % % pdf(i(1)) = pdf(i(1)-1);
 % % pdf(end) = 1;
@@ -44,8 +44,8 @@ end
 % % disp(sum(mask))
 % 
 % 
-% R1 = round(nY/R/nEcho)*nEcho / nY;
-% [pdf, ~]  = genPDF(nY, p, R1, 2, r, 1);
-% mask      = genSampling_TSE(pdf,500,0.3,round(nY/R/nEcho)*nEcho);
+% R1 = round(nPE/R/nEcho)*nEcho / nPE;
+% [pdf, ~]  = genPDF(nPE, p, R1, 2, r, 1);
+% mask      = genSampling_TSE(pdf,500,0.3,round(nPE/R/nEcho)*nEcho);
 % % mask(end) = 1;
 % disp(sum(mask))

@@ -5,10 +5,10 @@ function [seq, prefix] = prep_Definition(seq, Actual, PE)
     IRMode           = Actual.IRMode;
     IR               = Actual.IR;
 
-    fovRead          = Actual.fovRead;
-    fovPhase         = Actual.fovPhase;
-    nX               = Actual.nX;
-    nY               = Actual.nY;
+    fovRO          = Actual.fovRO;
+    fovPE         = Actual.fovPE;
+    nRO               = Actual.nRO;
+    nPE               = Actual.nPE;
 
     TR               = Actual.TR;
     TEeff            = Actual.TEeff;
@@ -35,13 +35,13 @@ function [seq, prefix] = prep_Definition(seq, Actual, PE)
     PhaseCorrection  = Actual.PhaseCorrection;
 
     % prepare sequence export
-    res = round(1e3*fovRead/nX, 2);
+    res = round(1e3*fovRO/nRO, 2);
     a = fix(res);
     b = (res - a)*100;
     if mod(b, 10) == 0
         b = b/10;
     end
-    prefix = [num2str(a),'p',num2str(b),'_',num2str(nX)];
+    prefix = [num2str(a),'p',num2str(b),'_',num2str(nRO)];
 
     Rot_Matrix = [-1, 0, 0, 0, -1, 0, 0, 0, -1];    % reverse the polarity of gradients.
     seq.setDefinition('Rot_Matrix'           , Rot_Matrix                );
@@ -57,15 +57,15 @@ function [seq, prefix] = prep_Definition(seq, Actual, PE)
     
     % sequence definitions: additional information required by GRAPPA
     seq.setDefinition('kSpaceCenterLine'     , kSpaceCenterLine          ); % PE center line index
-    seq.setDefinition('PhaseResolution'      , (fovRead/nX)/(fovPhase/nY)); % phase resolution
+    seq.setDefinition('PhaseResolution'      , (fovRO/nRO)/(fovPE/nPE)); % phase resolution
     seq.setDefinition('AccelerationFactor3D' , 1                         );          
     seq.setDefinition('AccelerationFactorPE' , R                         );          
     seq.setDefinition('FirstRefLine'         , FirstRefLine              );          
     seq.setDefinition('nRefLine'             , nRef                      ); % number of ACS line
     
     fov_z = nSlice*(SliceThickness+SliceGap) - SliceGap;
-    seq.setDefinition('FOV'                  , [fovRead fovPhase fov_z]  );
-    seq.setDefinition('MatrixSize'           , [nX nY nSlice]            );
+    seq.setDefinition('FOV'                  , [fovRO fovPE fov_z]  );
+    seq.setDefinition('MatrixSize'           , [nRO nPE nSlice]            );
     seq.setDefinition('TR'                   , TR                        );
     seq.setDefinition('TE'                   , TEeff                     );
     
