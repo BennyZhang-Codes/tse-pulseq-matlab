@@ -50,19 +50,14 @@ function [seq] = prep_Seqloop_IR_gSlider(seq, Actual, RF, Grad, ADC, Delay, Labe
     
     GRpreL         = Grad.GRpreL;
     GRpreR         = Grad.GRpreR;
-    GR_adc         = Grad.GR_adc;
-    GR_SpoilPre    = Grad.GR_SpoilPre;
-    GR_SpoilPost   = Grad.GR_SpoilPost;
+    GR_adc         = Grad.GRO_adc;
+    GR_SpoilPre    = Grad.GRO_SpoilPre;
+    GR_SpoilPost   = Grad.GRO_SpoilPost;
     GR_Spoil       = Grad.GR_Spoil;
 
     tETrain        = Grad.tETrain;
 
     adc            = ADC.adc;
-
-    lblSetRefScan            = Label.lblSetRefScan;
-    lblSetRefAndImaScan      = Label.lblSetRefAndImaScan;
-    lblResetRefScan          = Label.lblResetRefScan;
-    lblResetRefAndImaScan    = Label.lblResetRefAndImaScan;
  
     % IR specific
     IRMode         = Actual.IRMode;
@@ -176,11 +171,11 @@ function [seq] = prep_Seqloop_IR_gSlider(seq, Actual, RF, Grad, ADC, Delay, Labe
                 seq.addBlock(mr.makeLabel('SET', 'LIN', PElabel(iseg, iexcit)));
     
                 if ismember(PEorder(iseg, iexcit), pe_Ref)
-                    seq.addBlock(lblResetRefAndImaScan, lblSetRefScan) ;
+                    seq.addBlock(Label.lblResetRefAndImaScan, Label.lblSetRefScan) ;
                 elseif ismember(PEorder(iseg, iexcit),pe_ImgAndRef)
-                    seq.addBlock(lblSetRefAndImaScan, lblSetRefScan) ;
+                    seq.addBlock(Label.lblSetRefAndImaScan, Label.lblSetRefScan) ;
                 else
-                    seq.addBlock(lblResetRefAndImaScan, lblResetRefScan) ;
+                    seq.addBlock(Label.lblResetRefAndImaScan, Label.lblResetRefScan) ;
                 end
             else
                 [isegCenter, iexcitCenter] = find(PElabel == Actual.PE3D.kSpaceCenterLine);
@@ -190,11 +185,11 @@ function [seq] = prep_Seqloop_IR_gSlider(seq, Actual, RF, Grad, ADC, Delay, Labe
                 seq.addBlock(mr.makeLabel('SET', 'LIN', PElabel(isegCenter, iexcitCenter)));
                 
                 if ismember(PEorder(isegCenter, iexcitCenter), pe_Ref)
-                    seq.addBlock(lblResetRefAndImaScan, lblSetRefScan) ;
+                    seq.addBlock(Label.lblResetRefAndImaScan, Label.lblSetRefScan) ;
                 elseif ismember(PEorder(isegCenter, iexcitCenter),pe_ImgAndRef)
-                    seq.addBlock(lblSetRefAndImaScan, lblSetRefScan) ;
+                    seq.addBlock(Label.lblSetRefAndImaScan, Label.lblSetRefScan) ;
                 else
-                    seq.addBlock(lblResetRefAndImaScan, lblResetRefScan) ;
+                    seq.addBlock(Label.lblResetRefAndImaScan, Label.lblResetRefScan) ;
                 end
             end
             GPpre      = mr.makeTrapezoid(AxisPE, sys, 'Area',  phaseArea     , 'Duration', tSp, 'riseTime', 200e-6);

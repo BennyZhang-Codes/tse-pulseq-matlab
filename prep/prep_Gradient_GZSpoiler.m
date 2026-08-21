@@ -11,8 +11,8 @@ function [Grad] = prep_Gradient_GZSpoiler(Grad, Actual, sys)
 
 
     AGSex  = GSex.area/2;
-    GSspr  = mr.makeTrapezoid(Axis3D, sys, 'area', SignCorr.(Axis3D) * AGSex*(1+fspS), 'duration', tSp  , 'riseTime', dG);
-    GSspex = mr.makeTrapezoid(Axis3D, sys, 'area', SignCorr.(Axis3D) * AGSex*fspS    , 'duration', tSpex, 'riseTime', dG);
-    Grad.GSspr  = GSspr;
-    Grad.GSspex = GSspex;
+    G3D_Spoilr  = mr.makeTrapezoid(Axis3D, sys, 'area', SignCorr.(Axis3D) * AGSex*(1+fspS), 'duration', tSp  , 'riseTime', dG);
+    G3D_Spoilex = mr.makeTrapezoid(Axis3D, sys, 'area', SignCorr.(Axis3D) * AGSex*fspS    , 'duration', tSpex, 'riseTime', dG);
+    Grad.G3D_Spoilr  = G3D_Spoilr;
+    Grad.G3D_Spoilex = G3D_Spoilex;
 end

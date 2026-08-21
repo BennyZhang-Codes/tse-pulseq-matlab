@@ -15,25 +15,25 @@ function [ADC, Grad] = prep_Gradient_GR(Grad, ADC, Actual, sys)
 
     % Readout gradient
     deltakX  = 1 / fovRO;
-    GRacq    = mr.makeTrapezoid(AxisRO, sys, 'FlatArea', SignCorr.(AxisRO) * nRO * deltakX, 'FlatTime', ReadoutTime);
+    GROacq    = mr.makeTrapezoid(AxisRO, sys, 'FlatArea', SignCorr.(AxisRO) * nRO * deltakX, 'FlatTime', ReadoutTime);
 
-    area_GR_Spoil = GRacq.flatArea*fspR;
+    area_GRO_Spoil = GROacq.flatArea*fspR;
 
-    [g_GR_SpoilPre,  t_GR_SpoilPre ] = design_gradient_waveform(area_GR_Spoil, tSp, 0, GRacq.amplitude, sys.maxGrad, sys.maxSlew, sys.gradRasterTime);
-    GR_SpoilPre = mr.makeExtendedTrapezoid(AxisRO, 'system', sys, 'amplitudes', g_GR_SpoilPre, 'times', t_GR_SpoilPre); 
+    [g_GRO_SpoilPre,  t_GRO_SpoilPre ] = design_gradient_waveform(area_GRO_Spoil, tSp, 0, GROacq.amplitude, sys.maxGrad, sys.maxSlew, sys.gradRasterTime);
+    GRO_SpoilPre = mr.makeExtendedTrapezoid(AxisRO, 'system', sys, 'amplitudes', g_GRO_SpoilPre, 'times', t_GRO_SpoilPre); 
 
-    [g_GR_SpoilPost, t_GR_SpoilPost] = design_gradient_waveform(area_GR_Spoil, tSp, GRacq.amplitude, 0, sys.maxGrad, sys.maxSlew, sys.gradRasterTime);
-    GR_SpoilPost = mr.makeExtendedTrapezoid(AxisRO, 'system', sys, 'amplitudes', g_GR_SpoilPost, 'times', t_GR_SpoilPost); 
+    [g_GRO_SpoilPost, t_GRO_SpoilPost] = design_gradient_waveform(area_GRO_Spoil, tSp, GROacq.amplitude, 0, sys.maxGrad, sys.maxSlew, sys.gradRasterTime);
+    GRO_SpoilPost = mr.makeExtendedTrapezoid(AxisRO, 'system', sys, 'amplitudes', g_GRO_SpoilPost, 'times', t_GRO_SpoilPost); 
 
-    GR_adc   = mr.makeExtendedTrapezoid(AxisRO, 'times', [0, ReadoutTime], 'amplitudes', [GRacq.amplitude, GRacq.amplitude]);
+    GRO_adc  = mr.makeExtendedTrapezoid(AxisRO, 'times', [0, ReadoutTime], 'amplitudes', [GROacq.amplitude, GROacq.amplitude]);
 
     adc      = mr.makeAdc(nRO*readoutOS, 'Duration', roDuration, 'Delay', sys.adcDeadTime, 'system', sys);%,'Delay',GRacq.riseTime);
     
-    AGRpreph = GRacq.flatArea * (0.5+fspR);
+    Area_GROpreph = GROacq.flatArea * (0.5+fspR);
 
-    ADC.adc           = adc;
-    ADC.AGRpreph      = AGRpreph;
-    Grad.GR_adc       = GR_adc;
-    Grad.GR_SpoilPre  = GR_SpoilPre;
-    Grad.GR_SpoilPost = GR_SpoilPost;
+    ADC.adc            = adc;
+    ADC.Area_GROpreph  = Area_GROpreph;
+    Grad.GRO_adc       = GRO_adc;
+    Grad.GRO_SpoilPre  = GRO_SpoilPre;
+    Grad.GRO_SpoilPost = GRO_SpoilPost;
 end
