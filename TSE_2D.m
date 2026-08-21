@@ -22,7 +22,7 @@ Setup.MaxGrad_soft     = 40;
 Setup.MaxSlew_soft     = 150;
 
 % Sequence events
-Setup.NoiseScan        = 'on';  
+Setup.NoiseScan        = 'on';
 Setup.VERSE            = 'off';
 Setup.PhaseCorrection  = 'on';
 
@@ -37,10 +37,10 @@ Setup.nDummy           = 1;             % number of pre-scans
 
 Setup.fovRO            = 120e-3;
 Setup.fovPE            = 120e-3;
-Setup.nRO              = 120; 
-Setup.nPE              = 120; 
-Setup.nEcho            = 10; 
-Setup.nSlice           = 5; 
+Setup.nRO              = 120;
+Setup.nPE              = 120;
+Setup.nEcho            = 10;
+Setup.nSlice           = 5;
 Setup.nRep             = 1;
 
 Setup.SliceThickness   = 2e-3;
@@ -67,13 +67,13 @@ Setup.TI               = 1700e-3; % time of inversion recovery
 SetupRF.typeEx         = 'sinc'   ;
 SetupRF.typeRef        = 'slr'    ;
 SetupRF.typeInv        = 'slr'    ;
-SetupRF.tEx            = 3.84e-3  ; 
-SetupRF.tRef           = 3.84e-3  ; 
+SetupRF.tEx            = 3.84e-3  ;
+SetupRF.tRef           = 3.84e-3  ;
 SetupRF.tInv           = 3.84e-3  ;
 SetupRF.tbpEx          = 4        ;
 SetupRF.tbpRef         = 6        ;
 SetupRF.tbpInv         = 6        ;
-SetupRF.phaseEx        = pi/2     ;   
+SetupRF.phaseEx        = pi/2     ;
 SetupRF.phaseRef       = 0        ;
 SetupRF.phaseInv       = 0        ;
 
@@ -108,7 +108,7 @@ Setup.SpoilerAreaFactor_3D = 4 ;
 % mapping of RO/PE/3D to X/Y/Z
 Setup.AxisRO = 'x' ;
 Setup.AxisPE = 'y' ;
-Setup.Axis3D = 'z' ; 
+Setup.Axis3D = 'z' ;
 
 % Flip or not X/Y/Z to match patient positive/negative directions. Usefull if reconstruction is done by system to get correct orientation of images.
 Setup.SignCorr.x = -1 ;
@@ -145,7 +145,7 @@ end
 [Grad, RF, Delay] = prep_Gradient_Block(Grad, RF, ADC, Delay, Actual, sys_soft);        % split gradients and recombine into blocks
 
 %% Label
-[seq, Label] = prep_Label(seq, Actual, Label, PE3D);
+[seq, Label] = prep_Label(seq, Actual, Label);
 
 %% Delay
 [Delay] = prep_Delay(Actual, Delay);
@@ -153,8 +153,7 @@ end
 %% Noise Scan
 [seq, Label] = prep_NoiseScan(seq, Actual, PE3D, ADC, Label, sys);
 
-%% Define sequence blocks
-
+%% Seqloop
 if strcmpi(Actual.IR, 'on')
     [seq] = prep_Seqloop_IR(seq, Actual, RF, Grad, ADC, Delay, Label, sys_soft);
 else
@@ -166,7 +165,7 @@ end
 check_Label(seq);
 check_PNS(seq, Actual);
 
-[seq, prefix] = prep_Definition(seq, Actual, PE);
+[seq, prefix] = prep_Definition(seq, Actual, PE3D);
 %%
 outpath = 'seq/';
 seqname = sprintf('TSE_PC%s_%s_r%s_nRef%s_sli%s', Actual.PhaseCorrection, ...
@@ -182,6 +181,6 @@ fig = seq.plot('showBlock',true,'showGuides',1,'stacked',0,'timeDisp','s', 'time
 % figure; plot(t_ktraj,ktraj'); title('k-space components as functions of time');
 plot_kspace(ktraj, ktraj_adc);
 
-%% very optional slow step, but useful for testing during development e.g. for the real TE, TR or for staying within slew rate limits  
+%% test report
 % rep = seq.testReport; 
 % fprintf([rep{:}]); 

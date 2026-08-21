@@ -1,6 +1,6 @@
 function [...
     nExcit, pe_steps, pe_step_min, pe_full, pe_Img, pe_Ref, pe_ImgAndRef ...
-    ] = prep_PEOrder_PI(nPE, nEcho, R, RefLinesRatio)
+    ] = prep_PE3DOrder_PI(nPE, nEcho, R, RefLinesRatio)
 
     % for parallel imaging
     % 1. determine nRef (to make mod(nRef+nImg, nEcho) == 0)

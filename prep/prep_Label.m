@@ -1,6 +1,4 @@
-function [seq, Label] = prep_Label(seq, Actual, Label, PE3D)
-    PE3DLabel = PE3D.PE3DLabel;
-
+function [seq, Label] = prep_Label(seq, Actual, Label)
 
     % =========================================================================
     % Flags
@@ -165,19 +163,19 @@ function [seq, Label] = prep_Label(seq, Actual, Label, PE3D)
     Label.lblIncECO0  = lblIncECO0 ;
     Label.lblIncECO1  = lblIncECO1 ;
 
-    % Allocate memory first by creating the last echo label (probably not very important).
-    % set last echo in array (to initialize structure array)
-    lblSetECO(Actual.nTE) = mr.makeLabel('SET', 'ECO', Actual.nTE-1) ; 
-    % set all remaining echo labels
-    for iTE = 1:(Actual.nTE-1)
-        lblSetECO(iTE) = mr.makeLabel('SET', 'ECO', iTE-1) ;
-    end
-    % Add IDs to all labels (done separately after previous for-loop because
-    % once one ID is set the output of mr.makeLabel no longer has the same
-    % structure as eLabelEchos(n) (does not contain the 'id' field).
-    for iTE = 1:Actual.nTE
-        lblSetECO(iTE).id = seq.registerLabelEvent(lblSetECO(iTE)) ;
-    end
-    Label.lblSetECO = lblSetECO;
+    % % Allocate memory first by creating the last echo label (probably not very important).
+    % % set last echo in array (to initialize structure array)
+    % lblSetECO(Actual.nTE) = mr.makeLabel('SET', 'ECO', Actual.nTE-1) ; 
+    % % set all remaining echo labels
+    % for iTE = 1:(Actual.nTE-1)
+    %     lblSetECO(iTE) = mr.makeLabel('SET', 'ECO', iTE-1) ;
+    % end
+    % % Add IDs to all labels (done separately after previous for-loop because
+    % % once one ID is set the output of mr.makeLabel no longer has the same
+    % % structure as eLabelEchos(n) (does not contain the 'id' field).
+    % for iTE = 1:Actual.nTE
+    %     lblSetECO(iTE).id = seq.registerLabelEvent(lblSetECO(iTE)) ;
+    % end
+    % Label.lblSetECO = lblSetECO;
 
 end

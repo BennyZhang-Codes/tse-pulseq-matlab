@@ -150,10 +150,16 @@ end
 
 [Grad, RF, Delay] = prep_Gradient_Block(Grad, RF, ADC, Delay, Actual, sys_soft);        % split gradients and recombine into blocks
 
-%% Define sequence blocks
-[seq, Label] = prep_Kernel(seq, Actual, ADC, sys_soft);
+%% Label
+[seq, Label] = prep_Label(seq, Actual, Label);
 
+%% Delay
+[Delay] = prep_Delay(Actual, Delay);
 
+%% Noise Scan
+[seq, Label] = prep_NoiseScan(seq, Actual, PE3D, ADC, Label, sys);
+
+%% Seqloop
 if strcmpi(Actual.IR, 'on')
     [seq] = prep_Seqloop_IR_gSlider(seq, Actual, RF, Grad, ADC, Delay, Label, sys_soft);
 else
@@ -162,11 +168,10 @@ end
 
 %% timing & PNS & definition
 [seq] = check_Timing(seq);
-disp(seq.getDefinition('TotalDuration'));
 check_Label(seq);
 check_PNS(seq, Actual);
-[seq, prefix] = prep_Definition(seq, Actual, PE);
 
+[seq, prefix] = prep_Definition(seq, Actual, PE);
 %%
 outpath = 'seq/';
 seqname = sprintf('gSliderT1_TRAPS70_TI%s%s%s_%s_r%s_nRef%s_sli%s', num2str(Actual.TI*1e3), SetupRF.typeInv, num2str(SetupRF.tbpInv),...
@@ -178,48 +183,6 @@ timeRange = [(Actual.nDummy)*Actual.TR, (Actual.nDummy+1)*Actual.TR];
 if strcmp(Actual.NoiseScan, 'on'); timeRange = timeRange + Actual.TR; end
 fig = seq.plot('showBlock',true,'showGuides',1,'stacked',0,'timeDisp','s', 'timeRange', timeRange); %'Label', 'LIN,PAR,ECO,REP';
 
-% fig = seq.plot('Label', 'LIN,SLC,SEG,REP,NAV', 'timeRange', [0*Actual.TR, 2*Actual.TR+1] + 0);
-% fig = fig.f;
-%%
-% % set(fig, 'InvertHardcopy', 'off');  
-% set(fig, 'PaperUnits', 'centimeters');
-% set(fig, 'PaperPosition', [0, 0, 7, 5]);
-% ax = findall(fig, 'Type', 'axes');  % 如果有多个 axes，也能同时处理
-% set(findall(fig, '-property', 'FontSize'), 'FontSize',5);
-% lgds = findall(fig, 'Type', 'legend');
-% for i = 1:length(lgds)
-%     % lgds(i).Location = 'northeast';
-%     lgds(i).FontSize = 3;
-%     % lgds(i).Box = 'off';  % 去掉边框
-%     lgds(i).ItemTokenSize = [2, 2];
-% end
-% 
-% % for i = 1:length(ax)
-% %     outerpos = ax(i).OuterPosition;
-% %     ti = ax(i).TightInset;
-% %     left = outerpos(1) + ti(1);
-% %     bottom = outerpos(2) + ti(2);
-% %     width = outerpos(3) - ti(1) - ti(3);
-% %     height = outerpos(4) - ti(2) - ti(4);
-% %     ax(i).Position = [left, bottom, width, height];
-% % end
-% outpath = sprintf('D:/0_/中期报告_2025/gSliderTSE/%s_1TR.png', seqname);
-% % exportgraphics(fig, outpath, 'Resolution', 300, 'ContentType', 'image', 'BackgroundColor', 'none');
-% print(fig, '-dpng', '-loose', '-r300', '-image', outpath);
-
-% [ktraj_adc, t_adc, ktraj, t_ktraj, t_excitation, t_refocusing] = seq.calculateKspacePP();
-% % figure; plot(t_ktraj,ktraj'); title('k-space components as functions of time');
-% plot_kspace(ktraj, ktraj_adc);
-
-
-%% very optional slow step, but useful for testing during development e.g. for the real TE, TR or for staying within slew rate limits  
-% end
+%% test report
 % rep = seq.testReport; 
 % fprintf([rep{:}]); 
-
-%%
-% gw = seq.waveforms_and_times();
-% figure;
-% plot(gw{1}(1,:),gw{1}(2,:),gw{2}(1,:),gw{2}(2,:),gw{3}(1,:),gw{3}(2,:)); % plot the entire gradient shape
-% title('gradient wave form, in T/m');
-
