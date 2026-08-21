@@ -142,6 +142,9 @@ end
 
 [Grad, RF, Delay] = prep_Gradient_Block(Grad, RF, ADC, Delay, Actual, sys_soft);        % split gradients and recombine into blocks
 
+%% Delay
+[Delay] = prep_Delay(Actual, Delay);
+
 %% Define sequence blocks
 [seq, Label] = prep_Kernel(seq, Actual, ADC, sys_soft);
 
@@ -153,7 +156,6 @@ end
 
 %% timing & PNS & definition
 [seq] = check_Timing(seq);
-disp(seq.getDefinition('TotalDuration'));
 check_Label(seq);
 check_PNS(seq, Actual);
 

@@ -1,4 +1,7 @@
 function [seq] = prep_Seqloop(seq, Actual, RF, Grad, ADC, Delay, Label, sys)
+    tStart_loop = tic();
+    MinTRActual = 0 ;
+
     % mapping of RO/PE/3D to X/Y/Z
     AxisPE   = Actual.AxisPE   ; 
     SignCorr = Actual.SignCorr ; 
@@ -57,27 +60,29 @@ function [seq] = prep_Seqloop(seq, Actual, RF, Grad, ADC, Delay, Label, sys)
 
 
     % filltimes
-    TRfill  = RoundRaster((TR - nSlice * tETrain) / nSlice, sys.gradRasterTime, 'down');
+    SliceTime  = RoundRaster(TR / nSlice, sys.gradRasterTime, 'down');
 
-    if TRfill<0, TRfill=1e-3; 
-        disp(strcat('Warning!!! TR too short, adapted to include all slices to : ',num2str(1000*nSlice*(tETrain+TRfill)),' ms')); 
-    else
-        disp(strcat('TRfill : ',num2str(1000*TRfill),' ms')); 
-    end
-    delayTR = mr.makeDelay(TRfill);
 
     % Next, the blocks are put together to form the sequence
     seq.addBlock(mr.makeLabel('SET', 'REP', 0));
     for irep = 1:nRep
         for iexcit = (1-nDummy):nExcit 
+            % Reset duration of current TR
+            TimeInTR = 0 ; % [s]
+
             seq.addBlock(mr.makeLabel('SET', 'SLC', 0));
             for isli = 1:nSlice
+                % Reset duration of current Slice
+                TimeInSlice = 0 ; % [s]
+
                 rfEx.freqOffset   = amplitudeEx  * SlicePositions(isli);
                 rfRef.freqOffset  = amplitudeRef * SlicePositions(isli);
                 rfEx.phaseOffset  = phaseEx  - 2 * pi *  rfEx.freqOffset * mr.calcRfCenter(rfEx) ; % align the phase for off-center slices
                 rfRef.phaseOffset = phaseRef - 2 * pi * rfRef.freqOffset * mr.calcRfCenter(rfRef); % dito
                                
                 seq.addBlock(rfEx, GS_Ex, GRpreL);
+                TimeInTR    = TimeInTR    + seq.blockDurations(end); % Update duration within TR
+                TimeInSlice = TimeInSlice + seq.blockDurations(end); % Update duration within Slice
         
                 seq.addBlock(mr.makeLabel('SET', 'SEG', 0));
                 for iseg = 1:nEcho
@@ -125,26 +130,42 @@ function [seq] = prep_Seqloop(seq, Actual, RF, Grad, ADC, Delay, Label, sys)
 
                         if iexcit > 0
                             seq.addBlock(GR_adc, adc);
+                            TimeInTR    = TimeInTR    + seq.blockDurations(end); % Update duration within TR
+                            TimeInSlice = TimeInSlice + seq.blockDurations(end); % Update duration within Slice
                         else
                             if strcmpi(PhaseCorrection, 'on')
                                 seq.addBlock(mr.makeLabel('SET', 'NAV', 1));
                                 seq.addBlock(GR_adc, adc);
+                                TimeInTR    = TimeInTR    + seq.blockDurations(end); % Update duration within TR
+                                TimeInSlice = TimeInSlice + seq.blockDurations(end); % Update duration within Slice
                                 seq.addBlock(mr.makeLabel('SET', 'NAV', 0));
                             else
                                 seq.addBlock(GR_adc);
+                                TimeInTR    = TimeInTR    + seq.blockDurations(end); % Update duration within TR
+                                TimeInSlice = TimeInSlice + seq.blockDurations(end); % Update duration within Slice
                             end
                         end
+
+
                         seq.addBlock(rfRef, GR_Spoil, GP, GS_Ref);
+                        TimeInTR    = TimeInTR    + seq.blockDurations(end); % Update duration within TR
+                        TimeInSlice = TimeInSlice + seq.blockDurations(end); % Update duration within Slice
                     else
                         if iexcit > 0
                             seq.addBlock(GR_adc, adc);
+                            TimeInTR    = TimeInTR    + seq.blockDurations(end); % Update duration within TR
+                            TimeInSlice = TimeInSlice + seq.blockDurations(end); % Update duration within Slice
                         else
                             if strcmpi(PhaseCorrection, 'on')
                                 seq.addBlock(mr.makeLabel('SET', 'NAV', 1));
                                 seq.addBlock(GR_adc, adc);
+                                TimeInTR    = TimeInTR    + seq.blockDurations(end); % Update duration within TR
+                                TimeInSlice = TimeInSlice + seq.blockDurations(end); % Update duration within Slice
                                 seq.addBlock(mr.makeLabel('SET', 'NAV', 0));
                             else
                                 seq.addBlock(GR_adc);
+                                TimeInTR    = TimeInTR    + seq.blockDurations(end); % Update duration within TR
+                                TimeInSlice = TimeInSlice + seq.blockDurations(end); % Update duration within Slice
                             end
                         end
                         if iseg == nEcho
@@ -152,13 +173,45 @@ function [seq] = prep_Seqloop(seq, Actual, RF, Grad, ADC, Delay, Label, sys)
                         else
                             seq.addBlock(rfRef, GR_Spoil, GP, GS_Ref);
                         end
+                        TimeInTR    = TimeInTR    + seq.blockDurations(end); % Update duration within TR
+                        TimeInSlice = TimeInSlice + seq.blockDurations(end); % Update duration within Slice
                     end
                     seq.addBlock(mr.makeLabel('INC', 'SEG', 1));
                 end
-                seq.addBlock(delayTR);
+                % -----------------------------------------------------------------------
+                % SliceTime fill block
+                % -----------------------------------------------------------------------
+                SliceTRFill = RoundRaster(SliceTime - TimeInSlice, sys.gradRasterTime, 'down'); % Set filler delay to achieve requested TR (rounded up later)
+               
+                % Sanity check
+                if (SliceTRFill < -eps(0))
+                    error('Total time (%f ms) of blocks within current Slice (#%d) is longer than desired TR/nSlice (%f ms)!', 1e3*TimeInSlice, isli, 1e3*SliceTime);
+                end
+
+                Delay.Delay_SliceTRFill.delay = SliceTRFill ; % update delay of eTRFill
+                seq.addBlock(Delay.Delay_SliceTRFill)  ;  % Add delay to the sequence
+
+                TimeInTR    = TimeInTR    + seq.blockDurations(end); % Update duration within TR
+                TimeInSlice = TimeInSlice + seq.blockDurations(end); % Update duration within Slice
                 seq.addBlock(mr.makeLabel('INC', 'SLC', 1));
             end
+            % -----------------------------------------------------------------------
+            % TR Fill block
+            % -----------------------------------------------------------------------
+            TRFill = RoundRaster(Actual.TR - TimeInTR, sys.gradRasterTime, 'round'); % Set filler delay to achieve requested TR (rounded up later)
+           
+            % Sanity check
+            if (TRFill < -eps(0))
+                error('Total time (%f ms) of blocks within current TR (#%d) is longer than desired TR (%f ms)!', 1e3*TimeInTR, iexcit, 1e3*Actual.TR);
+            end
+
+            Delay.Delay_TRFill.delay = TRFill ; % update delay of eTRFill
+            seq.addBlock(Delay.Delay_TRFill)  ;  % Add delay to the sequence
+            
+            % Update duration within TR
+            TimeInTR = TimeInTR + seq.blockDurations(end) ;
         end
         seq.addBlock(mr.makeLabel('INC', 'REP', 1));
     end
+    tStop_loop = toc(tStart_loop); fprintf('Total Loop Time >>> %.3f [s]\n', tStop_loop);
 end
