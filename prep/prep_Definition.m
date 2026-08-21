@@ -1,8 +1,7 @@
 function [seq, Actual] = prep_Definition(seq, Actual)
     PE3D = Actual.PE3D;
   
-    Rot_Matrix = [-1, 0, 0, 0, -1, 0, 0, 0, -1];    % reverse the polarity of gradients.
-    seq.setDefinition('Rot_Matrix'           , Rot_Matrix                );
+    seq.setDefinition('Rot_Matrix'           , [1, 0, 0, 0, 1, 0, 0, 0, 1]);
 
     % readout oversampling 
     seq.setDefinition('ReadoutOversamplingFactor', Actual.readoutOS      );
@@ -14,12 +13,24 @@ function [seq, Actual] = prep_Definition(seq, Actual)
     seq.setDefinition('SliceLabel'           , Actual.Slice.SliceLabel   );
     
     % sequence definitions: additional information required by GRAPPA
-    seq.setDefinition('kSpaceCenterLine'     , PE3D.kSpaceCenterLine     ); % PE center line index
-    seq.setDefinition('PhaseResolution'      , (Actual.fovRO/Actual.nRO)/(Actual.fovPE/Actual.nPE)); % phase resolution
+
+    % Full encoded PE matrix size.
+    % Required because accelerated acquisitions may not contain LIN=nPE-1.
+    seq.setDefinition('kSpacePhaseEncodingLines', Actual.nPE             ); 
+    % Zero-based central PE line.
+    seq.setDefinition('kSpaceCenterLine'     , PE3D.kSpaceCenterLine     ); 
+    % phase resolution
+    seq.setDefinition('PhaseResolution'      , (Actual.fovRO/Actual.nRO)/(Actual.fovPE/Actual.nPE)); 
     seq.setDefinition('AccelerationFactor3D' , 1                         );          
-    seq.setDefinition('AccelerationFactorPE' , Actual.R                  );          
-    seq.setDefinition('FirstRefLine'         , PE3D.FirstRefLine         );          
-    seq.setDefinition('nRefLine'             , PE3D.nRef                 ); % number of ACS line
+    seq.setDefinition('AccelerationFactorPE' , Actual.R                  );
+    % First line belonging to the regular accelerated imaging lattice.
+    seq.setDefinition('FirstFourierLine'     , PE3D.FirstFourierLine     ); 
+    % First ACS line.
+    seq.setDefinition('FirstRefLine'         , PE3D.FirstRefLine         );
+    % Total ACS width, including REF-only and REF+IMA lines.
+    % This is recorded for bookkeeping; the Siemens iPAT card must
+    % still be set to the same number manually.
+    seq.setDefinition('nRefLine'             , PE3D.nRef                 ); 
     
     seq.setDefinition('FOV'                  , Actual.FOV                );
     seq.setDefinition('MatrixSize'           , Actual.MatrixSize         );

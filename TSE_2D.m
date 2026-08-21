@@ -28,6 +28,7 @@ Setup.PhaseCorrection  = 'on';
 
 Setup.IR               = 'off';         % Inversion Recovery
 Setup.IRMode           = 'Interleaved'; % 'Interleaved' or 'Sequential'
+Setup.TI               = 1700e-3;       % time of inversion recovery
 
 Setup.PEMode           = 'CentricFull'; % 'Centric', 'Linear'
 Setup.AccelerationMode = 'PI';          % 'PI', 'CS'
@@ -61,8 +62,6 @@ Setup.flipref          = Setup.rflip(1)*pi/180;
 Setup.flipinv          = 180 * pi / 180;
 
 Setup.roDuration       = 6.0e-3;
-
-Setup.TI               = 1700e-3; % time of inversion recovery
 
 SetupRF.typeEx         = 'sinc'   ;
 SetupRF.typeRef        = 'slr'    ;
@@ -134,8 +133,8 @@ Actual.ActualRF = SetupRF;
 Actual.Slice = Slice;
 
 %% Phase encoding
-[Actual.nAcq, Actual.nExcit, PE3D] = prep_PE3DOrder(Actual);
-Actual.PE3D = PE3D;
+[PE3D, Actual] = prep_PE3DOrder(Actual);
+
 % plot_PE(Actual.R, Actual.nRO, Actual.nPE, PE.pe_Img, PE.pe_Ref, PE.pe_ImgAndRef, PE.pe_full)
 % plot_PEOrder(Actual.R, Actual.nRO, Actual.nPE, PE.PElabel);
 

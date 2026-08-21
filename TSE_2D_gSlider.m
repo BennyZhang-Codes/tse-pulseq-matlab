@@ -139,8 +139,7 @@ Actual.ActualRF = SetupRF;
 Actual.Slice = Slice;
 
 %% Phase encoding
-[Actual.nAcq, Actual.nExcit, PE3D] = prep_PE3DOrder(Actual);
-Actual.PE3D = PE3D;
+[PE3D, Actual] = prep_PE3DOrder(Actual);
 % plot_PE(Actual.R, Actual.nRO, Actual.nPE, PE.pe_Img, PE.pe_Ref, PE.pe_ImgAndRef, PE.pe_full)
 % fig = plot_PEOrder(Actual.R, Actual.nRO, Actual.nPE, PE.PElabel);
 % print(fig, '-dpng', '-loose', '-r300', '-image', sprintf('PEMode_%s_%s_R%s.png', Actual.PEMode, Actual.AccelerationMode, num2str(Actual.R)));
