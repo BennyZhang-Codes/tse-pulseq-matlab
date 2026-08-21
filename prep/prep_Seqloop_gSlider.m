@@ -1,4 +1,6 @@
 function [seq] = prep_Seqloop_gSlider(seq, Actual, RF, Grad, ADC, Delay, Label, sys)
+    tStart_loop = tic();
+    
     % mapping of RO/PE/3D to X/Y/Z
     AxisPE   = Actual.AxisPE   ;
     SignCorr = Actual.SignCorr ;
@@ -134,4 +136,5 @@ function [seq] = prep_Seqloop_gSlider(seq, Actual, RF, Grad, ADC, Delay, Label, 
         end
         seq.addBlock(Label.lblIncREP1);
     end
+    tStop_loop = toc(tStart_loop); fprintf('prep Seqloop gSlider >>> Total Time: %.3f [s]\n', tStop_loop);
 end

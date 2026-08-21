@@ -2,6 +2,9 @@ function [seq] = prep_Seqloop(seq, Actual, RF, Grad, ADC, Delay, Label, sys)
     tStart_loop = tic();
     MinTRActual = 0 ;
 
+    % mapping of RO/PE/3D to X/Y/Z
+    AxisPE   = Actual.AxisPE   ;
+    SignCorr = Actual.SignCorr ;
 
     PE3D         = Actual.PE3D;
     pe_Ref       = Actual.PE3D.pe_Ref;
@@ -160,5 +163,5 @@ function [seq] = prep_Seqloop(seq, Actual, RF, Grad, ADC, Delay, Label, sys)
         end
         seq.addBlock(Label.lblIncREP1);
     end
-    tStop_loop = toc(tStart_loop); fprintf('Total Loop Time >>> %.3f [s]\n', tStop_loop);
+    tStop_loop = toc(tStart_loop); fprintf('prep Seqloop >>> Total Time: %.3f [s]\n', tStop_loop);
 end

@@ -7,10 +7,12 @@ addpath(genpath('plot'  ));
 addpath(genpath('utils' ));
 addpath(genpath('VERSE' ));
 
-Grad  = struct();
 RF    = struct();
+Grad  = struct();
 ADC   = struct();
-Delay = struct(); 
+Delay = struct();
+Label = struct();
+Trig  = struct();
 
 Setup.SeqDimension     = '2D';
 %% Setup
