@@ -49,7 +49,7 @@ function [seq, Actual] = prep_Definition(seq, Actual)
     seq.setDefinition('IRMode'               , Actual.IRMode             );
     seq.setDefinition('IR'                   , Actual.IR                 );
 
-    seq.setDefinition('TuborFactor'          , Actual.nEcho              );
+    seq.setDefinition('TurboFactor'          , Actual.nEcho              );
     seq.setDefinition('PhaseCorrection'      , lower(Actual.PhaseCorrection));
 
     seq.setDefinition('Developer'            , 'Jinyuan Zhang'           );
