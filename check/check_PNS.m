@@ -1,5 +1,8 @@
-function check_PNS(seq)
-    [pns_ok, pns_n, pns_c, tpns] = seq.calcPNS('MP_GPA_K2259_2000V_650A_SC72CD_EGA.asc'); % TERRA-XJ
+function [seq] = check_PNS(seq, Actual)
+
+    asc_file = Actual.asc_file;
+    
+    [pns_ok, pns_n, pns_c, tpns] = seq.calcPNS(asc_file);
 
     if (pns_ok)
         fprintf('PNS check passed successfully\n');

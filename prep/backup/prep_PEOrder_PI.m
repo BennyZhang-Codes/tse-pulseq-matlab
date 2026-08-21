@@ -1,12 +1,12 @@
 function [...
-    PEorder, PElabel, phaseAreas, ...
+    PE3DOrder, PE3DLabel, phaseAreas, ...
     nAcq, nRef, nExcit, ...
     pe_full, pe_Img, pe_Ref, pe_ImgAndRef, ...
     kSpaceCenterLine, FirstRefLine...
-    ] = prep_PEOrder_PI(PEMode, nY, nEcho, TEeff, TE1, deltak, R, RefLinesRatio)
-    deltak   = 1 / fovPhase;
+    ] = prep_PEOrder_PI(PEMode, nPE, nEcho, TEeff, TE1, deltak, R, RefLinesRatio)
+    deltak   = 1 / fovPE;
     if R == 1
-        nExcit  = floor(nY / nEcho);
+        nExcit  = floor(nPE / nEcho);
         pe_full = (1:(nEcho * nExcit)) - floor(0.5 * nEcho * nExcit) -1;
         pe_step_min = min(pe_full(:));
         pe_Img = pe_full;
@@ -15,7 +15,7 @@ function [...
         pe_steps  = pe_full;
     elseif R > 1 % for parallel imaging
         % 1. determine nRef (to make mod(nRef+nImg, nEcho) == 0)
-        pe_full   = (1:(nY)) - floor(0.5 * nY) - 1;
+        pe_full   = (1:(nPE)) - floor(0.5 * nPE) - 1;
         pe_step_min = min(pe_full(:));
 
 
@@ -30,7 +30,7 @@ function [...
         % pe_Img    = sort([pe_Img 0], "ascend");
         
         nImg      = length(pe_Img);
-        nRef      = round(nY * RefLinesRatio * (R-1)/R);
+        nRef      = round(nPE * RefLinesRatio * (R-1)/R);
 
         nExcit    = round((nImg+nRef) / nEcho);
         nRef      = nExcit * nEcho - nImg; 
@@ -75,15 +75,15 @@ function [...
         otherwise
             error('Invalid PEMode');
     end
-    PEorder    = circshift(pe_steps, k0prescr - k0curr);
-    phaseAreas = PEorder * deltak;
-    PElabel    = PEorder - pe_step_min;
+    PE3DOrder    = circshift(pe_steps, k0prescr - k0curr);
+    phaseAreas = PE3DOrder * deltak;
+    PE3DLabel    = PE3DOrder - pe_step_min;
 
-    [row, col] = find(PEorder == 0);
-    kSpaceCenterLine = PElabel(row, col);
+    [row, col] = find(PE3DOrder == 0);
+    kSpaceCenterLine = PE3DLabel(row, col);
     if R > 1
-        [row, col] = find(PEorder == min(union(pe_ImgAndRef, pe_Ref)));
-        FirstRefLine = PElabel(row, col);
+        [row, col] = find(PE3DOrder == min(union(pe_ImgAndRef, pe_Ref)));
+        FirstRefLine = PE3DLabel(row, col);
     else
         FirstRefLine = -1;
     end

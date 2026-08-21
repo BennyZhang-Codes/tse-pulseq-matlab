@@ -1,10 +1,10 @@
 function [...
     nExcit, pe_steps, pe_step_min, pe_full, pe_Img, pe_Ref, pe_ImgAndRef ...
-    ] = prep_PEOrder_PI(nY, nEcho, R, RefLinesRatio)
+    ] = prep_PE3DOrder_PI(nPE, nEcho, R, RefLinesRatio)
 
     % for parallel imaging
     % 1. determine nRef (to make mod(nRef+nImg, nEcho) == 0)
-    pe_full   = (1:(nY)) - floor(0.5 * nY);
+    pe_full = (0:nPE-1) - floor(nPE/2);     % nPE=300 -> [-150, 149]
     pe_step_min = min(pe_full(:));
 
 
@@ -18,13 +18,13 @@ function [...
     % pe_Img    = sort([pe_Img 0], "ascend");
 
 
-    iLine = 0 : (nY - 1);
+    iLine = 0 : (nPE - 1);
     KSpaceCenterLine = find(pe_full == 0)-1;
     pe_Img = pe_full(mod(iLine - KSpaceCenterLine, R) == 0);
 
     
     nImg      = length(pe_Img);
-    nRef      = round(nY * RefLinesRatio * (R-1)/R);
+    nRef      = round(nPE * RefLinesRatio * (R-1)/R);
 
     nExcit    = ceil((nImg+nRef) / nEcho);
     nRef      = nExcit * nEcho - nImg; 
@@ -43,22 +43,30 @@ function [...
     pe_ImgAndRef = pe_Img(pe_Img > min(pe_Ref) & pe_Img < max(pe_Ref)); 
 
     % new
-    nPATRefLine  = length(pe_Ref) + length(pe_ImgAndRef);
+    nPATRefLine = length(pe_Ref) + length(pe_ImgAndRef);
     while true
-        halfWidth    = floor((nPATRefLine - 1)/2);
-        minPATRefLin = KSpaceCenterLine - halfWidth;
-        maxPATRefLin = KSpaceCenterLine + (nPATRefLine - 1 - halfWidth);
+        % Siemens ACS convention:
+        % minRef = center - floor(nRef/2)
+        % maxRef = center + floor((nRef-1)/2)
+        % For an even number of ACS lines, there is one more line before the center than after the center.
+        nBeforeCenter = floor(nPATRefLine/2);
+        nAfterCenter  = nPATRefLine - 1 - nBeforeCenter;
+    
+        minPATRefLin = KSpaceCenterLine - nBeforeCenter;
+        maxPATRefLin = KSpaceCenterLine + nAfterCenter;
+    
+        if minPATRefLin < 0 || maxPATRefLin >= nPE
+            error('ACS range [%d,%d] is outside the encoded PE matrix [0,%d].', minPATRefLin, maxPATRefLin, nPE-1);
+        end
     
         pe_PATRefLine = pe_full(minPATRefLin+1:maxPATRefLin+1);
-        pe_Ref       = pe_PATRefLine(~ismember(pe_PATRefLine, pe_Img));
+        pe_Ref = pe_PATRefLine(~ismember(pe_PATRefLine, pe_Img));
         pe_ImgAndRef = pe_PATRefLine(ismember(pe_PATRefLine, pe_Img));
-        if length(pe_Ref) == nRef
-            break;
-        else
-            nPATRefLine = nPATRefLine + (nRef - length(pe_Ref));
-        end
+    
+        if length(pe_Ref) == nRef; break; end
+    
+        nPATRefLine = nPATRefLine + (nRef - length(pe_Ref));
     end
-
 
     % 4. reset pe_steps
     pe_steps  = sort([pe_Img pe_Ref], "ascend");

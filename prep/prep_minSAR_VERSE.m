@@ -1,6 +1,6 @@
 function [rf_verse_interp, t_rf_interp, ...
     g_verse_interp, t_g_interp] = prep_minSAR_VERSE(rf_pulseq, TBP, SliceThickness, B1max, Gmax, SRmax, sys)
-% prep_minSAR_VERSE(RF.rfex, paramsRF.tbpEx, params, sys)
+% prep_minSAR_VERSE(RF.rfex, ActualRF.tbpEx, params, sys)
     gamma           = sys.gamma;
     rfRasterTime    = sys.rfRasterTime;        %<--- Raster Time for RF pulse [s]
     gradRasterTime  = sys.gradRasterTime;      %<--- Raster Time for gradient [s]  

@@ -1,35 +1,39 @@
-function [ADC, Grad] = prep_Gradient_GR(Grad, ADC, params, sys)
-    fovRead      = params.fovRead;
-    nX           = params.nX;
-    readoutOS    = params.readoutOS;
-    readoutTime  = params.readoutTime;
-    roDuration   = params.roDuration;
-    fspR         = params.fspR;
+function [ADC, Grad] = prep_Gradient_GR(Grad, ADC, Actual, sys)
+    % mapping of RO/PE/3D to X/Y/Z
+    AxisRO       = Actual.AxisRO   ; 
+    SignCorr     = Actual.SignCorr ; 
 
-    tSp          = params.tSp;
+    fovRO        = Actual.fovRO;
+    nRO          = Actual.nRO;
+    readoutOS    = Actual.readoutOS;
+    ReadoutTime  = Actual.ReadoutTime;
+    roDuration   = Actual.roDuration;
+    fspR         = Actual.fspR;
+
+    tSp          = Actual.tSp;
 
 
     % Readout gradient
-    deltakX  = 1 / fovRead;
-    GRacq    = mr.makeTrapezoid('x', sys, 'FlatArea', nX * deltakX, 'FlatTime', readoutTime);
+    deltakX  = 1 / fovRO;
+    GROacq    = mr.makeTrapezoid(AxisRO, sys, 'FlatArea', SignCorr.(AxisRO) * nRO * deltakX, 'FlatTime', ReadoutTime);
 
-    area_GR_Spoil = GRacq.flatArea*fspR;
+    area_GRO_Spoil = GROacq.flatArea*fspR;
 
-    [g_GR_SpoilPre,  t_GR_SpoilPre ] = design_gradient_waveform(area_GR_Spoil, tSp, 0, GRacq.amplitude, sys.maxGrad, sys.maxSlew, sys.gradRasterTime);
-    GR_SpoilPre = mr.makeExtendedTrapezoid('x', 'system', sys, 'amplitudes', g_GR_SpoilPre, 'times', t_GR_SpoilPre); 
+    [g_GRO_SpoilPre,  t_GRO_SpoilPre ] = design_gradient_waveform(area_GRO_Spoil, tSp, 0, GROacq.amplitude, sys.maxGrad, sys.maxSlew, sys.gradRasterTime);
+    GRO_SpoilPre = mr.makeExtendedTrapezoid(AxisRO, 'system', sys, 'amplitudes', g_GRO_SpoilPre, 'times', t_GRO_SpoilPre); 
 
-    [g_GR_SpoilPost, t_GR_SpoilPost] = design_gradient_waveform(area_GR_Spoil, tSp, GRacq.amplitude, 0, sys.maxGrad, sys.maxSlew, sys.gradRasterTime);
-    GR_SpoilPost = mr.makeExtendedTrapezoid('x', 'system', sys, 'amplitudes', g_GR_SpoilPost, 'times', t_GR_SpoilPost); 
+    [g_GRO_SpoilPost, t_GRO_SpoilPost] = design_gradient_waveform(area_GRO_Spoil, tSp, GROacq.amplitude, 0, sys.maxGrad, sys.maxSlew, sys.gradRasterTime);
+    GRO_SpoilPost = mr.makeExtendedTrapezoid(AxisRO, 'system', sys, 'amplitudes', g_GRO_SpoilPost, 'times', t_GRO_SpoilPost); 
 
-    GR_adc   = mr.makeExtendedTrapezoid('x', 'times', [0, readoutTime], 'amplitudes', [GRacq.amplitude, GRacq.amplitude]);
+    GRO_adc  = mr.makeExtendedTrapezoid(AxisRO, 'times', [0, ReadoutTime], 'amplitudes', [GROacq.amplitude, GROacq.amplitude]);
 
-    adc      = mr.makeAdc(nX*readoutOS, 'Duration', roDuration, 'Delay', sys.adcDeadTime, 'system', sys);%,'Delay',GRacq.riseTime);
+    adc      = mr.makeAdc(nRO*readoutOS, 'Duration', roDuration, 'Delay', sys.adcDeadTime, 'system', sys);%,'Delay',GRacq.riseTime);
     
-    AGRpreph = GRacq.flatArea * (0.5+fspR);
+    Area_GROpreph = GROacq.flatArea * (0.5+fspR);
 
-    ADC.adc           = adc;
-    ADC.AGRpreph      = AGRpreph;
-    Grad.GR_adc       = GR_adc;
-    Grad.GR_SpoilPre  = GR_SpoilPre;
-    Grad.GR_SpoilPost = GR_SpoilPost;
+    ADC.adc            = adc;
+    ADC.Area_GROpreph  = Area_GROpreph;
+    Grad.GRO_adc       = GRO_adc;
+    Grad.GRO_SpoilPre  = GRO_SpoilPre;
+    Grad.GRO_SpoilPost = GRO_SpoilPost;
 end

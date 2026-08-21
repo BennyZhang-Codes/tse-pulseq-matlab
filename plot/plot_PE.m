@@ -1,6 +1,6 @@
-function [fig] = plot_PE(R, nX, nY, pe_Img, pe_Ref, pe_ImgAndRef, pe_full)
+function [fig] = plot_PE(R, nRO, nPE, pe_Img, pe_Ref, pe_ImgAndRef, pe_full)
 
-    im_PEOrder = zeros(nX, nY);
+    im_PEOrder = zeros(nRO, nPE);
     for idx = 1:length(pe_Img)
         im_PEOrder(:, pe_full==pe_Img(idx)) = 1;
     end

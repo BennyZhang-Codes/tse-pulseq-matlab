@@ -1,14 +1,18 @@
-function [RF, Grad] = prep_Excitation(RF, Grad, params, sys)
-    flipex          = params.flipex;
-    SliceThickness  = params.SliceThickness;
-    % tExwd           = params.tExwd;
+function [RF, Grad] = prep_Excitation(RF, Grad, Actual, sys)
+    % mapping of RO/PE/3D to X/Y/Z
+    Axis3D   = Actual.Axis3D   ; 
+    SignCorr = Actual.SignCorr ; 
 
-    VERSE           = params.VERSE;
+    flipex          = Actual.flipex;
+    SliceThickness  = Actual.SliceThickness;
+    % tExwd           = Actual.tExwd;
+
+    VERSE           = Actual.VERSE;
     
-    typeEx          = params.paramsRF.typeEx;
-    tEx             = params.paramsRF.tEx;
-    tbpEx           = params.paramsRF.tbpEx;
-    phaseEx         = params.paramsRF.phaseEx;
+    typeEx          = Actual.ActualRF.typeEx;
+    tEx             = Actual.ActualRF.tEx;
+    tbpEx           = Actual.ActualRF.tbpEx;
+    phaseEx         = Actual.ActualRF.phaseEx;
 
 
 
@@ -64,6 +68,6 @@ function [RF, Grad] = prep_Excitation(RF, Grad, params, sys)
         figure;plot(abs(g_verse(2:end)-g_verse(1:end-1))./sys.gradRasterTime/sys.gamma)
     end
 
-    Grad.amplitudeEx = amplitude;
+    Grad.amplitudeEx = SignCorr.(Axis3D) * amplitude;
     RF.rfEx          = rfex;
 end

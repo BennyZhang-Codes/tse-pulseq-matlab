@@ -1,13 +1,13 @@
-function [rfex, GSex] = prep_VERSE(params, sys)
-    flipex          = params.flipex;
-    SliceThickness  = params.SliceThickness;
-    tExwd           = params.tExwd;
-    dG              = params.dG;
+function [rfex, GSex] = prep_VERSE(Actual, sys)
+    flipex          = Actual.flipex;
+    SliceThickness  = Actual.SliceThickness;
+    tExwd           = Actual.tExwd;
+    dG              = Actual.dG;
     
-    typeEx          = params.paramsRF.typeEx;
-    tEx             = params.paramsRF.tEx;
-    tbpEx           = params.paramsRF.tbpEx;
-    phaseEx         = params.paramsRF.phaseEx;
+    typeEx          = Actual.ActualRF.typeEx;
+    tEx             = Actual.ActualRF.tEx;
+    tbpEx           = Actual.ActualRF.tbpEx;
+    phaseEx         = Actual.ActualRF.phaseEx;
 
     switch lower(typeEx)
         case 'sinc'
