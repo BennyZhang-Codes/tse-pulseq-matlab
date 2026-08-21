@@ -17,11 +17,11 @@ function [seq] = prep_Seqloop(seq, Actual, RF, Grad, ADC, Delay, Label, sys)
 
     SlicePositions = Actual.Slice.SlicePositions;
     SliceLabel     = Actual.Slice.SliceLabel;
-    phaseAreas     = Actual.PE.phaseAreas;
-    PElabel        = Actual.PE.PElabel;
-    PEorder        = Actual.PE.PEorder;
-    pe_Ref         = Actual.PE.pe_Ref;
-    pe_ImgAndRef   = Actual.PE.pe_ImgAndRef;
+    phaseAreas     = Actual.PE3D.phaseAreas;
+    PElabel        = Actual.PE3D.PElabel;
+    PEorder        = Actual.PE3D.PEorder;
+    pe_Ref         = Actual.PE3D.pe_Ref;
+    pe_ImgAndRef   = Actual.PE3D.pe_ImgAndRef;
 
     tSp            = Actual.tSp;
 
@@ -101,7 +101,7 @@ function [seq] = prep_Seqloop(seq, Actual, RF, Grad, ADC, Delay, Label, sys)
                             seq.addBlock(lblResetRefAndImaScan, lblResetRefScan) ;
                         end
                     else
-                        [isegCenter, iexcitCenter] = find(PElabel == Actual.PE.kSpaceCenterLine);
+                        [isegCenter, iexcitCenter] = find(PElabel == Actual.PE3D.kSpaceCenterLine);
                         phaseArea      = phaseAreas(isegCenter, iexcitCenter);
                         phaseArea_next = 0;
 

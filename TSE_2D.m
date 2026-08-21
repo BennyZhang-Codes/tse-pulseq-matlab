@@ -7,10 +7,12 @@ addpath(genpath('plot'  ));
 addpath(genpath('utils' ));
 addpath(genpath('VERSE' ));
 
-Grad  = struct();
 RF    = struct();
+Grad  = struct();
 ADC   = struct();
-Delay = struct(); 
+Delay = struct();
+Label = struct();
+Trig  = struct();
 
 Setup.SeqDimension     = '2D';
 %% Setup
@@ -126,8 +128,8 @@ Actual.ActualRF = SetupRF;
 Actual.Slice = Slice;
 
 %% Phase encoding
-[Actual.nAcq, Actual.nExcit, PE] = prep_PEOrder(Actual);
-Actual.PE = PE;
+[Actual.nAcq, Actual.nExcit, PE3D] = prep_PE3DOrder(Actual);
+Actual.PE3D = PE3D;
 % plot_PE(Actual.R, Actual.nRO, Actual.nPE, PE.pe_Img, PE.pe_Ref, PE.pe_ImgAndRef, PE.pe_full)
 % plot_PEOrder(Actual.R, Actual.nRO, Actual.nPE, PE.PElabel);
 
@@ -142,11 +144,16 @@ end
 
 [Grad, RF, Delay] = prep_Gradient_Block(Grad, RF, ADC, Delay, Actual, sys_soft);        % split gradients and recombine into blocks
 
+%% Label
+[seq, Label] = prep_Label(seq, Actual, Label, PE3D);
+
 %% Delay
 [Delay] = prep_Delay(Actual, Delay);
 
+%% Noise Scan
+[seq, Label] = prep_NoiseScan(seq, Actual, PE3D, ADC, Label, sys);
+
 %% Define sequence blocks
-[seq, Label] = prep_Kernel(seq, Actual, ADC, sys_soft);
 
 if strcmpi(Actual.IR, 'on')
     [seq] = prep_Seqloop_IR(seq, Actual, RF, Grad, ADC, Delay, Label, sys_soft);
@@ -178,10 +185,3 @@ plot_kspace(ktraj, ktraj_adc);
 %% very optional slow step, but useful for testing during development e.g. for the real TE, TR or for staying within slew rate limits  
 % rep = seq.testReport; 
 % fprintf([rep{:}]); 
-
-%%
-% gw = seq.waveforms_and_times();
-% figure;
-% plot(gw{1}(1,:),gw{1}(2,:),gw{2}(1,:),gw{2}(2,:),gw{3}(1,:),gw{3}(2,:)); % plot the entire gradient shape
-% title('gradient wave form, in T/m');
-
