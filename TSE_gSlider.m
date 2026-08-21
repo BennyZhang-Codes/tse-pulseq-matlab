@@ -69,36 +69,62 @@ Setup.roDuration       = 6.0e-3;
 
 Setup.TI               = 2000e-3; % time of inversion recovery
 
-paramsRF.typeEx         = 'gSlider';
-paramsRF.typeRef        = 'slr'    ;
-paramsRF.typeInv        = 'slr'    ;
-paramsRF.tEx            = 5.12e-3  ; 
-paramsRF.tRef           = 3.84e-3  ; 
-paramsRF.tInv           = 3.84e-3  ;
-paramsRF.tbpEx          = 12       ;
-paramsRF.tbpRef         = 6        ;
-paramsRF.tbpInv         = 6        ;
-paramsRF.phaseEx        = pi/2     ;   
-paramsRF.phaseRef       = 0        ;
-paramsRF.phaseInv       = 0        ;
+SetupRF.typeEx         = 'gSlider';
+SetupRF.typeRef        = 'slr'    ;
+SetupRF.typeInv        = 'slr'    ;
+SetupRF.tEx            = 5.12e-3  ; 
+SetupRF.tRef           = 3.84e-3  ; 
+SetupRF.tInv           = 3.84e-3  ;
+SetupRF.tbpEx          = 12       ;
+SetupRF.tbpRef         = 6        ;
+SetupRF.tbpInv         = 6        ;
+SetupRF.phaseEx        = pi/2     ;   
+SetupRF.phaseRef       = 0        ;
+SetupRF.phaseInv       = 0        ;
 
 Setup.fspR             = 0.5       ; % ratio of spoiling area to readout area
 Setup.fspS             = 0.5       ; % ratio of spoiling area to Gz rephasing area
 Setup.dG               = 250e-6    ; % 'standard' ramp time - makes sequence structure much simpler
 Setup.readoutOS        = 2         ; % oversampling factor for readout direction
 
-Setup.paramsRF         = paramsRF;
+
 %% init
 Setup.BWPerPixel       = 1 / Setup.roDuration;
 Setup.readoutTime      = Setup.roDuration + 2 * 10e-6; % + 2 x adcDeadTime
-Setup.tEx              = paramsRF.tEx ;
-Setup.tRef             = paramsRF.tRef;
+Setup.tEx              = SetupRF.tEx ;
+Setup.tRef             = SetupRF.tRef;
 Setup.tSp              = 0.5 * (Setup.TE1 - Setup.readoutTime - Setup.tRef);
 Setup.tSpex            = 0.5 * (Setup.TE1 - Setup.tEx       - Setup.tRef);
+
+% Spoiler area
+% [1] explicitly in mT*us/m
+% [2] relative to the net area of gradients required to achieve desired resolution. 
+% Two sets of variables are given at least one must be empty.
+Setup.SpoilerArea_RO = [] ; % [mT*us/m]
+Setup.SpoilerArea_PE = [] ; % [mT*us/m]
+Setup.SpoilerArea_3D = [] ; % [mT*us/m]
+Setup.SpoilerAreaFactor_RO = 4 ;
+Setup.SpoilerAreaFactor_PE = 4 ;
+Setup.SpoilerAreaFactor_3D = 4 ;
+
+%% Set orienation (non-oblique)
+% Set axes (X/Y/Z vs. RO/PE/3D - oblique not supported) 
+% In Siemens interpreter the defintions here must agree with the
+
+% mapping of RO/PE/3D to X/Y/Z
+Setup.AxisRO = 'x' ;
+Setup.AxisPE = 'y' ;
+Setup.Axis3D = 'z' ; 
+
+% Flip or not X/Y/Z to match patient positive/negative directions. Usefull if reconstruction is done by system to get correct orientation of images.
+Setup.SignCorr.x = -1 ;
+Setup.SignCorr.y = -1 ;
+Setup.SignCorr.z = -1 ;
 
 %% Initialize Actual Params
 % Initialize Actual to be the same as Setup
 Actual = Setup ;
+Actual.ActualRF = SetupRF;
 
 %% prep system
 [sys, sys_soft, seq, Actual] = prep_System(Actual);
@@ -114,24 +140,24 @@ Actual.PE = PE;
 % fig = plot_PEOrder(Actual.R, Actual.nX, Actual.nY, PE.PElabel);
 % print(fig, '-dpng', '-loose', '-r300', '-image', sprintf('PEMode_%s_%s_R%s.png', Actual.PEMode, Actual.AccelerationMode, num2str(Actual.R)));
 %% RF and Gz
-[RF, Grad] = prep_Excitation(RF, Grad, Actual, sys);
-[RF, Grad] = prep_Refocusing(RF, Grad, Actual, sys);
+[RF, Grad] = prep_Excitation(RF, Grad, Actual, sys_soft);
+[RF, Grad] = prep_Refocusing(RF, Grad, Actual, sys_soft);
 if strcmp(Actual.IR, 'on')
-    [RF, Grad] = prep_Inversion(RF, Grad, Actual, sys);
+    [RF, Grad] = prep_Inversion(RF, Grad, Actual, sys_soft);
 end
 %%
-[ADC, Grad] = prep_Gradient_GR(Grad, ADC, Actual, sys); % readout gradients
+[ADC, Grad] = prep_Gradient_GR(Grad, ADC, Actual, sys_soft); % readout gradients
 
-[Grad, RF, Delay] = prep_Gradient_Block(Grad, RF, ADC, Delay, Actual, sys);        % split gradients and recombine into blocks
+[Grad, RF, Delay] = prep_Gradient_Block(Grad, RF, ADC, Delay, Actual, sys_soft);        % split gradients and recombine into blocks
 
 %% Define sequence blocks
-[seq, Label, sys] = prep_Kernel(seq, Actual, ADC, sys);
+[seq, Label] = prep_Kernel(seq, Actual, ADC, sys_soft);
 
 
 if strcmpi(Actual.IR, 'on')
-    [seq] = prep_Seqloop_IR_gSlider(seq, Actual, RF, Grad, ADC, Delay, Label, sys);
+    [seq] = prep_Seqloop_IR_gSlider(seq, Actual, RF, Grad, ADC, Delay, Label, sys_soft);
 else
-    [seq] = prep_Seqloop_gSlider(seq, Actual, RF, Grad, ADC, Delay, Label, sys);
+    [seq] = prep_Seqloop_gSlider(seq, Actual, RF, Grad, ADC, Delay, Label, sys_soft);
 end
 
 %% timing & PNS & definition
@@ -143,7 +169,7 @@ check_PNS(seq, Actual);
 
 %%
 outpath = 'seq/';
-seqname = sprintf('gSliderT1_TRAPS70_TI%s%s%s_%s_r%s_nRef%s_sli%s', num2str(Actual.TI*1e3), paramsRF.typeInv, num2str(paramsRF.tbpInv),...
+seqname = sprintf('gSliderT1_TRAPS70_TI%s%s%s_%s_r%s_nRef%s_sli%s', num2str(Actual.TI*1e3), SetupRF.typeInv, num2str(SetupRF.tbpInv),...
     prefix, num2str(Actual.R), num2str(PE.nRef), num2str(Actual.nSlice));
 seq.write(strcat(outpath, seqname,'.seq'))
 

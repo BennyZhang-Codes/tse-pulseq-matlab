@@ -8,10 +8,10 @@ function [RF, Grad] = prep_Refocusing(RF, Grad, Actual, sys)
 
     VERSE            = Actual.VERSE;
 
-    typeRef          = Actual.paramsRF.typeRef;
-    tRef             = Actual.paramsRF.tRef;
-    tbpRef           = Actual.paramsRF.tbpRef;
-    phaseRef         = Actual.paramsRF.phaseRef;
+    typeRef          = Actual.ActualRF.typeRef;
+    tRef             = Actual.ActualRF.tRef;
+    tbpRef           = Actual.ActualRF.tbpRef;
+    phaseRef         = Actual.ActualRF.phaseRef;
 
     switch lower(typeRef)
         case 'sinc'

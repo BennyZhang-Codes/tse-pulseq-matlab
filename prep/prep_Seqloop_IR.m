@@ -22,8 +22,8 @@ function [seq] = prep_Seqloop_IR(seq, Actual, RF, Grad, ADC, Delay, Label, sys)
 
     tSp            = Actual.tSp;
 
-    phaseEx        = Actual.paramsRF.phaseEx;
-    phaseRef       = Actual.paramsRF.phaseRef;
+    phaseEx        = Actual.ActualRF.phaseEx;
+    phaseRef       = Actual.ActualRF.phaseRef;
 
     rfEx           = RF.rfEx;
     rfRef          = RF.rfRef;
@@ -64,7 +64,7 @@ function [seq] = prep_Seqloop_IR(seq, Actual, RF, Grad, ADC, Delay, Label, sys)
     TI             = Actual.TI;
     GS_Inv         = Grad.GS_Inv;
     rfInv          = RF.rfInv;
-    phaseInv       = Actual.paramsRF.phaseInv;
+    phaseInv       = Actual.ActualRF.phaseInv;
     amplitudeInv   = Grad.amplitudeInv;
     
 

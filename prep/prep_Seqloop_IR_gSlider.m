@@ -22,8 +22,8 @@ function [seq] = prep_Seqloop_IR_gSlider(seq, Actual, RF, Grad, ADC, Delay, Labe
 
     tSp            = Actual.tSp;
 
-    phaseEx        = Actual.paramsRF.phaseEx;
-    phaseRef       = Actual.paramsRF.phaseRef;
+    phaseEx        = Actual.ActualRF.phaseEx;
+    phaseRef       = Actual.ActualRF.phaseRef;
 
     if strcmpi(Actual.TRAPS, 'on')
         faRef          = Actual.faRef;
@@ -69,7 +69,7 @@ function [seq] = prep_Seqloop_IR_gSlider(seq, Actual, RF, Grad, ADC, Delay, Labe
     TI             = Actual.TI;
     GS_Inv         = Grad.GS_Inv;
     rfInv          = RF.rfInv;
-    phaseInv       = Actual.paramsRF.phaseInv;
+    phaseInv       = Actual.ActualRF.phaseInv;
     amplitudeInv   = Grad.amplitudeInv;
     
 
@@ -263,7 +263,7 @@ function [seq] = prep_Seqloop_IR_gSlider(seq, Actual, RF, Grad, ADC, Delay, Labe
     % Next, the blocks are put together to form the sequence
     seq.addBlock(mr.makeLabel('SET', 'REP', 0));
     for irep = 1:nRep
-        if strcmpi(Actual.paramsRF.typeEx, 'gslider')
+        if strcmpi(Actual.ActualRF.typeEx, 'gslider')
             rfEx.signal = RF.rfex_gSlider(irep).signal;
         end
         for iexcit = (1-nDummy):nExcit 

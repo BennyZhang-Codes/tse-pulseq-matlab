@@ -4,10 +4,10 @@ function [rfex, GSex] = prep_VERSE(Actual, sys)
     tExwd           = Actual.tExwd;
     dG              = Actual.dG;
     
-    typeEx          = Actual.paramsRF.typeEx;
-    tEx             = Actual.paramsRF.tEx;
-    tbpEx           = Actual.paramsRF.tbpEx;
-    phaseEx         = Actual.paramsRF.phaseEx;
+    typeEx          = Actual.ActualRF.typeEx;
+    tEx             = Actual.ActualRF.tEx;
+    tbpEx           = Actual.ActualRF.tbpEx;
+    phaseEx         = Actual.ActualRF.phaseEx;
 
     switch lower(typeEx)
         case 'sinc'

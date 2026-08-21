@@ -12,8 +12,8 @@ function [Grad, RF, Delay] = prep_Gradient_Block(Grad, RF, ADC, Delay, Actual, s
     amplitudeEx  = Grad.amplitudeEx;
     amplitudeRef = Grad.amplitudeRef;
 
-    tEx          = Actual.paramsRF.tEx;
-    tRef         = Actual.paramsRF.tRef;
+    tEx          = Actual.ActualRF.tEx;
+    tRef         = Actual.ActualRF.tRef;
 
     fspS         = Actual.fspS;
     tSp          = Actual.tSp;
@@ -28,7 +28,7 @@ function [Grad, RF, Delay] = prep_Gradient_Block(Grad, RF, ADC, Delay, Actual, s
     %% IR
     if strcmpi(IR, 'on')
         amplitudeInv = Grad.amplitudeInv;
-        tInv         = Actual.paramsRF.tInv;
+        tInv         = Actual.ActualRF.tInv;
   
         [g_InvSpoilPre, t_InvSpoilPre] = design_gradient_min_time(SignCorr.(Axis3D) * 4/SliceThickness, 10e-3, 0, amplitudeInv, sys.maxGrad, sys.maxSlew, sys.gradRasterTime);
         GS_InvSpoilPre = mr.makeExtendedTrapezoid(Axis3D, 'system', sys, 'amplitudes', g_InvSpoilPre, 'times', t_InvSpoilPre);    

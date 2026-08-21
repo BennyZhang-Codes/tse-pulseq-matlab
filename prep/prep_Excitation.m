@@ -9,10 +9,10 @@ function [RF, Grad] = prep_Excitation(RF, Grad, Actual, sys)
 
     VERSE           = Actual.VERSE;
     
-    typeEx          = Actual.paramsRF.typeEx;
-    tEx             = Actual.paramsRF.tEx;
-    tbpEx           = Actual.paramsRF.tbpEx;
-    phaseEx         = Actual.paramsRF.phaseEx;
+    typeEx          = Actual.ActualRF.typeEx;
+    tEx             = Actual.ActualRF.tEx;
+    tbpEx           = Actual.ActualRF.tbpEx;
+    phaseEx         = Actual.ActualRF.phaseEx;
 
 
 

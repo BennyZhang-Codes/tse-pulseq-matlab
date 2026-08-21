@@ -8,10 +8,10 @@ function [RF, Grad] = prep_Inversion(RF, Grad, Actual, sys)
 
     VERSE           = Actual.VERSE;
   
-    typeInv          = Actual.paramsRF.typeInv;
-    tInv             = Actual.paramsRF.tInv;
-    tbpInv           = Actual.paramsRF.tbpInv;
-    phaseInv         = Actual.paramsRF.phaseInv;
+    typeInv          = Actual.ActualRF.typeInv;
+    tInv             = Actual.ActualRF.tInv;
+    tbpInv           = Actual.ActualRF.tbpInv;
+    phaseInv         = Actual.ActualRF.phaseInv;
 
     switch lower(typeInv)
         case 'sinc'

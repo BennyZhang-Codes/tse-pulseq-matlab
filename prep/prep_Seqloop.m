@@ -22,8 +22,8 @@ function [seq] = prep_Seqloop(seq, Actual, RF, Grad, ADC, Delay, Label, sys)
 
     tSp            = Actual.tSp;
 
-    phaseEx        = Actual.paramsRF.phaseEx;
-    phaseRef       = Actual.paramsRF.phaseRef;
+    phaseEx        = Actual.ActualRF.phaseEx;
+    phaseRef       = Actual.ActualRF.phaseRef;
 
     rfEx           = RF.rfEx;
     rfRef          = RF.rfRef;

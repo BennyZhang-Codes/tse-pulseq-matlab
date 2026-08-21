@@ -1,4 +1,4 @@
-function [seq, Label, sys] = prep_Kernel(seq, Actual, ADC, sys)
+function [seq, Label] = prep_Kernel(seq, Actual, ADC, sys)
     NoiseScan  = Actual.NoiseScan;
     adc        = ADC.adc;
     TR         = round(Actual.TR / sys.gradRasterTime) * sys.gradRasterTime;
