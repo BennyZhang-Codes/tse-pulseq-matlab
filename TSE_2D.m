@@ -171,11 +171,11 @@ end
 check_Label(seq);
 check_PNS(seq, Actual);
 
-[seq, prefix] = prep_Definition(seq, Actual, PE3D);
+[seq, Actual] = prep_Definition(seq, Actual);
 %%
 outpath = 'seq/';
-seqname = sprintf('TSE_PC%s_%s_r%s_nRef%s_sli%s', Actual.PhaseCorrection, ...
-    prefix, num2str(Actual.R), num2str(PE.nRef), num2str(Actual.nSlice));
+seqname = Actual.seqname; % seqname = [seqname, '_', num2str(Actual.TypeInv)];
+save(strcat(outpath, seqname), 'Setup', 'Actual');
 seq.write(strcat(outpath, seqname,'.seq'))
 
 %% plot

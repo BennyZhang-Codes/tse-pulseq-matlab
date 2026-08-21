@@ -176,11 +176,11 @@ end
 check_Label(seq);
 check_PNS(seq, Actual);
 
-[seq, prefix] = prep_Definition(seq, Actual, PE);
+[seq, Actual] = prep_Definition(seq, Actual);
 %%
 outpath = 'seq/';
-seqname = sprintf('gSliderT1_TRAPS70_TI%s%s%s_%s_r%s_nRef%s_sli%s', num2str(Actual.TI*1e3), SetupRF.typeInv, num2str(SetupRF.tbpInv),...
-    prefix, num2str(Actual.R), num2str(PE.nRef), num2str(Actual.nSlice));
+seqname = Actual.seqname; % seqname = [seqname, '_', num2str(Actual.TypeInv)];
+save(strcat(outpath, seqname), 'Setup', 'Actual');
 seq.write(strcat(outpath, seqname,'.seq'))
 
 %% plot
