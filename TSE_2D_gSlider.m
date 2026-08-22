@@ -31,7 +31,6 @@ Setup.IRMode           = 'Interleaved'; % 'Interleaved' or 'Sequential'
 
 Setup.PEMode           = 'CentricFull'; % 'Centric', 'Linear'
 Setup.AccelerationMode = 'PI';          % 'PI', 'CS'
-Setup.MultiSliceMode   = 'Interleaved'; % 'Interleaved' or 'Sequential'
 
 Setup.TRAPS            = 'on';
 
@@ -42,11 +41,13 @@ Setup.fovPE            = 120e-3;
 Setup.nRO              = 120; 
 Setup.nPE              = 120; 
 Setup.nEcho            = 10; 
-Setup.nSlice           = 10; 
 Setup.nRep             = 5;
 
+Setup.nSlice           = 5;
 Setup.SliceThickness   = 2e-3;
 Setup.SliceGap         = 0/100 * Setup.SliceThickness;
+Setup.MultiSliceMode   = 'Interleaved'; % 'Interleaved' or 'Sequential'
+Setup.MultiSliceDir    = 'Descending'; % 'Ascending' F->H or 'Descending' H->F
 
 Setup.TE1              = 13e-3; % echo time of the first echo in the train
 Setup.TR               = 5600e-3;

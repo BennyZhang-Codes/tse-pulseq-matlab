@@ -32,7 +32,6 @@ Setup.TI               = 1700e-3;       % time of inversion recovery
 
 Setup.PEMode           = 'CentricFull'; % 'Centric', 'Linear'
 Setup.AccelerationMode = 'PI';          % 'PI', 'CS'
-Setup.MultiSliceMode   = 'Interleaved'; % 'Interleaved' or 'Sequential'
 
 Setup.nDummy           = 1;             % number of pre-scans
 
@@ -41,11 +40,13 @@ Setup.fovPE            = 120e-3;
 Setup.nRO              = 120;
 Setup.nPE              = 120;
 Setup.nEcho            = 10;
-Setup.nSlice           = 5;
 Setup.nRep             = 1;
 
+Setup.nSlice           = 5;
 Setup.SliceThickness   = 2e-3;
 Setup.SliceGap         = 0/100 * Setup.SliceThickness;
+Setup.MultiSliceMode   = 'Interleaved'; % 'Interleaved' or 'Sequential'
+Setup.MultiSliceDir    = 'Descending'; % 'Ascending' F->H or 'Descending' H->F
 
 Setup.TE1              = 14e-3; % echo time of the first echo in the train
 Setup.TR               = 5000e-3;

@@ -44,6 +44,7 @@ function [seq, Actual] = prep_Definition(seq, Actual)
     seq.setDefinition('nRep'                 , Actual.nRep               );
    
     seq.setDefinition('MultiSliceMode'       , Actual.MultiSliceMode     );
+    seq.setDefinition('MultiSliceDir'        , Actual.MultiSliceDir      );
     seq.setDefinition('PEMode'               , Actual.PEMode             );
     seq.setDefinition('AccelerationMode'     , Actual.AccelerationMode   );
     seq.setDefinition('IRMode'               , Actual.IRMode             );
