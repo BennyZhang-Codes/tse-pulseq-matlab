@@ -44,12 +44,13 @@ function [seq, Actual] = prep_Definition(seq, Actual)
     seq.setDefinition('nRep'                 , Actual.nRep               );
    
     seq.setDefinition('MultiSliceMode'       , Actual.MultiSliceMode     );
+    seq.setDefinition('MultiSliceDir'        , Actual.MultiSliceDir      );
     seq.setDefinition('PEMode'               , Actual.PEMode             );
     seq.setDefinition('AccelerationMode'     , Actual.AccelerationMode   );
     seq.setDefinition('IRMode'               , Actual.IRMode             );
     seq.setDefinition('IR'                   , Actual.IR                 );
 
-    seq.setDefinition('TuborFactor'          , Actual.nEcho              );
+    seq.setDefinition('TurboFactor'          , Actual.nEcho              );
     seq.setDefinition('PhaseCorrection'      , lower(Actual.PhaseCorrection));
 
     seq.setDefinition('Developer'            , 'Jinyuan Zhang'           );

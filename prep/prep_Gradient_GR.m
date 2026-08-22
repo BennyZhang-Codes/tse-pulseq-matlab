@@ -8,7 +8,6 @@ function [ADC, Grad] = prep_Gradient_GR(Grad, ADC, Actual, sys)
     readoutOS    = Actual.readoutOS;
     ReadoutTime  = Actual.ReadoutTime;
     roDuration   = Actual.roDuration;
-    fspR         = Actual.fspR;
 
     tSp          = Actual.tSp;
 
@@ -17,7 +16,7 @@ function [ADC, Grad] = prep_Gradient_GR(Grad, ADC, Actual, sys)
     deltakX  = 1 / fovRO;
     GROacq    = mr.makeTrapezoid(AxisRO, sys, 'FlatArea', SignCorr.(AxisRO) * nRO * deltakX, 'FlatTime', ReadoutTime);
 
-    area_GRO_Spoil = GROacq.flatArea*fspR;
+    area_GRO_Spoil = SignCorr.(AxisRO) * Grad.SpoilingArea.ReadoutCrusher;
 
     [g_GRO_SpoilPre,  t_GRO_SpoilPre ] = design_gradient_waveform(area_GRO_Spoil, tSp, 0, GROacq.amplitude, sys.maxGrad, sys.maxSlew, sys.gradRasterTime);
     GRO_SpoilPre = mr.makeExtendedTrapezoid(AxisRO, 'system', sys, 'amplitudes', g_GRO_SpoilPre, 'times', t_GRO_SpoilPre); 
@@ -29,7 +28,7 @@ function [ADC, Grad] = prep_Gradient_GR(Grad, ADC, Actual, sys)
 
     adc      = mr.makeAdc(nRO*readoutOS, 'Duration', roDuration, 'Delay', sys.adcDeadTime, 'system', sys);%,'Delay',GRacq.riseTime);
     
-    Area_GROpreph = GROacq.flatArea * (0.5+fspR);
+    Area_GROpreph = 0.5 * GROacq.flatArea + area_GRO_Spoil;
 
     ADC.adc            = adc;
     ADC.Area_GROpreph  = Area_GROpreph;

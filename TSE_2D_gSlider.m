@@ -22,7 +22,7 @@ Setup.MaxGrad_soft     = 40;
 Setup.MaxSlew_soft     = 150;
 
 % Sequence events
-Setup.NoiseScan        = 'on';  
+Setup.NoiseScan        = 'on';
 Setup.VERSE            = 'off';
 Setup.PhaseCorrection  = 'on';
 
@@ -31,7 +31,6 @@ Setup.IRMode           = 'Interleaved'; % 'Interleaved' or 'Sequential'
 
 Setup.PEMode           = 'CentricFull'; % 'Centric', 'Linear'
 Setup.AccelerationMode = 'PI';          % 'PI', 'CS'
-Setup.MultiSliceMode   = 'Interleaved'; % 'Interleaved' or 'Sequential'
 
 Setup.TRAPS            = 'on';
 
@@ -39,18 +38,20 @@ Setup.nDummy           = 1;             % number of pre-scans
 
 Setup.fovRO            = 120e-3;
 Setup.fovPE            = 120e-3;
-Setup.nRO              = 120; 
-Setup.nPE              = 120; 
-Setup.nEcho            = 10; 
-Setup.nSlice           = 10; 
+Setup.nRO              = 120;
+Setup.nPE              = 120;
+Setup.nEcho            = 10;
 Setup.nRep             = 5;
 
+Setup.nSlice           = 5;
 Setup.SliceThickness   = 2e-3;
 Setup.SliceGap         = 0/100 * Setup.SliceThickness;
+Setup.MultiSliceMode   = 'Interleaved'; % 'Interleaved' or 'Sequential'
+Setup.MultiSliceDir    = 'Descending'; % 'Ascending' F->H or 'Descending' H->F
 
 Setup.TE1              = 13e-3; % echo time of the first echo in the train
 Setup.TR               = 5600e-3;
-Setup.TEeff            = 13e-3; % the desired echo time 
+Setup.TEeff            = 13e-3; % the desired echo time
 
 Setup.R                = 2;              % Acceleration factor
 Setup.RefLinesRatio    = 30/Setup.nPE;    % PI
@@ -59,7 +60,7 @@ Setup.r                = 0.1;            % CS
 
 Setup.rflip = 180; if isscalar(Setup.rflip), Setup.rflip=Setup.rflip+zeros([1 Setup.nEcho]); end
 if strcmpi(Setup.TRAPS, 'on')
-    k0_echo = max(round(Setup.TEeff/Setup.TE1), 1); % echo to be aligned to the k-space center 
+    k0_echo = max(round(Setup.TEeff/Setup.TE1), 1); % echo to be aligned to the k-space center
     [Setup.faRef, ~] = fliptraps(180,Setup.nEcho,5,'opt',0,2,0,70,70,[k0_echo k0_echo+4 k0_echo+4 Setup.nEcho]);
 end
 
@@ -74,21 +75,18 @@ Setup.TI               = 2000e-3; % time of inversion recovery
 SetupRF.typeEx         = 'gSlider';
 SetupRF.typeRef        = 'slr'    ;
 SetupRF.typeInv        = 'slr'    ;
-SetupRF.tEx            = 5.12e-3  ; 
-SetupRF.tRef           = 3.84e-3  ; 
+SetupRF.tEx            = 5.12e-3  ;
+SetupRF.tRef           = 3.84e-3  ;
 SetupRF.tInv           = 3.84e-3  ;
 SetupRF.tbpEx          = 12       ;
 SetupRF.tbpRef         = 6        ;
 SetupRF.tbpInv         = 6        ;
-SetupRF.phaseEx        = pi/2     ;   
+SetupRF.phaseEx        = pi/2     ;
 SetupRF.phaseRef       = 0        ;
 SetupRF.phaseInv       = 0        ;
 
-Setup.fspR             = 0.5       ; % ratio of spoiling area to readout area
-Setup.fspS             = 0.5       ; % ratio of spoiling area to Gz rephasing area
 Setup.dG               = 250e-6    ; % 'standard' ramp time - makes sequence structure much simpler
 Setup.readoutOS        = 2         ; % oversampling factor for readout direction
-
 
 %% init
 Setup.BWPerPixel       = 1 / Setup.roDuration;
@@ -98,16 +96,21 @@ Setup.tRef             = RoundRaster(SetupRF.tRef, 10e-6, 'round');
 Setup.tSp              = RoundRaster(0.5 * (Setup.TE1 - Setup.ReadoutTime - Setup.tRef), 10e-6, 'round');
 Setup.tSpex            = RoundRaster(0.5 * (Setup.TE1 - Setup.tEx         - Setup.tRef), 10e-6, 'round');
 
-% Spoiler area
-% [1] explicitly in mT*us/m
-% [2] relative to the net area of gradients required to achieve desired resolution. 
-% Two sets of variables are given at least one must be empty.
-Setup.SpoilerArea_RO = [] ; % [mT*us/m]
-Setup.SpoilerArea_PE = [] ; % [mT*us/m]
-Setup.SpoilerArea_3D = [] ; % [mT*us/m]
-Setup.SpoilerAreaFactor_RO = 4 ;
-Setup.SpoilerAreaFactor_PE = 4 ;
-Setup.SpoilerAreaFactor_3D = 4 ;
+% Crusher and spoiler configuration
+% relative to the net area of gradients required to achieve desired resolution.
+SetupSpoiling.PreExcitationSpoiler.Cycles = 4;
+SetupSpoiling.PreExcitationSpoiler.Reference = 'Slice';
+SetupSpoiling.PreExcitationSpoiler.MaxSlew = 75;
+SetupSpoiling.RefocusingCrusher.Cycles = 4;
+SetupSpoiling.RefocusingCrusher.Reference = 'Slice';
+SetupSpoiling.InversionCrusher.Cycles = 4;
+SetupSpoiling.InversionCrusher.Reference = 'Slice';
+SetupSpoiling.ReadoutCrusher.Cycles = 1;
+SetupSpoiling.ReadoutCrusher.Reference = 'RO';
+SetupSpoiling.EndSpoiler.Cycles = 4;
+SetupSpoiling.EndSpoiler.Reference = 'Slice';
+SetupSpoiling.EndSpoiler.Duration = 4e-3;
+SetupSpoiling.EndSpoiler.MaxSlew = 75;
 
 Setup.fovSG            = Setup.nSlice * (Setup.SliceThickness + Setup.SliceGap) - Setup.SliceGap;
 Setup.n3D              = 1;
@@ -115,13 +118,13 @@ Setup.FOV              = [Setup.fovRO, Setup.fovPE, Setup.fovSG]; % [m] RO x PE 
 Setup.MatrixSize       = [Setup.nRO, Setup.nPE, Setup.nSlice]; % [a.u.] RO x PE x nSlice
 
 %% Set orienation (non-oblique)
-% Set axes (X/Y/Z vs. RO/PE/3D - oblique not supported) 
+% Set axes (X/Y/Z vs. RO/PE/3D - oblique not supported)
 % In Siemens interpreter the defintions here must agree with the
 
 % mapping of RO/PE/3D to X/Y/Z
 Setup.AxisRO = 'x' ;
 Setup.AxisPE = 'y' ;
-Setup.Axis3D = 'z' ; 
+Setup.Axis3D = 'z' ;
 
 % Flip or not X/Y/Z to match patient positive/negative directions. Usefull if reconstruction is done by system to get correct orientation of images.
 Setup.SignCorr.x = -1 ;
@@ -132,6 +135,7 @@ Setup.SignCorr.z = -1 ;
 % Initialize Actual to be the same as Setup
 Actual = Setup ;
 Actual.ActualRF = SetupRF;
+Actual.ActualSpoiling = SetupSpoiling;
 
 %% prep system
 [sys, sys_soft, seq, Actual] = prep_System(Actual);
@@ -153,6 +157,7 @@ if strcmp(Actual.IR, 'on')
 end
 
 %% Gradient events
+[Grad] = prep_SpoilingArea(Grad, Actual);
 [ADC, Grad] = prep_Gradient_GR(Grad, ADC, Actual, sys_soft); % readout gradients
 [Grad, RF, Delay] = prep_Gradient_Block(Grad, RF, ADC, Delay, Actual, sys_soft);        % split gradients and recombine into blocks
 
@@ -193,5 +198,5 @@ if strcmp(Actual.NoiseScan, 'on'); timeRange = timeRange + Actual.TR; end
 fig = seq.plot('showBlock',true,'showGuides',1,'stacked',0,'timeDisp','s', 'timeRange', timeRange); %'Label', 'LIN,PAR,ECO,REP';
 
 %% test report
-% rep = seq.testReport; 
-% fprintf([rep{:}]); 
+% rep = seq.testReport;
+% fprintf([rep{:}]);

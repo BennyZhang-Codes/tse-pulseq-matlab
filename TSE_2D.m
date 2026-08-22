@@ -32,7 +32,6 @@ Setup.TI               = 1700e-3;       % time of inversion recovery
 
 Setup.PEMode           = 'CentricFull'; % 'Centric', 'Linear'
 Setup.AccelerationMode = 'PI';          % 'PI', 'CS'
-Setup.MultiSliceMode   = 'Interleaved'; % 'Interleaved' or 'Sequential'
 
 Setup.nDummy           = 1;             % number of pre-scans
 
@@ -41,15 +40,17 @@ Setup.fovPE            = 120e-3;
 Setup.nRO              = 120;
 Setup.nPE              = 120;
 Setup.nEcho            = 10;
-Setup.nSlice           = 5;
 Setup.nRep             = 1;
 
+Setup.nSlice           = 5;
 Setup.SliceThickness   = 2e-3;
 Setup.SliceGap         = 0/100 * Setup.SliceThickness;
+Setup.MultiSliceMode   = 'Interleaved'; % 'Interleaved' or 'Sequential'
+Setup.MultiSliceDir    = 'Descending'; % 'Ascending' F->H or 'Descending' H->F
 
 Setup.TE1              = 14e-3; % echo time of the first echo in the train
 Setup.TR               = 5000e-3;
-Setup.TEeff            = 14e-3; % the desired echo time 
+Setup.TEeff            = 14e-3; % the desired echo time
 
 Setup.R                = 2;              % Acceleration factor
 Setup.RefLinesRatio    = 30/Setup.nPE;    % PI
@@ -76,8 +77,6 @@ SetupRF.phaseEx        = pi/2     ;
 SetupRF.phaseRef       = 0        ;
 SetupRF.phaseInv       = 0        ;
 
-Setup.fspR             = 1.0       ; % ratio of spoiling area to readout area
-Setup.fspS             = 0.5       ; % ratio of spoiling area to Gz rephasing area
 Setup.dG               = 250e-6    ; % 'standard' ramp time - makes sequence structure much simpler
 Setup.readoutOS        = 2         ; % oversampling factor for readout direction
 
@@ -89,17 +88,21 @@ Setup.tRef             = RoundRaster(SetupRF.tRef, 10e-6, 'round');
 Setup.tSp              = RoundRaster(0.5 * (Setup.TE1 - Setup.ReadoutTime - Setup.tRef), 10e-6, 'round');
 Setup.tSpex            = RoundRaster(0.5 * (Setup.TE1 - Setup.tEx         - Setup.tRef), 10e-6, 'round');
 
-% Spoiler area
-% [1] explicitly in mT*us/m
-% [2] relative to the net area of gradients required to achieve desired resolution. 
-% Two sets of variables are given at least one must be empty.
-Setup.SpoilerArea_RO = [] ; % [mT*us/m]
-Setup.SpoilerArea_PE = [] ; % [mT*us/m]
-Setup.SpoilerArea_3D = [] ; % [mT*us/m]
-Setup.SpoilerAreaFactor_RO = 4 ;
-Setup.SpoilerAreaFactor_PE = 4 ;
-Setup.SpoilerAreaFactor_3D = 4 ;
-
+% Crusher and spoiler configuration
+% relative to the net area of gradients required to achieve desired resolution.
+SetupSpoiling.PreExcitationSpoiler.Cycles = 4;
+SetupSpoiling.PreExcitationSpoiler.Reference = 'Slice';
+SetupSpoiling.PreExcitationSpoiler.MaxSlew = 75;
+SetupSpoiling.RefocusingCrusher.Cycles = 4;
+SetupSpoiling.RefocusingCrusher.Reference = 'Slice';
+SetupSpoiling.InversionCrusher.Cycles = 4;
+SetupSpoiling.InversionCrusher.Reference = 'Slice';
+SetupSpoiling.ReadoutCrusher.Cycles = 1;
+SetupSpoiling.ReadoutCrusher.Reference = 'RO';
+SetupSpoiling.EndSpoiler.Cycles = 4;
+SetupSpoiling.EndSpoiler.Reference = 'Slice';
+SetupSpoiling.EndSpoiler.Duration = 4e-3;
+SetupSpoiling.EndSpoiler.MaxSlew = 75;
 
 Setup.fovSG            = Setup.nSlice * (Setup.SliceThickness + Setup.SliceGap) - Setup.SliceGap;
 Setup.n3D              = 1;
@@ -107,7 +110,7 @@ Setup.FOV              = [Setup.fovRO, Setup.fovPE, Setup.fovSG]; % [m] RO x PE 
 Setup.MatrixSize       = [Setup.nRO, Setup.nPE, Setup.nSlice]; % [a.u.] RO x PE x nSlice
 
 %% Set orienation (non-oblique)
-% Set axes (X/Y/Z vs. RO/PE/3D - oblique not supported) 
+% Set axes (X/Y/Z vs. RO/PE/3D - oblique not supported)
 % In Siemens interpreter the defintions here must agree with the
 
 % mapping of RO/PE/3D to X/Y/Z
@@ -124,6 +127,7 @@ Setup.SignCorr.z = -1 ;
 % Initialize Actual to be the same as Setup
 Actual = Setup ;
 Actual.ActualRF = SetupRF;
+Actual.ActualSpoiling = SetupSpoiling;
 
 %% prep system
 [sys, sys_soft, seq, Actual] = prep_System(Actual);
@@ -146,6 +150,7 @@ if strcmp(Actual.IR, 'on')
 end
 
 %% Gradient events
+[Grad] = prep_SpoilingArea(Grad, Actual);
 [ADC, Grad] = prep_Gradient_GR(Grad, ADC, Actual, sys_soft); % readout gradients
 [Grad, RF, Delay] = prep_Gradient_Block(Grad, RF, ADC, Delay, Actual, sys_soft);        % split gradients and recombine into blocks
 
@@ -190,5 +195,5 @@ fig = seq.plot('showBlock',true,'showGuides',1,'stacked',0,'timeDisp','s', 'time
 plot_kspace(ktraj, ktraj_adc);
 
 %% test report
-% rep = seq.testReport; 
-% fprintf([rep{:}]); 
+% rep = seq.testReport;
+% fprintf([rep{:}]);

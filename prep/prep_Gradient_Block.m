@@ -15,7 +15,6 @@ function [Grad, RF, Delay] = prep_Gradient_Block(Grad, RF, ADC, Delay, Actual, s
     tEx          = Actual.ActualRF.tEx;
     tRef         = Actual.ActualRF.tRef;
 
-    fspS         = Actual.fspS;
     tSp          = Actual.tSp;
 
     TE1          = Actual.TE1;
@@ -26,14 +25,22 @@ function [Grad, RF, Delay] = prep_Gradient_Block(Grad, RF, ADC, Delay, Actual, s
     GRO_SpoilPost = Grad.GRO_SpoilPost;
 
 
+    area_G3D_ExSpoilPre = SignCorr.(Axis3D) * Grad.SpoilingArea.PreExcitationSpoiler;
+    area_G3D_Crusher    = SignCorr.(Axis3D) * Grad.SpoilingArea.RefocusingCrusher;
+    area_G3D_InvCrusher = SignCorr.(Axis3D) * Grad.SpoilingArea.InversionCrusher;
+    area_G3D_EndSpoiler = SignCorr.(Axis3D) * Grad.SpoilingArea.EndSpoiler;
+
+    maxSlew_ExSpoilPre = min(sys.maxSlew, Actual.ActualSpoiling.PreExcitationSpoiler.MaxSlew * sys.gamma);
+    maxSlew_EndSpoiler = min(sys.maxSlew, Actual.ActualSpoiling.EndSpoiler.MaxSlew * sys.gamma);
+
     %% IR
     if strcmpi(IR, 'on')
         amplitudeInv = Grad.amplitudeInv;
         tInv         = Actual.ActualRF.tInv;
   
-        [g_InvSpoilPre, t_InvSpoilPre] = design_gradient_min_time(SignCorr.(Axis3D) * 4/SliceThickness, 10e-3, 0, amplitudeInv, sys.maxGrad, sys.maxSlew, sys.gradRasterTime);
+        [g_InvSpoilPre, t_InvSpoilPre] = design_gradient_min_time(area_G3D_InvCrusher, 10e-3, 0, amplitudeInv, sys.maxGrad, sys.maxSlew, sys.gradRasterTime);
         G3D_InvSpoilPre = mr.makeExtendedTrapezoid(Axis3D, 'system', sys, 'amplitudes', g_InvSpoilPre, 'times', t_InvSpoilPre);    
-        [g_InvSpoilPost, t_InvSpoilPost] = design_gradient_min_time(SignCorr.(Axis3D) * 4/SliceThickness, 10e-3, amplitudeInv, 0, sys.maxGrad, sys.maxSlew, sys.gradRasterTime);
+        [g_InvSpoilPost, t_InvSpoilPost] = design_gradient_min_time(area_G3D_InvCrusher, 10e-3, amplitudeInv, 0, sys.maxGrad, sys.maxSlew, sys.gradRasterTime);
         G3D_InvSpoilPost = mr.makeExtendedTrapezoid(Axis3D, 'system', sys, 'amplitudes', g_InvSpoilPost, 'times', t_InvSpoilPost);
         G3D_InvFlat = mr.makeExtendedTrapezoid(Axis3D, 'system', sys, 'times', [0, tInv], 'amplitudes', [amplitudeInv, amplitudeInv]);
         G3D_Inv = concatGrads({G3D_InvSpoilPre, G3D_InvFlat, G3D_InvSpoilPost}, sys);
@@ -47,15 +54,14 @@ function [Grad, RF, Delay] = prep_Gradient_Block(Grad, RF, ADC, Delay, Actual, s
     G3D_RefCrusherL1       = gs(1); 
  
     area_G3D_RefSpoilLeft1 = G3D_RefCrusherL1.area;
-    area_G3D_ExSpoilPre    = SignCorr.(Axis3D) * 40*1e-6*sys.gamma; % 40 mT/m·ms
 
-    area_G3D_Crusher       = SignCorr.(Axis3D) * 4/SliceThickness;   % 8pi
     area_G3D_ExSpoilPost   = area_G3D_Crusher - amplitudeEx*tEx/2;
     area_G3D_RefSpoilLeft  = area_G3D_Crusher;
     area_G3D_RefSpoilRight = area_G3D_Crusher;
 
     % G3D_ExSpoilPre, G3D_ExFlat, G3D_ExSpoilPost
-    [g_ExSpoilPre, t_ExSpoilPre, duExSpoilPre] = design_gradient_min_time(area_G3D_ExSpoilPre, 10e-3, 0, amplitudeEx, sys.maxGrad, sys.maxSlew, sys.gradRasterTime);
+    [g_ExSpoilPre, t_ExSpoilPre, duExSpoilPre] = design_gradient_min_time( ...
+        area_G3D_ExSpoilPre, 10e-3, 0, amplitudeEx, sys.maxGrad, maxSlew_ExSpoilPre, sys.gradRasterTime);
     G3D_ExSpoilPre = mr.makeExtendedTrapezoid(Axis3D, 'system', sys, 'amplitudes', g_ExSpoilPre, 'times', t_ExSpoilPre);
 
     [g_ExSpoilPost, t_ExSpoilPost] = design_gradient_waveform(area_G3D_ExSpoilPost, TE1_gap, amplitudeEx, amplitudeRef, sys.maxGrad, sys.maxSlew, sys.gradRasterTime);
@@ -74,7 +80,8 @@ function [Grad, RF, Delay] = prep_Gradient_Block(Grad, RF, ADC, Delay, Actual, s
 
     G3D_RefFlat      = mr.makeExtendedTrapezoid(Axis3D, 'system', sys, 'times', [0, tRef], 'amplitudes', [amplitudeRef, amplitudeRef]);
    
-    G3D_EndSpoil     = mr.makeTrapezoid(Axis3D, 'system', sys, 'duration', tSp, 'area', SignCorr.(Axis3D) * 4/SliceThickness);
+    G3D_EndSpoil     = mr.makeTrapezoid(Axis3D, 'system', sys, 'maxSlew', maxSlew_EndSpoiler, ...
+        'duration', Actual.ActualSpoiling.EndSpoiler.Duration, 'area', area_G3D_EndSpoiler);
   
 
     % Gx and its spoiler gradients

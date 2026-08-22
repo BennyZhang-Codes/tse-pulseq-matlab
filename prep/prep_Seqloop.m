@@ -81,37 +81,26 @@ function [seq] = prep_Seqloop(seq, Actual, RF, Grad, ADC, Delay, Label, sys)
 
                         if TRCounter > 0
                             seq.addBlock(Grad.GRO_adc, ADC.adc);
-                            TimeInTR    = TimeInTR    + seq.blockDurations(end); % Update duration within TR
-                            TimeInSlice = TimeInSlice + seq.blockDurations(end); % Update duration within Slice
                         else
                             if strcmpi(Actual.PhaseCorrection, 'on')
                                 seq.addBlock(Grad.GRO_adc, ADC.adc, Label.lblSetNAV);
-                                TimeInTR    = TimeInTR    + seq.blockDurations(end); % Update duration within TR
-                                TimeInSlice = TimeInSlice + seq.blockDurations(end); % Update duration within Slice
                             else
                                 seq.addBlock(Grad.GRO_adc);
-                                TimeInTR    = TimeInTR    + seq.blockDurations(end); % Update duration within TR
-                                TimeInSlice = TimeInSlice + seq.blockDurations(end); % Update duration within Slice
                             end
                         end
 
                         seq.addBlock(RF.rfRef, Grad.GRO_Spoil, GPE, Grad.G3D_Ref, Label.lblResetNAV);
-                        TimeInTR    = TimeInTR    + seq.blockDurations(end); % Update duration within TR
-                        TimeInSlice = TimeInSlice + seq.blockDurations(end); % Update duration within Slice
+
+                        TimeInTR    = TimeInTR    + sum(seq.blockDurations(end-3:end)); % Update duration within TR
+                        TimeInSlice = TimeInSlice + sum(seq.blockDurations(end-3:end)); % Update duration within Slice
                     else
                         if TRCounter > 0
                             seq.addBlock(Grad.GRO_adc, ADC.adc);
-                            TimeInTR    = TimeInTR    + seq.blockDurations(end); % Update duration within TR
-                            TimeInSlice = TimeInSlice + seq.blockDurations(end); % Update duration within Slice
                         else
                             if strcmpi(Actual.PhaseCorrection, 'on')
                                 seq.addBlock(Grad.GRO_adc, ADC.adc, Label.lblSetNAV);
-                                TimeInTR    = TimeInTR    + seq.blockDurations(end); % Update duration within TR
-                                TimeInSlice = TimeInSlice + seq.blockDurations(end); % Update duration within Slice
                             else
                                 seq.addBlock(Grad.GRO_adc);
-                                TimeInTR    = TimeInTR    + seq.blockDurations(end); % Update duration within TR
-                                TimeInSlice = TimeInSlice + seq.blockDurations(end); % Update duration within Slice
                             end
                         end
                         if iseg == Actual.nEcho
@@ -119,9 +108,10 @@ function [seq] = prep_Seqloop(seq, Actual, RF, Grad, ADC, Delay, Label, sys)
                         else
                             seq.addBlock(RF.rfRef, Grad.GRO_Spoil, GPE, Grad.G3D_Ref, Label.lblResetNAV);
                         end
-                        TimeInTR    = TimeInTR    + seq.blockDurations(end); % Update duration within TR
-                        TimeInSlice = TimeInSlice + seq.blockDurations(end); % Update duration within Slice
+                        TimeInTR    = TimeInTR    + sum(seq.blockDurations(end-2:end)); % Update duration within TR
+                        TimeInSlice = TimeInSlice + sum(seq.blockDurations(end-2:end)); % Update duration within Slice
                     end
+
                     seq.addBlock(Label.lblIncSEG1);
                 end
                 % -----------------------------------------------------------------------
@@ -141,9 +131,9 @@ function [seq] = prep_Seqloop(seq, Actual, RF, Grad, ADC, Delay, Label, sys)
 
                 Delay.Delay_SliceTRFill.delay = SliceTRFill ; % update delay of eTRFill
                 seq.addBlock(Delay.Delay_SliceTRFill)  ;  % Add delay to the sequence
-
                 TimeInTR    = TimeInTR    + seq.blockDurations(end); % Update duration within TR
                 TimeInSlice = TimeInSlice + seq.blockDurations(end); % Update duration within Slice
+
                 seq.addBlock(Label.lblIncSLC1);
             end
             % -----------------------------------------------------------------------
@@ -158,7 +148,6 @@ function [seq] = prep_Seqloop(seq, Actual, RF, Grad, ADC, Delay, Label, sys)
 
             Delay.Delay_TRFill.delay = TRFill ; % update delay of eTRFill
             seq.addBlock(Delay.Delay_TRFill)  ;  % Add delay to the sequence
-            
             TimeInTR = TimeInTR + seq.blockDurations(end) ; % Update duration within TR
         end
         seq.addBlock(Label.lblIncREP1);
