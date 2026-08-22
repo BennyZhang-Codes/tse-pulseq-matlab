@@ -50,7 +50,7 @@ Setup.MultiSliceDir    = 'Descending'; % 'Ascending' F->H or 'Descending' H->F
 
 Setup.TE1              = 14e-3; % echo time of the first echo in the train
 Setup.TR               = 5000e-3;
-Setup.TEeff            = 14e-3; % the desired echo time 
+Setup.TEeff            = 14e-3; % the desired echo time
 
 Setup.R                = 2;              % Acceleration factor
 Setup.RefLinesRatio    = 30/Setup.nPE;    % PI
@@ -89,7 +89,7 @@ Setup.tSp              = RoundRaster(0.5 * (Setup.TE1 - Setup.ReadoutTime - Setu
 Setup.tSpex            = RoundRaster(0.5 * (Setup.TE1 - Setup.tEx         - Setup.tRef), 10e-6, 'round');
 
 % Crusher and spoiler configuration
-% relative to the net area of gradients required to achieve desired resolution. 
+% relative to the net area of gradients required to achieve desired resolution.
 SetupSpoiling.PreExcitationSpoiler.Cycles = 4;
 SetupSpoiling.PreExcitationSpoiler.Reference = 'Slice';
 SetupSpoiling.PreExcitationSpoiler.MaxSlew = 75;
@@ -110,7 +110,7 @@ Setup.FOV              = [Setup.fovRO, Setup.fovPE, Setup.fovSG]; % [m] RO x PE 
 Setup.MatrixSize       = [Setup.nRO, Setup.nPE, Setup.nSlice]; % [a.u.] RO x PE x nSlice
 
 %% Set orienation (non-oblique)
-% Set axes (X/Y/Z vs. RO/PE/3D - oblique not supported) 
+% Set axes (X/Y/Z vs. RO/PE/3D - oblique not supported)
 % In Siemens interpreter the defintions here must agree with the
 
 % mapping of RO/PE/3D to X/Y/Z
@@ -195,5 +195,5 @@ fig = seq.plot('showBlock',true,'showGuides',1,'stacked',0,'timeDisp','s', 'time
 plot_kspace(ktraj, ktraj_adc);
 
 %% test report
-% rep = seq.testReport; 
-% fprintf([rep{:}]); 
+% rep = seq.testReport;
+% fprintf([rep{:}]);

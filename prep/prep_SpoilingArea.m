@@ -19,7 +19,7 @@ function area = resolveSpoilerArea(spec, Actual)
 
 
     switch lower(spec.Reference)
-    
+
         case 'slice'
             referenceLength = Actual.SliceThickness;
         case 'ro'
@@ -33,7 +33,7 @@ function area = resolveSpoilerArea(spec, Actual)
         otherwise
             error('Unknown spoiler reference: %s', spec.Reference);
     end
-    
+
     area = spec.Cycles / referenceLength; % cycles/m
 
 end

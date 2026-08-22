@@ -1,5 +1,5 @@
 function [SliceLabel, SliceOrder, SlicePositions] = prep_SlicePositions(Actual)
-    
+
     MultiSliceMode  = Actual.MultiSliceMode;
     MultiSliceDir   = Actual.MultiSliceDir;
 

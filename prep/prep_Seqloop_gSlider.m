@@ -1,7 +1,7 @@
 function [seq] = prep_Seqloop_gSlider(seq, Actual, RF, Grad, ADC, Delay, Label, sys)
     tStart_loop = tic();
     MinTRActual = 0 ;
-    
+
     % mapping of RO/PE/3D to X/Y/Z
     AxisPE   = Actual.AxisPE   ;
     SignCorr = Actual.SignCorr ;
@@ -104,7 +104,7 @@ function [seq] = prep_Seqloop_gSlider(seq, Actual, RF, Grad, ADC, Delay, Label, 
                         end
 
                         seq.addBlock(RF.rfRef, Grad.GRO_Spoil, GPE, Grad.G3D_Ref);
-                   
+
                         TimeInTR    = TimeInTR    + sum(seq.blockDurations(end-3:end)); % Update duration within TR
                         TimeInSlice = TimeInSlice + sum(seq.blockDurations(end-3:end)); % Update duration within Slice
                     else
@@ -140,7 +140,7 @@ function [seq] = prep_Seqloop_gSlider(seq, Actual, RF, Grad, ADC, Delay, Label, 
                 % SliceTime fill block
                 % -----------------------------------------------------------------------
                 SliceTRFill = RoundRaster(SliceTime - TimeInSlice, sys.gradRasterTime, 'down'); % Set filler delay to achieve requested TR (rounded up later)
-               
+
                 % Sanity check
                 if (SliceTRFill < -eps(0))
                     error('Total time (%f ms) of blocks within current Slice (#%d) is longer than desired TR/nSlice (%f ms)!', 1e3*TimeInSlice, isli, 1e3*SliceTime);
@@ -157,7 +157,7 @@ function [seq] = prep_Seqloop_gSlider(seq, Actual, RF, Grad, ADC, Delay, Label, 
             % TR Fill block
             % -----------------------------------------------------------------------
             TRFill = RoundRaster(Actual.TR - TimeInTR, sys.gradRasterTime, 'round'); % Set filler delay to achieve requested TR (rounded up later)
-           
+
             % Sanity check
             if (TRFill < -eps(0))
                 error('Total time (%f ms) of blocks within current TR (#%d) is longer than desired TR (%f ms)!', 1e3*TimeInTR, TRCounter, 1e3*Actual.TR);
