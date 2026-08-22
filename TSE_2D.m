@@ -91,6 +91,7 @@ Setup.tSpex            = RoundRaster(0.5 * (Setup.TE1 - Setup.tEx         - Setu
 % relative to the net area of gradients required to achieve desired resolution. 
 SetupSpoiling.PreExcitationSpoiler.Cycles = 4;
 SetupSpoiling.PreExcitationSpoiler.Reference = 'Slice';
+SetupSpoiling.PreExcitationSpoiler.MaxSlew = 75;
 SetupSpoiling.RefocusingCrusher.Cycles = 4;
 SetupSpoiling.RefocusingCrusher.Reference = 'Slice';
 SetupSpoiling.InversionCrusher.Cycles = 4;
@@ -99,7 +100,8 @@ SetupSpoiling.ReadoutCrusher.Cycles = 1;
 SetupSpoiling.ReadoutCrusher.Reference = 'RO';
 SetupSpoiling.EndSpoiler.Cycles = 4;
 SetupSpoiling.EndSpoiler.Reference = 'Slice';
-
+SetupSpoiling.EndSpoiler.Duration = 4e-3;
+SetupSpoiling.EndSpoiler.MaxSlew = 75;
 
 Setup.fovSG            = Setup.nSlice * (Setup.SliceThickness + Setup.SliceGap) - Setup.SliceGap;
 Setup.n3D              = 1;
