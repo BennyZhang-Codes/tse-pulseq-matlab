@@ -2,7 +2,9 @@ function geometry = build_TSE2D_nifti_geometry(meta,imageSize,varargin)
 %BUILD_TSE2D_NIFTI_GEOMETRY Build a scanner-patient RAS NIfTI sform.
 %
 % Geometry is derived from Siemens MDH SliceData positions and scalar-first
-% quaternions. Voxel indices follow MATLAB array order [readout, phase,
+% quaternions. META may alternatively be a NIFTIINFO structure, in which
+% case its existing sform is validated and reused for image-domain
+% post-processing. Voxel indices follow MATLAB array order [readout, phase,
 % slice], while the returned affine uses the NIfTI zero-based column-vector
 % convention: ras_mm = affineRAS * [i j k 1].'
 
@@ -22,6 +24,10 @@ function geometry = build_TSE2D_nifti_geometry(meta,imageSize,varargin)
     end
     if ~isstruct(meta)
         error('build_TSE2D_nifti_geometry:InvalidMetadata','META must be a structure.');
+    end
+    if isNiftiReference(meta)
+        geometry = geometryFromNiftiReference(meta,imageSize,p.Results.VoxelSizeMm);
+        return
     end
 
     sliceIndices = resolveSliceIndices(meta,imageSize(3));
@@ -126,6 +132,53 @@ function geometry = build_TSE2D_nifti_geometry(meta,imageSize,varargin)
     geometry.firstVoxelCenterRASMm = firstVoxelCenterRAS.';
     geometry.sliceSpacingMm = sliceSpacingMm;
     geometry.maxSliceCenterErrorMm = max(centerErrorsMm);
+end
+
+function tf = isNiftiReference(meta)
+    tf = isfield(meta,'Transform') && isa(meta.Transform,'affine3d') && ...
+        isfield(meta,'PixelDimensions') && numel(meta.PixelDimensions) >= 3 && ...
+        isfield(meta,'ImageSize') && isfield(meta,'raw');
+end
+
+function geometry = geometryFromNiftiReference(referenceInfo,imageSize,voxelSizeOverride)
+    if ~isfield(referenceInfo.raw,'sform_code') || referenceInfo.raw.sform_code <= 0
+        error('build_TSE2D_nifti_geometry:ReferenceSformMissing', ...
+            'Reference NIfTI must contain a valid scanner-space sform.');
+    end
+    referenceSize = double(referenceInfo.ImageSize(:).');
+    referenceSize(end+1:3) = 1;
+    if ~isequal(referenceSize(1:3),double(imageSize))
+        error('build_TSE2D_nifti_geometry:ReferenceSizeMismatch', ...
+            'Reference NIfTI size %s does not match volume size %s.', ...
+            mat2str(referenceSize(1:3)),mat2str(imageSize));
+    end
+
+    referenceSpacing = double(referenceInfo.PixelDimensions(1:3));
+    affineRAS = referenceInfo.Transform.T.';
+    if isempty(voxelSizeOverride)
+        voxelSizeMm = referenceSpacing;
+    else
+        voxelSizeMm = double(voxelSizeOverride(:).');
+        for dimension = 1:3
+            direction = affineRAS(1:3,dimension);
+            directionNorm = norm(direction);
+            if directionNorm <= eps
+                error('build_TSE2D_nifti_geometry:InvalidReferenceAffine', ...
+                    'Reference affine column %d has zero spatial norm.',dimension);
+            end
+            affineRAS(1:3,dimension) = direction/directionNorm*voxelSizeMm(dimension);
+        end
+    end
+
+    geometry = struct();
+    geometry.source = 'reference NIfTI sform';
+    geometry.patientCoordinateSystem = 'inherited from reference NIfTI';
+    geometry.niftiCoordinateSystem = 'RAS+ millimetres';
+    geometry.imageSize = imageSize;
+    geometry.voxelSizeMm = voxelSizeMm;
+    geometry.affineRAS = affineRAS;
+    geometry.qfactor = referenceInfo.Qfactor;
+    geometry.sliceSpacingMm = voxelSizeMm(3);
 end
 
 function sliceIndices = resolveSliceIndices(meta,nImageSlices)

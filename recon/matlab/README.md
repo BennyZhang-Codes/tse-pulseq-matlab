@@ -64,11 +64,16 @@ For a faster single-slice diagnostic reconstruction:
 | `utils/sense_TSE2D_forward.m`, `utils/sense_TSE2D_adjoint.m` | Apply the common masked Cartesian PFS operator and its tested adjoint. |
 | `utils/estimate_TSE2D_espirit.m` | Estimates a single set of ESPIRiT maps from the ACS calibration matrix. |
 | `recon_TSE2D_RSS.m` | Performs centered 2D IFFT and RSS coil combination. |
-| `build_TSE2D_nifti_geometry.m` | Builds and validates a scanner-patient RAS sform from Siemens MDH slice centers and quaternions. |
+| `build_TSE2D_nifti_geometry.m` | Builds and validates a scanner-patient RAS sform from Siemens MDH geometry, or reuses a reference NIfTI sform for image-domain post-processing. |
 | `save_TSE2D_results.m` | Saves MAT, PNG, CSV, and text diagnostics. |
 | `recon_TSE2D.m` | Orchestrates the complete workflow. |
-| `write_TSE2D_nifti.m` | Writes compressed single-precision volumes with complete Twix-derived RAS geometry. |
+| `write_TSE2D_nifti.m` | Writes compressed single-precision volumes with complete Twix-derived or reference-NIfTI RAS geometry. |
 | `batch_recon_TSE2D.m` | Reconstructs every Twix `.dat` in an input directory to one `.nii.gz` per file. |
+| `estimate_TSE2D_image_noise.m` | Estimates corner-background noise power and a stationary 2-D colored-noise PSD. |
+| `denoise_TSE2D.m` | Provides one slice-wise interface to NLM, colored BM3D, optional CAT12 SANLM, and TGV2. |
+| `denoise_TGV2.m` | Implements transparent second-order TGV-L2 denoising with a primal-dual solver. |
+| `measure_TSE2D_denoising.m` | Measures noise removal, signal/edge retention, residual structure, and PE/RO residual anisotropy. |
+| `benchmark_TSE2D_denoisers.m` | Batch-denoises NIfTI volumes, preserves their sforms, and writes NIfTI, PNG, CSV, and text comparisons. |
 
 ## Prewhitening
 
@@ -162,6 +167,48 @@ writing, the sform and voxel dimensions are read back and checked.
 
 This allows scans with different matrices or in-plane resolutions to share
 the same scanner RAS physical space when their Siemens geometry agrees.
+
+For image-domain processing, pass the structure returned by `niftiinfo` as
+the second argument to `write_TSE2D_nifti`. The same geometry builder then
+validates and reuses the source sform instead of reconstructing geometry from
+Twix metadata. This is the path used by the denoising benchmark.
+
+## Image-domain denoising
+
+The conservative default comparison is:
+
+```matlab
+[summary,metrics] = benchmark_TSE2D_denoisers(inputDir,outputDir);
+```
+
+It runs slice-wise NLM (0.6 times the estimated noise sigma), colored-noise
+BM3D (0.6 sigma), and TGV2 (0.2 sigma) on every
+`*_EchoMagCorrWiener.nii.gz` input. Every output is written through
+`write_TSE2D_nifti`, so voxel spacing, orientation, and scanner-space sform
+are retained and verified. The CSV metrics compare each output with its noisy
+input; they are safety/trade-off measures and are not clean-reference accuracy.
+
+For the current phantom data, conservative BM3D gave the best noise/detail
+trade-off. NLM changed the least structure but removed less noise. TGV2 is kept
+as a comparison method; even at the reduced default strength it removed more
+small-detail energy in the high-acceleration 0.4-mm scans, so it is not the
+recommended default for human-brain processing.
+
+CAT12 SANLM can be included explicitly for comparison:
+
+```matlab
+benchmark_TSE2D_denoisers(inputDir,outputDir, ...
+    'Methods',["nlm","bm3d","sanlm","tgv2"]);
+```
+
+It is not a default for these strongly anisotropic, five-slice data. Its 3-D
+neighbourhood ignores physical voxel spacing, while independent slice
+emulation removed visible small structures in the phantom test. It may still
+be useful for genuinely near-isotropic 3-D brain volumes after validation.
+
+BM3D and SANLM are optional third-party dependencies and are deliberately not
+vendored. Installation, licensing, and citations are documented in
+`THIRD_PARTY_DENOISERS.md`. NLM and TGV2 use only repository/MATLAB code.
 
 ## GRAPPA
 
