@@ -90,9 +90,22 @@ function files = save_TSE2D_results(result, outputDir, varargin)
             end
         end
     end
-    if result.meta.accelerationFactorPE > 1
+    reconstructionMethod = "auto";
+    if isfield(result,'reconstructionMethod')
+        reconstructionMethod = string(result.reconstructionMethod);
+    end
+    fprintf(fid,'Reconstruction method: %s\n',reconstructionMethod);
+    if reconstructionMethod == "grappa" && result.meta.accelerationFactorPE > 1
         nmse = cellfun(@(x) x.calibrationNMSE,result.grappa);
         fprintf(fid,'GRAPPA calibration NMSE by slice: %s\n',sprintf('%.6g ',nmse));
+    elseif reconstructionMethod == "sense" || reconstructionMethod == "cs"
+        iterativeInfo = result.(char(reconstructionMethod));
+        residual = cellfun(@(x) x.finalRelativeDataResidual,iterativeInfo);
+        iterations = cellfun(@(x) x.iterations,iterativeInfo);
+        fprintf(fid,'Iterative data residual by slice: %s\n', ...
+            sprintf('%.6g ',residual));
+        fprintf(fid,'Iterative iteration count by slice: %s\n', ...
+            sprintf('%d ',iterations));
     end
     clear cleaner;
 

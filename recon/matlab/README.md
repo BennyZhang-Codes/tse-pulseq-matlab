@@ -58,6 +58,11 @@ For a faster single-slice diagnostic reconstruction:
 | `apply_TSE_echomagcor.m` | Applies legacy power-law or noise-stable Wiener echo-magnitude equalization to image and PAT reference streams. |
 | `pack_TSE2D_kspace.m` | Packs unsorted acquisitions by one-based mapVBVD LIN and avoids double-weighting shared image/reference lines. |
 | `recon_TSE2D_GRAPPA.m` | Calibrates and applies diagnostic 1D PE-GRAPPA for integer acceleration factors R >= 2. |
+| `recon_TSE2D_SENSE.m` | Solves the ordinary ESPIRiT-SENSE least-squares problem by CG on the normal equations, with optional L2 stabilization. |
+| `recon_TSE2D_CS.m` | Solves the same SENSE encoding problem with isotropic TV and orthonormal Haar-L1 regularization. |
+| `utils/prepare_TSE2D_sense_model.m` | Builds the shared PCA-compressed k-space, sampling mask, and ESPIRiT/RSS sensitivity model. |
+| `utils/sense_TSE2D_forward.m`, `utils/sense_TSE2D_adjoint.m` | Apply the common masked Cartesian PFS operator and its tested adjoint. |
+| `utils/estimate_TSE2D_espirit.m` | Estimates a single set of ESPIRiT maps from the ACS calibration matrix. |
 | `recon_TSE2D_RSS.m` | Performs centered 2D IFFT and RSS coil combination. |
 | `build_TSE2D_nifti_geometry.m` | Builds and validates a scanner-patient RAS sform from Siemens MDH slice centers and quaternions. |
 | `save_TSE2D_results.m` | Saves MAT, PNG, CSV, and text diagnostics. |
@@ -177,6 +182,47 @@ needs more ACS equations, memory, and computation.
 Calibration NMSE and condition estimates are saved in `result.grappa` and the
 text summary. They assess self-consistency inside ACS, not equivalence to ICE.
 
+## Iterative SENSE and compressed sensing
+
+`ReconstructionMethod` accepts `auto`, `rss`, `grappa`, `sense`, or `cs`.
+`auto` preserves the original behavior: GRAPPA for accelerated data when
+enabled, otherwise direct RSS. The two iterative methods share one encoding
+model:
+
+```text
+E x = P F (S x)
+```
+
+where `P` is the measured LIN mask, `F` is a centered unitary 2-D FFT, and
+`S` contains ACS-derived complex sensitivity maps. Coil compression and map
+estimation are performed once per slice after prewhitening.
+
+- `sense` solves `0.5*||E*x-y||_2^2 + 0.5*lambda*||x||_2^2` with CG.
+- `cs` solves `0.5*||E*x-y||_2^2 + lambdaTV*TV(x) + lambdaW*||W*x||_1`
+  with a Chambolle-Pock primal-dual iteration.
+
+The image scale is normalized from the adjoint reconstruction before solving,
+so the default regularization values are much less dependent on raw Twix
+amplitude. Both solvers run an explicit numerical forward/adjoint test and
+store convergence and residual histories in `result.sense` or `result.cs`.
+
+The supplied R=5 CS-TSE example has 60 sampled ky lines and 30 central ACS
+lines, but no phase-correction navigator. For that file use
+`PhaseCorrection=false` and `EchoMagnitudeCorrection=false`. The sampling is
+random only along ky, so its incoherence and regularization behavior are not
+equivalent to a 2-D Poisson-disc mask.
+
+`utils/estimate_TSE2D_espirit.m` currently returns one ESPIRiT map set. This is
+appropriate when the object is contained in the calibration FOV; multi-map
+ESPIRiT remains an extension point for calibration-region aliasing or small-FOV
+cases.
+
+See `run_recon_TSE2D_iterative.m` for matched SENSE and CS NIfTI
+reconstructions. The design follows the shared-operator structure used by
+[MRIReco.jl](https://github.com/MagneticResonanceImaging/MRIReco.jl),
+[SigPy](https://github.com/mikgroup/sigpy), and
+[BART PICS](https://github.com/mrirecon/bart).
+
 ## Result fields
 
 ```text
@@ -185,6 +231,10 @@ result.prewhitening
 result.phaseCorrection
 result.echoMagnitudeCorrection
 result.grappa
+result.reconstructionMethod
+result.sense                                  (ordinary SENSE diagnostics)
+result.cs                                     (CS diagnostics)
+result.sensitivityMaps                        (optional)
 result.images.zeroFilled
 result.images.reconstructed
 result.images.reconstructedNoPhaseCorrection   (optional)
