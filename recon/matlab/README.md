@@ -1,4 +1,4 @@
-# ReconFlow: Cartesian 2D TSE Twix reconstruction
+# MATLAB reconstruction: Cartesian 2D TSE Twix reconstruction
 
 This folder contains a transparent MATLAB reconstruction path for the
 Siemens/Pulseq Cartesian **2D TSE** sequence in this repository. It does not
@@ -16,7 +16,7 @@ Edit the configuration block in `run_recon_TSE2D.m`, then run the script.
 The programmatic entry point is:
 
 ```matlab
-addpath('E:\Pulseq_seqs\tse-pulseq-matlab\ReconFlow');
+addpath(fullfile('recon', 'matlab'));
 
 result = recon_TSE2D(twixFile, ...
     'MapVBVDPath','E:\Tools\mapVBVD', ...
