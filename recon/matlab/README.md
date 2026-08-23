@@ -22,8 +22,14 @@ result = recon_TSE2D(twixFile, ...
     'MapVBVDPath','E:\Tools\mapVBVD', ...
     'Prewhiten',true, ...
     'PhaseCorrection',true, ...
+    'EchoMagnitudeCorrection',true, ...
+    'EchoMagnitudeMethod','wiener', ...
+    'EchoMagnitudeAlpha',0, ...
+    'EchoMagnitudeLambda','auto', ...
+    'EchoMagnitudeMaxGain',2, ...
     'GRAPPA',true, ...
-    'OutputDir',outputDir);
+    'OutputDir',outputDir, ...
+    'SaveNifti',true);
 
 imageTSE = result.images.reconstructed;
 ```
@@ -49,11 +55,15 @@ For a faster single-slice diagnostic reconstruction:
 | `apply_coil_matrix.m` | Applies the whitening matrix to image, reference, and navigator data in memory-bounded chunks. |
 | `estimate_TSE_phasecor.m` | Fits per-slice, per-echo, per-coil constant and readout-linear phase relative to a reference echo. |
 | `apply_TSE_phasecor.m` | Applies the fitted phase model to image and PAT reference acquisitions using SLC/SEG. |
+| `apply_TSE_echomagcor.m` | Applies legacy power-law or noise-stable Wiener echo-magnitude equalization to image and PAT reference streams. |
 | `pack_TSE2D_kspace.m` | Packs unsorted acquisitions by one-based mapVBVD LIN and avoids double-weighting shared image/reference lines. |
 | `recon_TSE2D_GRAPPA.m` | Calibrates and applies diagnostic 1D PE-GRAPPA for integer acceleration factors R >= 2. |
 | `recon_TSE2D_RSS.m` | Performs centered 2D IFFT and RSS coil combination. |
+| `build_TSE2D_nifti_geometry.m` | Builds and validates a scanner-patient RAS sform from Siemens MDH slice centers and quaternions. |
 | `save_TSE2D_results.m` | Saves MAT, PNG, CSV, and text diagnostics. |
 | `recon_TSE2D.m` | Orchestrates the complete workflow. |
+| `write_TSE2D_nifti.m` | Writes compressed single-precision volumes with complete Twix-derived RAS geometry. |
+| `batch_recon_TSE2D.m` | Reconstructs every Twix `.dat` in an input directory to one `.nii.gz` per file. |
 
 ## Prewhitening
 
@@ -97,6 +107,57 @@ When Pulseq marks the same navigator as PHASCOR and reference phase correction,
 mapVBVD exposes it in both `phasecor` and `refscanPC`; the code reads the
 physical navigator from `phasecor` only and does not duplicate it.
 
+## Echo-magnitude correction
+
+When `EchoMagnitudeCorrection=true`, the normalized navigator magnitude
+`A_e` is converted to an echo-specific gain. Image and PAT reference data
+receive the same gain after navigator phase correction and before packing and
+GRAPPA.
+
+The legacy `power` method uses
+
+```text
+g_e = A_e^(EchoMagnitudeAlpha - 1)
+```
+
+`EchoMagnitudeMethod='wiener'` instead uses the normalized regularized inverse
+
+```text
+g_e = (1 + lambda) * A_e^(EchoMagnitudeAlpha + 1) / (A_e^2 + lambda)
+```
+
+At `lambda=0`, the Wiener formula equals the power method; at the reference
+echo (`A_e=1`) its gain is always one. `EchoMagnitudeLambda='auto'` chooses a
+separate lambda for each slice from the larger of:
+
+- the noise-to-signal ratio of the prewhitened reference navigator; and
+- the minimum regularization required to satisfy `EchoMagnitudeMaxGain`.
+
+The maximum-gain target changes the smooth Wiener curve and is not a hard
+clip. A numeric non-negative `EchoMagnitudeLambda` bypasses automatic
+selection. `EchoMagnitudeAlpha=0` targets full equalization before
+regularization; intermediate alpha values add a second sharpness/noise
+trade-off. The default runner uses Wiener auto-lambda with maximum gain 2,
+limiting the predicted per-line noise-variance gain to at most four.
+
+## NIfTI spatial geometry
+
+Compressed NIfTI output contains a complete scanner-patient sform, not
+only voxel dimensions. read_TSE2D_twix retains each slice's MDH
+SliceData.slicePos: [Sag Cor Tra quaternion(w x y z)]. The geometry
+builder converts Siemens SCT/LPH coordinates to NIfTI RAS and maps the
+stored MATLAB dimensions [readout, phase, slice] to their physical
+directions.
+
+For multislice data, pixdim(3) is measured from adjacent MDH slice
+centers; slice thickness remains separate metadata. The affine origin is
+the center of voxel [0,0,0]. Before writing, every image-slice center is
+mapped through the affine and compared with its MDH position. After
+writing, the sform and voxel dimensions are read back and checked.
+
+This allows scans with different matrices or in-plane resolutions to share
+the same scanner RAS physical space when their Siemens geometry agrees.
+
 ## GRAPPA
 
 The GRAPPA implementation operates along phase encoding and supports the
@@ -122,6 +183,7 @@ text summary. They assess self-consistency inside ACS, not equivalence to ICE.
 result.meta
 result.prewhitening
 result.phaseCorrection
+result.echoMagnitudeCorrection
 result.grappa
 result.images.zeroFilled
 result.images.reconstructed
@@ -131,6 +193,8 @@ result.kspace                                  (optional)
 
 When `OutputDir` is nonempty, the workflow writes:
 
+- `<prefix>.nii.gz` when `SaveNifti=true`; the header stores Twix-derived
+  scanner-patient RAS geometry and voxel dimensions
 - `<prefix>_recon.mat`
 - `<prefix>_final.png`
 - `<prefix>_phasecor.csv` and `<prefix>_phasecor_metrics.png`
@@ -148,4 +212,3 @@ When `OutputDir` is nonempty, the workflow writes:
   included.
 - Partial Fourier, simultaneous multi-slice, gSlider, non-Cartesian sampling,
   and compressed-sensing reconstruction are outside this workflow.
-

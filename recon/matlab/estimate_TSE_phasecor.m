@@ -15,6 +15,9 @@ function phaseCor = estimate_TSE_phasecor(data, mdh, varargin)
 %   ReferenceEcho      Reference SEG/echo number (default 1).
 %   MagnitudeThreshold Relative sample threshold for fitting (default 0.05).
 %   MinimumSamples     Minimum fit samples per channel (default 12).
+%   NoiseVariance      Complex noise power per sample and prewhitened coil.
+%                      When finite, magnitude ratios are corrected for the
+%                      noise floor and navigator SNR is reported.
 
     p = inputParser;
     p.addParameter('ReferenceEcho', 1, @(x) isnumeric(x) && isscalar(x) && x >= 1);
@@ -22,6 +25,8 @@ function phaseCor = estimate_TSE_phasecor(data, mdh, varargin)
         @(x) isnumeric(x) && isscalar(x) && x >= 0 && x < 1);
     p.addParameter('MinimumSamples', 12, ...
         @(x) isnumeric(x) && isscalar(x) && x >= 2 && mod(x,1) == 0);
+    p.addParameter('NoiseVariance', NaN, ...
+        @(x) isnumeric(x) && isreal(x) && isscalar(x) && (isnan(x) || (isfinite(x) && x >= 0)));
     p.parse(varargin{:});
     opt = p.Results;
 
@@ -49,16 +54,35 @@ function phaseCor = estimate_TSE_phasecor(data, mdh, varargin)
     normalizedKx = ((1:nRO).' - (nRO+1)/2) / nRO;
     coefficients = zeros(nSliceIndex, nEchoIndex, nCha, 2, 'single');
     amplitudeNorm = nan(nSliceIndex, nEchoIndex);
+    navigatorSNR = nan(nSliceIndex, nEchoIndex);
+    navigatorSignalPower = nan(nSliceIndex, nEchoIndex);
+    navigatorNoisePower = nan(nSliceIndex, nEchoIndex);
+    navigatorAverages = zeros(nSliceIndex, nEchoIndex);
+    referenceNoiseToSignalRatio = nan(nSliceIndex,1);
     constantMean = nan(nSliceIndex, nEchoIndex);
     slopeMean = nan(nSliceIndex, nEchoIndex);
 
     for slice = slices
-        ref = meanNavigator(data, mdh, slice, opt.ReferenceEcho);
-        refEnergy = sum(abs(double(ref)).^2, 1);
+        [ref,nRefAverage] = meanNavigator(data,mdh,slice,opt.ReferenceEcho);
+        [refSignalPower,refNoisePower] = estimateNavigatorPower( ...
+            ref,opt.NoiseVariance,nRefAverage);
+        refEnergy = sum(abs(double(ref)).^2,1);
+        if isfinite(refNoisePower) && refSignalPower > 0
+            referenceNoiseToSignalRatio(slice) = refNoisePower/refSignalPower;
+        end
+
         for echo = echoes
-            current = meanNavigator(data, mdh, slice, echo);
-            amplitudeNorm(slice,echo) = sqrt(sum(abs(double(current(:))).^2) / ...
-                max(sum(abs(double(ref(:))).^2), eps));
+            [current,nCurrentAverage] = meanNavigator(data,mdh,slice,echo);
+            [currentSignalPower,currentNoisePower] = estimateNavigatorPower( ...
+                current,opt.NoiseVariance,nCurrentAverage);
+            navigatorSignalPower(slice,echo) = currentSignalPower;
+            navigatorNoisePower(slice,echo) = currentNoisePower;
+            navigatorAverages(slice,echo) = nCurrentAverage;
+
+            if isfinite(currentNoisePower) && currentNoisePower > 0
+                navigatorSNR(slice,echo) = currentSignalPower/currentNoisePower;
+            end
+            amplitudeNorm(slice,echo) = sqrt(currentSignalPower/max(refSignalPower,eps));
 
             if echo ~= opt.ReferenceEcho
                 for coil = 1:nCha
@@ -94,8 +118,9 @@ function phaseCor = estimate_TSE_phasecor(data, mdh, varargin)
     [sliceGrid, echoGrid] = ndgrid(slices, echoes);
     linearIndex = sub2ind([nSliceIndex nEchoIndex], sliceGrid(:), echoGrid(:));
     metrics = table(sliceGrid(:), echoGrid(:), amplitudeNorm(linearIndex), ...
-        rad2deg(constantMean(linearIndex)), rad2deg(slopeMean(linearIndex)), ...
-        'VariableNames', {'Slice','Echo','AmplitudeNorm', ...
+        navigatorSNR(linearIndex),rad2deg(constantMean(linearIndex)), ...
+        rad2deg(slopeMean(linearIndex)), ...
+        'VariableNames', {'Slice','Echo','AmplitudeNorm','NavigatorSNR', ...
         'ConstantPhaseDeg','LinearPhaseAcrossFOVDeg'});
 
     phaseCor = struct();
@@ -103,6 +128,12 @@ function phaseCor = estimate_TSE_phasecor(data, mdh, varargin)
     phaseCor.referenceEcho = opt.ReferenceEcho;
     phaseCor.coefficients = coefficients;
     phaseCor.amplitudeNorm = amplitudeNorm;
+    phaseCor.navigatorSNR = navigatorSNR;
+    phaseCor.navigatorSignalPower = navigatorSignalPower;
+    phaseCor.navigatorNoisePower = navigatorNoisePower;
+    phaseCor.navigatorAverages = navigatorAverages;
+    phaseCor.navigatorNoiseVariance = double(opt.NoiseVariance);
+    phaseCor.referenceNoiseToSignalRatio = referenceNoiseToSignalRatio;
     phaseCor.constantPhase = constantMean;
     phaseCor.linearPhaseAcrossFOV = slopeMean;
     phaseCor.metrics = metrics;
@@ -110,13 +141,26 @@ function phaseCor = estimate_TSE_phasecor(data, mdh, varargin)
     phaseCor.nCha = nCha;
 end
 
-function navigator = meanNavigator(data, mdh, slice, echo)
+function [navigator,nAverage] = meanNavigator(data,mdh,slice,echo)
     index = find(mdh.Sli == slice & mdh.Seg == echo);
     if isempty(index)
         error('estimate_TSE_phasecor:MissingNavigator', ...
-            'No phase-correction navigator for SLC=%d, SEG=%d.', slice, echo);
+            'No phase-correction navigator for SLC=%d, SEG=%d.',slice,echo);
     end
-    % Multiple repetitions/averages are combined. A warning is avoided here
-    % because repeated navigators are legitimate; callers can inspect MDH.
-    navigator = mean(data(:,:,index), 3);
+    % Multiple repetitions/averages are combined. Their uncorrelated noise
+    % variance is reduced by nAverage in estimateNavigatorPower.
+    nAverage = numel(index);
+    navigator = mean(data(:,:,index),3);
+end
+
+function [signalPower,noisePower] = estimateNavigatorPower( ...
+        navigator,noiseVariance,nAverage)
+    measuredPower = mean(abs(double(navigator(:))).^2);
+    if isfinite(noiseVariance)
+        noisePower = double(noiseVariance)/double(nAverage);
+        signalPower = max(measuredPower-noisePower,eps(max(1,measuredPower)));
+    else
+        noisePower = NaN;
+        signalPower = max(measuredPower,eps(max(1,measuredPower)));
+    end
 end

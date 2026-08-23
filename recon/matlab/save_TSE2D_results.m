@@ -5,6 +5,10 @@ function files = save_TSE2D_results(result, outputDir, varargin)
     p.addParameter('Prefix','',@(x) ischar(x) || isstring(x));
     p.addParameter('SaveMat',true,@(x) islogical(x) && isscalar(x));
     p.addParameter('SaveFigures',true,@(x) islogical(x) && isscalar(x));
+    p.addParameter('SaveNifti',false,@(x) islogical(x) && isscalar(x));
+    p.addParameter('NiftiVoxelSizeMm',[],@(x) isempty(x) || ...
+        (isnumeric(x) && isvector(x) && numel(x) == 3 && all(isfinite(x)) && all(x > 0)));
+    p.addParameter('Overwrite',false,@(x) islogical(x) && isscalar(x));
     p.parse(varargin{:});
     opt = p.Results;
 
@@ -18,6 +22,15 @@ function files = save_TSE2D_results(result, outputDir, varargin)
     end
     prefix = regexprep(prefix,'[^A-Za-z0-9._-]','_');
     files = struct();
+    if opt.SaveNifti
+        [files.nifti,niftiInfo,niftiGeometry] = write_TSE2D_nifti( ...
+            result.images.reconstructed,result.meta,outputDir, ...
+            'Prefix',prefix, ...
+            'VoxelSizeMm',opt.NiftiVoxelSizeMm, ...
+            'Description',sprintf('Pulseq 2D TSE magnitude; R=%d', ...
+                result.meta.accelerationFactorPE), ...
+            'Overwrite',opt.Overwrite);
+    end
 
     if opt.SaveMat
         files.mat = fullfile(outputDir,[prefix '_recon.mat']);
@@ -35,6 +48,19 @@ function files = save_TSE2D_results(result, outputDir, varargin)
     fprintf(fid,'Source: %s\n',result.sourceFile);
     fprintf(fid,'Matrix: %d x %d\n',result.meta.nRO,result.meta.nPE);
     fprintf(fid,'Slices: %s\n',sprintf('%d ',result.meta.reconstructedSlices));
+    if opt.SaveNifti
+        fprintf(fid,'NIfTI: %s\n',files.nifti);
+        fprintf(fid,'NIfTI voxel size (mm): %.9g %.9g %.9g\n',niftiInfo.PixelDimensions);
+        fprintf(fid,'NIfTI geometry source: %s\n',niftiGeometry.source);
+        fprintf(fid,'NIfTI coordinate system: %s\n',niftiGeometry.niftiCoordinateSystem);
+        fprintf(fid,'NIfTI sform RAS (mm; rows):\n');
+        for row = 1:4
+            fprintf(fid,'  %.12g %.12g %.12g %.12g\n', ...
+                niftiGeometry.affineRAS(row,:));
+        end
+        fprintf(fid,'NIfTI maximum slice-center error (mm): %.12g\n', ...
+            niftiGeometry.maxSliceCenterErrorMm);
+    end
     fprintf(fid,'Acceleration PE: %d\n',result.meta.accelerationFactorPE);
     fprintf(fid,'Image/phasecor/refscan/noise acquisitions: %d / %d / %d / %d\n', ...
         result.meta.imageAcquisitions,result.meta.phaseCorAcquisitions, ...
@@ -43,6 +69,27 @@ function files = save_TSE2D_results(result, outputDir, varargin)
         result.prewhitening.applied,result.prewhitening.nSamples, ...
         result.prewhitening.conditionBefore,result.prewhitening.conditionAfter);
     fprintf(fid,'Phase correction applied: %d\n',result.phaseCorrection.applied);
+    if isfield(result,'echoMagnitudeCorrection')
+        echoMag = result.echoMagnitudeCorrection;
+        fprintf(fid,'Echo-magnitude correction applied: %d, method: %s, alpha: %.9g\n', ...
+            echoMag.applied,echoMag.method,echoMag.alpha);
+        if echoMag.applied
+            fprintf(fid,'Echo-magnitude gain range: %.9g %.9g\n', ...
+                echoMag.minimumGain,echoMag.maximumGain);
+            fprintf(fid,'Maximum predicted noise variance gain: %.9g\n', ...
+                echoMag.maximumNoiseVarianceGain);
+            if echoMag.method == "wiener"
+                fprintf(fid,'Wiener lambda mode: %s\n',echoMag.lambdaMode);
+                fprintf(fid,'Wiener lambda by slice: %s\n', ...
+                    sprintf('%.9g ',echoMag.lambdaBySlice(isfinite(echoMag.lambdaBySlice))));
+                fprintf(fid,'Wiener noise lambda by slice: %s\n', ...
+                    sprintf('%.9g ',echoMag.lambdaNoiseBySlice(isfinite(echoMag.lambdaNoiseBySlice))));
+                fprintf(fid,'Wiener gain-limit lambda by slice: %s\n', ...
+                    sprintf('%.9g ',echoMag.lambdaGainBySlice(isfinite(echoMag.lambdaGainBySlice))));
+                fprintf(fid,'Wiener maximum-gain target: %.9g\n',echoMag.maximumGainTarget);
+            end
+        end
+    end
     if result.meta.accelerationFactorPE > 1
         nmse = cellfun(@(x) x.calibrationNMSE,result.grappa);
         fprintf(fid,'GRAPPA calibration NMSE by slice: %s\n',sprintf('%.6g ',nmse));
@@ -106,23 +153,34 @@ end
 function savePhaseMetrics(metrics,filename)
     slices = unique(metrics.Slice);
     echoes = unique(metrics.Echo);
-    fig = figure('Color','w','Position',[100 100 1000 850]);
-    layout = tiledlayout(3,1,'TileSpacing','compact','Padding','compact');
     fields = {'AmplitudeNorm','ConstantPhaseDeg','LinearPhaseAcrossFOVDeg'};
     labels = {'NAV amplitude / reference echo','Constant phase (deg)', ...
         'Linear phase across readout FOV (deg)'};
-    for j = 1:3
+    if ismember('NavigatorSNR',metrics.Properties.VariableNames)
+        fields = {'AmplitudeNorm','NavigatorSNR','ConstantPhaseDeg', ...
+            'LinearPhaseAcrossFOVDeg'};
+        labels = {'NAV amplitude / reference echo','Prewhitened NAV SNR', ...
+            'Constant phase (deg)','Linear phase across readout FOV (deg)'};
+    end
+
+    nPanel = numel(fields);
+    fig = figure('Color','w','Position',[100 100 1000 260*nPanel]);
+    layout = tiledlayout(nPanel,1,'TileSpacing','compact','Padding','compact');
+    for j = 1:nPanel
         ax = nexttile(layout); hold(ax,'on');
         for slice = reshape(slices,1,[])
             rows = metrics.Slice == slice;
             [~,order] = sort(metrics.Echo(rows));
-            values = metrics.(fields{j}); values = values(rows);
-            plot(ax,echoes,values(order),'-o','LineWidth',1.2,'MarkerSize',3, ...
+            currentEchoes = metrics.Echo(rows);
+            currentEchoes = currentEchoes(order);
+            values = metrics.(fields{j});
+            values = values(rows);
+            plot(ax,currentEchoes,values(order),'-o','LineWidth',1.2,'MarkerSize',3, ...
                 'DisplayName',sprintf('SLC %d',slice));
         end
         grid(ax,'on'); ylabel(ax,labels{j}); xlim(ax,[min(echoes) max(echoes)]);
         if j == 1, legend(ax,'Location','best'); end
-        if j == 3, xlabel(ax,'Echo / SEG'); end
+        if j == nPanel, xlabel(ax,'Echo / SEG'); end
     end
     title(layout,'TSE phase-correction navigator metrics');
     exportgraphics(fig,filename,'Resolution',180);
