@@ -76,8 +76,9 @@ SetupRF.typeEx = 'gSlider';
 
 The default gSlider example uses a higher excitation time-bandwidth product than the conventional TSE example. RF peak amplitude, B1, slice profile and SAR therefore require explicit review.
 
-!!! note "Offline gSlider reconstruction"
-    The repository currently generates gSlider-TSE acquisitions, but the MATLAB offline reconstruction does **not** implement gSlider decoding.
+::: info Offline gSlider reconstruction
+The repository currently generates gSlider-TSE acquisitions, but the MATLAB offline reconstruction does **not** implement gSlider decoding.
+:::
 
 ## 4. First offline reconstruction
 
