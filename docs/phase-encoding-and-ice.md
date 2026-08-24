@@ -37,6 +37,8 @@ The Siemens Cartesian zero-based mapping described above is applied only to acce
 
 This is intentional because the CS order may contain null/sentinel entries and is not designed to drive online Siemens GRAPPA.
 
+In practical terms:
+
 | Acquisition | Intended reconstruction | LIN convention |
 | --- | --- | --- |
 | `R=1` | RSS / offline reference | legacy fully sampled mapping |
@@ -45,7 +47,11 @@ This is intentional because the CS order may contain null/sentinel entries and i
 
 ## 3. mapVBVD uses one-based indices in MATLAB
 
+A frequent source of confusion is that the exported sequence metadata and Twix objects are not expressed in the same indexing convention.
+
 The sequence definition uses Siemens-style zero-based LIN metadata. After `mapVBVD` reads the Twix file, the reconstruction uses MATLAB/mapVBVD one-based indices for fields such as `Lin`, `Sli` and `Seg`.
+
+Therefore:
 
 ```text
 Siemens center LIN = mapVBVD center LIN - 1
@@ -55,17 +61,33 @@ Do not compare raw numerical LIN values across these two contexts without accoun
 
 ## 4. PE ordering and effective TE
 
-The sequence supports `CentricFull`, `CentricHalf` and `Linear` ordering. A prescribed center-echo index is estimated from:
+The sequence supports:
+
+```text
+CentricFull
+CentricHalf
+Linear
+```
+
+A prescribed center-echo index is estimated from:
 
 ```text
 k0prescr = round(TEeff / TE1)
 ```
 
-with a minimum of echo 1. The PE order is then shifted so that physical `ky = 0` is associated with the requested effective echo as closely as the discrete train allows.
+with a minimum of echo 1. The PE order is then circularly shifted so that physical `ky = 0` is associated with the requested effective echo as closely as the discrete train allows.
+
+This mapping is important because TSE contrast and point-spread behavior depend on which echo samples which portion of k-space.
 
 ## 5. PI ACS region
 
-For PI, the sequence tracks regular accelerated imaging lines, ACS/reference-only lines, and ACS lines that are also imaging lines. The exported ACS width counts the union of the latter two ACS categories.
+For PI, the sequence tracks three types of phase-encoding lines:
+
+- regular accelerated imaging lines;
+- ACS/reference-only lines;
+- ACS lines that are also imaging lines.
+
+The exported ACS width counts the union of the latter two ACS categories.
 
 The sequence writes:
 
@@ -78,6 +100,8 @@ FirstRefLine
 nRefLine
 ```
 
+`nRefLine` is the total ACS width used for bookkeeping and interpreter/reconstruction coordination.
+
 ::: warning Siemens protocol must match
 Exporting `nRefLine` does **not** automatically configure the Siemens iPAT card. The scanner protocol must still be set manually to the same ACS/reference-line width expected by the acquisition and interpreter.
 :::
@@ -87,6 +111,8 @@ A mismatch can cause failed online GRAPPA, inconsistent calibration, unexpected 
 ## 6. Full encoded matrix size matters
 
 An accelerated acquisition may never sample the numerically last LIN. The sequence therefore explicitly exports the full encoded PE matrix size as `kSpacePhaseEncodingLines` rather than asking the interpreter/reconstruction to infer matrix size from acquired lines alone.
+
+This avoids ambiguous matrix reconstruction for regular undersampling.
 
 ## 7. TSE online phase-correction metadata
 
@@ -99,15 +125,31 @@ PhaseCorrection = 'on'
 
 and acquires one phase-correction navigator for each TSE echo during the corresponding prescan.
 
-Writing these definitions alone does **not** enable a complete ICE phase-correction chain. A compatible Siemens interpreter must consume the metadata and configure the appropriate online TSE phase-correction behavior.
+The corrected `TurboFactor` name is important because the target interpreter needs the echo-train length to advertise/configure the correct number of phase-correction scans.
 
-The offline MATLAB reconstruction implements a transparent constant-plus-readout-linear navigator phase model. It is not a byte-for-byte clone of proprietary ICE internals.
+However, writing the sequence definitions alone does **not** enable a complete ICE phase-correction chain.
+
+The compatible Siemens interpreter must consume the metadata and configure the appropriate online TSE phase-correction behavior. Scanner protocol settings must also be compatible.
+
+The offline MATLAB reconstruction implements a transparent constant-plus-readout-linear navigator phase model. It is not a byte-for-byte clone of proprietary ICE phase-correction internals.
 
 ## 8. Slice metadata
 
-The sequence exports `SliceThickness`, `SliceGap`, `SlicePositions`, `SliceLabel`, `MultiSliceMode`, `MultiSliceDir` and `nSlice`.
+The sequence exports:
+
+```text
+SliceThickness
+SliceGap
+SlicePositions
+SliceLabel
+MultiSliceMode
+MultiSliceDir
+nSlice
+```
 
 Pulseq `SLC` labels intentionally remain acquisition ordinals. Physical/anatomical positions are carried separately through `SliceLabel` and `SlicePositions` so that the target interpreter can remap acquisition order to physical slice order.
+
+An interpreter that ignores this remapping may display or reconstruct slices in acquisition order rather than the intended anatomical order.
 
 ## 9. Axis mapping and orientation
 
@@ -115,15 +157,31 @@ The current maintained sequence workflow is non-oblique. Logical RO/PE/3D axes a
 
 The exported rotation matrix is identity. Consequently, sequence settings, interpreter assumptions and reconstruction orientation must agree.
 
+Always validate slice order and image orientation with a phantom or unmistakably asymmetric geometry before relying on anatomical labels.
+
 ## 10. Offline reconstruction scope
 
-The offline MATLAB reconstruction supports conventional Cartesian 2D TSE, RSS, diagnostic 1D PE-GRAPPA, ordinary ESPIRiT-SENSE, and SENSE-based Cartesian CS with TV and Haar-L1 penalties.
+The offline MATLAB reconstruction reads the Twix header and MDH metadata rather than blindly assuming the sequence-side values.
 
-It does **not** currently implement gSlider decoding, partial Fourier reconstruction, SMS, non-Cartesian reconstruction, or proprietary Siemens ICE coil combination and filters.
+It supports:
+
+- conventional Cartesian 2D TSE;
+- RSS;
+- diagnostic 1D PE-GRAPPA;
+- ordinary ESPIRiT-SENSE;
+- SENSE-based Cartesian CS with TV and Haar-L1 penalties.
+
+It does **not** currently implement:
+
+- gSlider decoding;
+- partial Fourier reconstruction;
+- SMS;
+- non-Cartesian reconstruction;
+- proprietary Siemens ICE coil combination or filters.
 
 ## 11. Recommended scanner checks for accelerated PI
 
-Before relying on online PI reconstruction, confirm together:
+Before relying on online PI reconstruction, confirm all of the following together:
 
 1. `R` in the Pulseq sequence;
 2. `AccelerationFactorPE` seen by the interpreter;
