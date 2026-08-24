@@ -1,0 +1,42 @@
+site_name: TSE Pulseq for MATLAB
+site_description: Research documentation for Siemens-targeted Cartesian 2D TSE Pulseq sequence generation and offline MATLAB reconstruction.
+site_url: https://bennyzhang-codes.github.io/tse-pulseq-matlab/
+repo_url: https://github.com/BennyZhang-Codes/tse-pulseq-matlab
+repo_name: BennyZhang-Codes/tse-pulseq-matlab
+edit_uri: edit/main/docs/
+
+copyright: Copyright &copy; Jinyuan Zhang. Released under the MIT License.
+
+theme:
+  name: material
+  features:
+    - navigation.sections
+    - navigation.top
+    - content.code.copy
+    - search.suggest
+    - search.highlight
+
+nav:
+  - Home: index.md
+  - Installation: installation.md
+  - Quick Start: quickstart.md
+  - Sequence Generation: sequence-generation.md
+  - Phase Encoding & Siemens ICE: phase-encoding-and-ice.md
+  - Reconstruction: reconstruction.md
+  - Validation & Safety: validation-and-safety.md
+  - Reproducibility & Citation: reproducibility.md
+  - Developer Guide: developer-guide.md
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.details
+  - pymdownx.superfences
+
+plugins:
+  - search
+
+strict: true
