@@ -31,7 +31,7 @@ jobs:
         with:
           command: >-
             addpath(genpath(fullfile(pwd,'pulseq')));
-            addpath(fullfile(pwd,'utils'),fullfile(pwd,'prep'),fullfile(pwd,'tests'));
+            addpath(fullfile(pwd,'utils'),fullfile(pwd,'prep'),fullfile(pwd,'recon','matlab'),fullfile(pwd,'tests'));
             results=runtests(fullfile(pwd,'tests'));
             assertSuccess(results);
 
