@@ -1,4 +1,4 @@
-name: MATLAB CI
+name: CI
 
 on:
   push:
@@ -9,6 +9,7 @@ on:
 
 permissions:
   contents: read
+  id-token: write
 
 jobs:
   test:
@@ -26,7 +27,7 @@ jobs:
           release: R2024b
           cache: true
 
-      - name: Run tests
+      - name: Run tests and collect coverage
         uses: matlab-actions/run-command@v3
         with:
           command: run(fullfile(pwd,'tests','run_ci_tests.m'));
@@ -38,6 +39,26 @@ jobs:
           name: matlab-junit-results
           path: artifacts/junit.xml
           if-no-files-found: error
+
+      - name: Upload MATLAB coverage report
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: matlab-coverage
+          path: artifacts/coverage.xml
+          if-no-files-found: error
+
+      - name: Upload coverage to Codecov
+        if: success()
+        continue-on-error: true
+        uses: codecov/codecov-action@v5
+        with:
+          use_oidc: true
+          files: artifacts/coverage.xml
+          disable_search: true
+          flags: matlab
+          name: matlab-coverage
+          fail_ci_if_error: false
 
 # This workflow does not validate scanner-side SAR, PNS, RF safety, Siemens
 # interpreter behavior, ICE reconstruction, or clinical use.
