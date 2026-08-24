@@ -1,33 +1,49 @@
-# TSE Pulseq for MATLAB
+---
+layout: home
+
+hero:
+  name: TSE Pulseq for MATLAB
+  text: Cartesian 2D TSE sequence design and transparent offline reconstruction
+  tagline: Research-oriented MATLAB tools for Siemens-targeted Pulseq TSE, gSlider-TSE, PI/CS sampling, validation helpers, and conventional 2D TSE reconstruction.
+  actions:
+    - theme: brand
+      text: Get Started
+      link: /quickstart
+    - theme: alt
+      text: Installation
+      link: /installation
+    - theme: alt
+      text: View on GitHub
+      link: https://github.com/BennyZhang-Codes/tse-pulseq-matlab
+
+features:
+  - icon: 🧲
+    title: Pulseq TSE Generation
+    details: Generate conventional multi-slice 2D TSE and gSlider-TSE sequences with configurable timing, RF, slice ordering, inversion recovery and TRAPS schedules.
+    link: /sequence-generation
+  - icon: 🧭
+    title: Siemens-aware Encoding Metadata
+    details: Explicit PI/CS boundaries, Siemens LIN and ACS conventions, phase-correction definitions, slice metadata and interpreter-facing sequence definitions.
+    link: /phase-encoding-and-ice
+  - icon: 🧮
+    title: Transparent Reconstruction
+    details: Offline RSS, diagnostic PE-GRAPPA, ESPIRiT-SENSE and TV/Haar-regularized CS for conventional Cartesian 2D TSE Twix data.
+    link: /reconstruction
+  - icon: 🛡️
+    title: Validation First
+    details: Timing, labels, PNS development checks and reproducibility guidance, with explicit separation between software validation and scanner-side safety review.
+    link: /validation-and-safety
+---
+
+## Overview
 
 **TSE Pulseq for MATLAB** is a research-oriented MATLAB toolkit for Siemens-targeted Cartesian 2D turbo spin echo (TSE) sequence generation with Pulseq, together with a transparent offline reconstruction workflow for conventional 2D TSE Siemens Twix data.
 
-The repository includes:
+The repository includes conventional and gSlider sequence generators, configurable phase-encoding order and acceleration, raster-constrained gradient design, sequence validation helpers, and modular reconstruction tools intended for research development and controlled validation.
 
-- conventional multi-slice 2D TSE sequence generation;
-- gSlider-TSE sequence generation with optional TRAPS refocusing schedules;
-- configurable phase-encoding order, PI and Cartesian CS sampling;
-- inversion recovery and multi-slice ordering controls;
-- raster-constrained gradient, crusher and spoiler design;
-- Siemens-oriented sequence definitions for PE, ACS and TSE phase-correction metadata;
-- timing, label and PNS development checks; and
-- offline RSS, diagnostic PE-GRAPPA, ESPIRiT-SENSE and TV/Haar-regularized CS reconstruction for conventional 2D TSE.
-
-!!! warning "Research use only"
-    This repository is research code. Pulseq timing checks, PNS prediction and software-side validation do **not** replace scanner-side safety checks, RF/SAR review, protocol validation, gradient-watchdog checks, local approvals, or staged phantom testing before volunteer or patient imaging.
-
-## Start here
-
-If you are new to the repository, follow this order:
-
-1. [Installation](installation.md) — clone the repository with submodules and configure MATLAB dependencies.
-2. [Quick start](quickstart.md) — generate a conventional TSE or gSlider sequence and run a first offline reconstruction.
-3. [Sequence generation](sequence-generation.md) — understand `Setup`, `SetupRF`, `SetupSpoiling`, timing and exported files.
-4. [Phase encoding and Siemens ICE metadata](phase-encoding-and-ice.md) — understand PI/CS boundaries, LIN conventions, ACS metadata and online phase-correction requirements.
-5. [Reconstruction](reconstruction.md) — understand the Twix-to-image pipeline and the supported reconstruction methods.
-6. [Validation and safety](validation-and-safety.md) — review what the software checks and what must still be verified on the scanner.
-7. [Reproducibility and citation](reproducibility.md) — record releases, commit/submodule SHAs, sequence parameters and citation metadata.
-8. [Developer guide](developer-guide.md) — repository architecture, contribution rules and documentation workflow.
+::: warning Research use only
+This repository is research code. Pulseq timing checks, PNS prediction and software-side validation do **not** replace scanner-side safety checks, RF/SAR review, protocol validation, gradient-watchdog checks, local approvals, or staged phantom testing before volunteer or patient imaging.
+:::
 
 ## Main entry points
 
@@ -41,18 +57,10 @@ If you are new to the repository, follow this order:
 
 ## Current scope
 
-The maintained sequence generators target **non-oblique Cartesian 2D TSE**. The offline MATLAB reconstruction supports **conventional Cartesian 2D TSE only**. In particular, offline gSlider decoding is not yet implemented.
+The maintained sequence generators target **non-oblique Cartesian 2D TSE**. The offline MATLAB reconstruction supports **conventional Cartesian 2D TSE only**; offline gSlider decoding is not yet implemented.
 
 The reconstruction path is intended for transparent research reconstruction, sequence debugging, phantom validation and controlled A/B comparisons. It does not claim pixel-for-pixel equivalence with Siemens ICE, whose raw-data scaling, coil compression/combination, GRAPPA implementation, filtering and intensity normalization may differ.
 
-## Documentation site
+## Citation and reproducibility
 
-This site is built with MkDocs and deployed through GitHub Pages. Once GitHub Pages is enabled with **GitHub Actions** as the publishing source, pushes to `main` that modify the documentation will automatically rebuild and deploy the public site.
-
-Default GitHub Pages URL after enablement:
-
-`https://bennyzhang-codes.github.io/tse-pulseq-matlab/`
-
-## License and citation
-
-The software is distributed under the MIT License. See [Reproducibility and citation](reproducibility.md) for software citation, release pinning, Zenodo guidance and the gSlider-TSE reference.
+For published work, pin a release or exact commit and record the submodule SHAs, sequence configuration and scanner-side protocol settings. See [Reproducibility & Citation](reproducibility.md) for the recommended workflow.

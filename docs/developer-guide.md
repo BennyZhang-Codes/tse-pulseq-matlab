@@ -16,7 +16,7 @@ VERSE/                  VERSE/minimum-SAR RF git submodule
 recon/matlab/           conventional 2D TSE MATLAB reconstruction
 recon/julia/            Julia-side reconstruction code retained by the project
 seq/                     generated sequence/configuration outputs; not tracked
-docs/                    static MkDocs documentation
+docs/                    VitePress documentation source
 .github/workflows/       CI/deployment workflows
 ```
 
@@ -122,12 +122,12 @@ If a safeguard is too strict for a legitimate new acquisition, update the model 
 
 ## 9. Static documentation first
 
-The first documentation stage is intentionally **static MkDocs**. Documentation should explain stable workflows, conventions, limitations and reproducibility before introducing automatically generated API references.
+The documentation remains intentionally **static Markdown**, now rendered with VitePress for a cleaner project site and navigation experience. Documentation should explain stable workflows, conventions, limitations and reproducibility before introducing automatically generated API references.
 
 For now:
 
 - edit the Markdown files in `docs/`;
-- keep `mkdocs.yml` navigation explicit;
+- keep sidebar/navigation in `docs/.vitepress/config.mjs` explicit;
 - ensure code snippets match maintained entry points;
 - update docs in the same PR as user-visible behavior changes.
 
@@ -135,33 +135,33 @@ Automatic MATLAB API extraction can be considered later, once public function bo
 
 ## 10. Build documentation locally
 
-Install the pinned documentation theme used by CI:
+Install the Node dependency declared by the repository:
 
 ```bash
-python -m pip install mkdocs-material==9.7.7
+npm install
 ```
 
-Build strictly:
+Build the site:
 
 ```bash
-mkdocs build --strict
+npm run docs:build
 ```
 
-Preview locally:
+Preview while editing:
 
 ```bash
-mkdocs serve
+npm run docs:dev
 ```
 
-The development server normally prints a local URL such as `http://127.0.0.1:8000/`.
+VitePress prints the local preview URL in the terminal.
 
 ## 11. GitHub Pages deployment
 
-`.github/workflows/docs.yml` builds the static MkDocs site and deploys the generated `site/` directory using GitHub Pages Actions.
+`.github/workflows/docs.yml` builds the VitePress site and deploys `docs/.vitepress/dist` through GitHub Pages Actions.
 
-The workflow is triggered on pushes to `main` that affect documentation/configuration and can also be run manually.
+The workflow validates documentation pull requests and deploys documentation changes pushed to `main`.
 
-Repository Settings must use **GitHub Actions** as the Pages publishing source before the first deployment succeeds.
+Repository Settings must use **GitHub Actions** as the Pages publishing source.
 
 The expected project Pages URL is:
 

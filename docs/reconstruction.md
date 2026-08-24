@@ -10,8 +10,9 @@ recon/matlab/examples/run_recon_TSE2D_iterative.m
 recon/matlab/recon_TSE2D.m
 ```
 
-!!! warning "Scope"
-    The offline reconstruction does **not** currently decode gSlider acquisitions and does not claim pixel-for-pixel equivalence with Siemens ICE.
+::: warning Scope
+The offline reconstruction does **not** currently decode gSlider acquisitions and does not claim pixel-for-pixel equivalence with Siemens ICE.
+:::
 
 ## 1. Processing chain
 

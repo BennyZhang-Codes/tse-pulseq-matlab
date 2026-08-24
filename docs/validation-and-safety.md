@@ -2,8 +2,9 @@
 
 This repository includes development-time validation helpers, but it is **not** a scanner safety certification system.
 
-!!! danger "Research use only"
-    A sequence that passes MATLAB/Pulseq checks is not automatically safe or suitable for volunteer or patient scanning. Scanner-side RF/SAR, gradient, PNS, protocol, interpreter and watchdog checks remain mandatory, together with local institutional approval.
+::: danger Research use only
+A sequence that passes MATLAB/Pulseq checks is not automatically safe or suitable for volunteer or patient scanning. Scanner-side RF/SAR, gradient, PNS, protocol, interpreter and watchdog checks remain mandatory, together with local institutional approval.
+:::
 
 ## 1. What the sequence scripts currently check
 

@@ -102,8 +102,9 @@ nRefLine
 
 `nRefLine` is the total ACS width used for bookkeeping and interpreter/reconstruction coordination.
 
-!!! warning "Siemens protocol must match"
-    Exporting `nRefLine` does **not** automatically configure the Siemens iPAT card. The scanner protocol must still be set manually to the same ACS/reference-line width expected by the acquisition and interpreter.
+::: warning Siemens protocol must match
+Exporting `nRefLine` does **not** automatically configure the Siemens iPAT card. The scanner protocol must still be set manually to the same ACS/reference-line width expected by the acquisition and interpreter.
+:::
 
 A mismatch can cause failed online GRAPPA, inconsistent calibration, unexpected reference streams or reconstruction artifacts.
 
