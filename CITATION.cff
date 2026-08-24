@@ -19,3 +19,26 @@ keywords:
   - "TSE"
   - "MATLAB"
   - "Siemens"
+references:
+  - type: conference-paper
+    authors:
+      - family-names: "Zhang"
+        given-names: "Jinyuan"
+      - family-names: "Wu"
+        given-names: "Yue"
+      - family-names: "Xue"
+        given-names: "Rong"
+      - family-names: "Zhuo"
+        given-names: "Yan"
+      - family-names: "Zhang"
+        given-names: "Zihao"
+    title: "gSlider-TSE for high-resolution isotropic T2-weighted imaging with high contrast and high SNR"
+    collection-title: "2024 ISMRM and ISMRT Annual Meeting and Exhibition"
+    collection-type: "proceedings"
+    conference:
+      name: "2024 ISMRM and ISMRT Annual Meeting and Exhibition"
+      city: "Singapore"
+      country: "SG"
+    year: 2024
+    notes: "ISMRM; Program Number: 3256"
+    url: "http://echo.ismrm.org/p/ISMRM2024/3256"

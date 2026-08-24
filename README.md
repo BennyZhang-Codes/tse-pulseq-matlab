@@ -1,5 +1,7 @@
 # TSE Pulseq for MATLAB
 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.22076863.svg)](https://doi.org/10.5281/zenodo.22076863)
+
 MATLAB tools for designing Siemens-targeted, Cartesian 2D turbo spin echo
 (TSE) Pulseq sequences. The repository provides conventional and gSlider
 sequence generators, configurable phase-encoding order and acceleration,
