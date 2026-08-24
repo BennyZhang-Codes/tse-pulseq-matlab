@@ -5,7 +5,7 @@ repo_url: https://github.com/BennyZhang-Codes/tse-pulseq-matlab
 repo_name: BennyZhang-Codes/tse-pulseq-matlab
 edit_uri: edit/main/docs/
 
-copyright: Copyright &copy; Jinyuan Zhang. Released under the MIT License.
+copyright: "Copyright &copy; Jinyuan Zhang. Released under the MIT License."
 
 theme:
   name: material
