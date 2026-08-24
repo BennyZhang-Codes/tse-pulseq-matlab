@@ -4,10 +4,12 @@ All notable changes are documented here. This project follows [Keep a Changelog]
 
 ## Unreleased
 
+## v0.1.0 - 2026-08-24
+
 ### Added
 
-- MATLAB CI with Pulseq smoke tests, PE-ordering regression tests, reconstruction-helper regression tests, and downloadable JUnit results.
-- GitHub Pages documentation, Zenodo DOI metadata, and repository badges.
+- MATLAB CI with Pulseq smoke tests, PE-ordering regression tests, reconstruction-helper regression tests, downloadable JUnit results, and code-coverage reporting.
+- GitHub Pages documentation, Zenodo DOI metadata, release-ready README, and repository badges.
 - Contribution and safety-reporting guidance.
 
 ### Changed
