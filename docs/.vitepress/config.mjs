@@ -30,8 +30,10 @@ export default defineConfig({
         text: 'Sequence',
         items: [
           { text: 'Sequence Generation', link: '/sequence-generation' },
+          { text: 'Parameter Reference', link: '/parameter-reference' },
           { text: 'Phase Encoding & Siemens ICE', link: '/phase-encoding-and-ice' },
-          { text: 'Validation & Safety', link: '/validation-and-safety' }
+          { text: 'Validation & Safety', link: '/validation-and-safety' },
+          { text: '7 T Staged Phantom Validation', link: '/staged-phantom-validation' }
         ]
       },
       {

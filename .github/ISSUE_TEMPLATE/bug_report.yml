@@ -1,0 +1,26 @@
+name: Bug report
+description: Report a reproducible software defect.
+title: "[Bug]: "
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: "Do not include patient data, scanner credentials, proprietary files, or urgent safety events."
+  - type: input
+    id: version
+    attributes:
+      label: Repository commit or release
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Reproduction steps
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected and observed behavior
+    validations:
+      required: true
