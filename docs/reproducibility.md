@@ -1,6 +1,8 @@
 # Reproducibility and citation
 
-This page describes how to make a sequence-generation or reconstruction result reproducible across software revisions.
+This page describes how to make a sequence-generation or reconstruction result reproducible across software revisions and scanner platforms.
+
+Vendor-neutral deployment is the project goal, but the current implementation and validation path is Siemens 7 T. Always record the actual scanner vendor/model and interpreter used; do not treat validation on one platform as evidence for another. See [Platform Integration](platform-integration.md) for the current coupling points.
 
 ## 1. Prefer a fixed release for published work
 
@@ -13,7 +15,8 @@ A reproducible record should include:
 - Pulseq submodule SHA;
 - VERSE submodule SHA when relevant;
 - MATLAB version;
-- scanner model and interpreter version/configuration;
+- scanner vendor and model;
+- Pulseq interpreter version/configuration;
 - saved `Setup` and resolved `Actual` structures;
 - exported `.seq` file;
 - scanner protocol settings that are not encoded in the `.seq` file;
@@ -49,13 +52,15 @@ These serve different purposes:
 
 - `Setup` records the user-requested configuration;
 - `Actual` contains derived scanner, timing, PE, slice and export information after preparation;
-- `.seq` is the scanner-facing Pulseq sequence description.
+- `.seq` is the Pulseq sequence description used by the target interpreter.
 
 For reproducible studies, archive all three rather than only the `.seq` file.
 
-## 4. Record scanner-side settings that are not fully encoded
+## 4. Record platform-specific scanner settings
 
-Some scanner/interpreter behavior is not guaranteed by the `.seq` file alone. Record at least:
+Some scanner/interpreter behavior is not guaranteed by the `.seq` file alone. Record the target platform's interpreter revision, patient position/orientation assumptions, accelerated-imaging calibration settings, online phase-correction behavior, and any scanner-side RF/SAR or reconstruction settings that materially affect the result.
+
+For the repository's current Siemens 7 T validation path, record at least:
 
 - Siemens Pulseq interpreter build/revision;
 - patient position and intended orientation;
@@ -65,9 +70,11 @@ Some scanner/interpreter behavior is not guaranteed by the `.seq` file alone. Re
 
 This is particularly important because exported `nRefLine` does not by itself set the Siemens iPAT card.
 
+For another vendor, record the equivalent interpreter and acquisition/reconstruction contract for that platform rather than assuming Siemens metadata semantics transfer directly.
+
 ## 5. Record offline reconstruction options
 
-The offline reconstruction exposes explicit options for:
+The bundled offline reconstruction currently targets Siemens Twix data and exposes explicit options for:
 
 - prewhitening;
 - noise covariance regularization;
@@ -84,33 +91,32 @@ Save the runner script or a MAT/text record of the options used for every datase
 
 Do not describe a result simply as "CS reconstruction" without reporting the regularization and calibration configuration.
 
-## 6. Current software citation metadata
+## 6. Software citation
 
-The repository contains `CITATION.cff` with the current software citation metadata:
+The repository contains `CITATION.cff` with software citation metadata and the Zenodo DOI:
 
 ```text
 Title: TSE Pulseq for MATLAB
 Author: Jinyuan Zhang
 Type: software
 License: MIT
+DOI: 10.5281/zenodo.22076863
 Repository: https://github.com/BennyZhang-Codes/tse-pulseq-matlab
 ```
 
-At the time this documentation was created, `CITATION.cff` does **not** yet contain a software version or DOI field. Do not invent a DOI when citing the current repository state.
+Use the repository DOI when citing the software unless a version-specific DOI is provided for the exact release used in your study.
 
 GitHub's **Cite this repository** interface can use `CITATION.cff` to format the available citation metadata.
 
-## 7. Zenodo DOI workflow
+## 7. Release and Zenodo workflow
 
-For archival citation, a recommended future workflow is:
+For archival releases:
 
-1. connect the GitHub repository to Zenodo;
-2. create a GitHub Release with a stable semantic version/tag;
-3. allow Zenodo to archive that release;
-4. add the resulting version-specific DOI and/or concept DOI to the release notes and `CITATION.cff`;
-5. use the version-specific DOI when citing the exact software used for a publication.
-
-Until a Zenodo record has actually been created, documentation should say that the DOI is **not yet assigned** rather than using a placeholder DOI that could be mistaken for a real identifier.
+1. create a GitHub Release with a stable semantic version/tag;
+2. archive that release with Zenodo;
+3. record the version-specific DOI when Zenodo assigns one;
+4. update `CITATION.cff` with `version`, `date-released`, and the appropriate DOI when a release is finalized;
+5. use the version-specific DOI when citing the exact software release used for a publication, while retaining the concept/repository DOI when appropriate.
 
 ## 8. gSlider-TSE citation
 
@@ -127,11 +133,11 @@ Before creating a release intended for citation:
 - verify the maintained sequence examples run as expected;
 - record the Pulseq and VERSE submodule SHAs;
 - update `CITATION.cff` with `version` and `date-released`;
-- update documentation for known limitations and compatibility;
+- update documentation for known limitations and platform compatibility;
 - confirm example reconstruction defaults;
 - create a release tag;
-- archive the release with Zenodo if DOI-backed citation is desired;
-- add the DOI to `CITATION.cff` only after it exists;
+- archive the release with Zenodo;
+- record the version-specific DOI after it exists;
 - keep release notes focused on user-visible behavior and compatibility.
 
 ## 10. Minimum methods reporting template
@@ -141,11 +147,12 @@ For a reproducible methods section, report at least:
 ```text
 Software: TSE Pulseq for MATLAB, release/tag or commit SHA
 Pulseq submodule: commit SHA
-Scanner/interpreter: model + interpreter revision
+Scanner: vendor + model + field strength
+Pulseq interpreter: implementation + revision
 Acquisition: matrix, FOV, slices, TR, TE1, TEeff, turbo factor, PE order, R, ACS
 RF: excitation/refocusing type and relevant flip-angle schedule
 Validation: timing/PNS/scanner-side checks performed
-Reconstruction: method + phase/magnitude correction + calibration + regularization
+Reconstruction: raw-data format + method + phase/magnitude correction + calibration + regularization
 ```
 
-The exact level of detail can be shortened in a manuscript when the software release and archived configuration files are publicly available, but the release/commit identity should remain explicit.
+The exact level of detail can be shortened in a manuscript when the software release and archived configuration files are publicly available, but the release/commit identity and scanner platform should remain explicit.

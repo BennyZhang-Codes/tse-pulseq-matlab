@@ -1,6 +1,8 @@
-# Reconstruction
+# Offline reconstruction — Siemens Twix
 
-The repository provides a transparent MATLAB reconstruction path for **conventional Cartesian 2D TSE Siemens Twix data**.
+The bundled offline MATLAB reconstruction currently targets **conventional Cartesian 2D TSE Siemens Twix data**. This is the repository's present raw-data/reconstruction implementation, not a restriction of the vendor-neutral Pulseq sequence core.
+
+For the distinction between sequence portability and raw-data/platform integration, see [Platform Integration](platform-integration.md).
 
 Main entry points:
 
@@ -11,7 +13,7 @@ recon/matlab/recon_TSE2D.m
 ```
 
 ::: warning Scope
-The offline reconstruction does **not** currently decode gSlider acquisitions and does not claim pixel-for-pixel equivalence with Siemens ICE.
+The offline reconstruction does **not** currently decode gSlider acquisitions, does not include raw-data readers for other MRI vendors, and does not claim pixel-for-pixel equivalence with Siemens ICE.
 :::
 
 ## 1. Processing chain
@@ -287,7 +289,7 @@ Use:
 
 ## 14. NIfTI output
 
-The NIfTI writer derives scanner-patient RAS geometry from Siemens MDH slice centers and quaternions when available and validates consistency across slices.
+The current NIfTI writer derives scanner-patient RAS geometry from Siemens MDH slice centers and quaternions when available and validates consistency across slices.
 
 The code checks slice spacing/orientation and verifies reconstructed slice centers against the affine before writing.
 
@@ -297,6 +299,7 @@ This is stricter than writing voxel dimensions alone and is important when compa
 
 The offline MATLAB reconstruction currently excludes:
 
+- raw-data readers for non-Siemens platforms;
 - gSlider decoding;
 - partial Fourier;
 - SMS;

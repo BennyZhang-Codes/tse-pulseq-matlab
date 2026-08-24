@@ -1,6 +1,10 @@
 # Quick start
 
-This page gives the shortest path from a fresh clone to a generated sequence and a first offline reconstruction.
+This page gives the shortest path from a fresh clone to a generated Pulseq sequence and, for the currently validated Siemens workflow, a first offline reconstruction.
+
+::: info Platform status
+The sequence core is designed around the vendor-neutral Pulseq format. The maintained scanner presets currently reflect the Siemens 7 T systems used for validation. See [Platform Integration](platform-integration.md) before treating those presets or metadata conventions as portable to another scanner.
+:::
 
 ## 1. Clone the repository
 
@@ -15,16 +19,15 @@ If you already cloned without submodules:
 git submodule update --init --recursive
 ```
 
-See [Installation](installation.md) for MATLAB, mapVBVD, Siemens `.asc` and interpreter requirements.
+See [Installation](installation.md) for the sequence-development requirements and the additional Siemens-specific tools used by the current 7 T validation/reconstruction path.
 
 ## 2. Generate a conventional 2D TSE sequence
 
 Open MATLAB with the repository root as the current folder.
 
-Edit the configuration block near the top of `TSE_2D.m`. A minimal starting configuration is already provided in the script. The main fields to review first are:
+Edit the configuration block near the top of `TSE_2D.m`. The main sequence controls to review first are:
 
 ```matlab
-Setup.ScannerType      = 'Terra-XJ';
 Setup.NoiseScan        = 'on';
 Setup.PhaseCorrection  = 'on';
 Setup.IR               = 'off';
@@ -44,20 +47,28 @@ Setup.TR               = 5000e-3;
 Setup.R                = 2;
 ```
 
+The maintained example also selects a currently implemented scanner profile:
+
+```matlab
+Setup.ScannerType = 'Terra-XJ';
+```
+
+`Terra-XJ` is a **Siemens 7 T integration preset**, not a requirement of the TSE sequence concept. A different target system needs its own correct hardware limits, safety/PNS strategy and interpreter mapping.
+
 Then run:
 
 ```matlab
 run('TSE_2D.m')
 ```
 
-The maintained script performs sequence preparation, timing/label/PNS checks, exports sequence definitions, saves the resolved configuration and writes the `.seq` file.
+The script performs sequence preparation, timing/label checks, the available PNS development check for the selected profile, exports sequence definitions, saves the resolved configuration and writes the `.seq` file.
 
-Generated outputs are written under `seq/` and include:
+Generated outputs under `seq/` include:
 
 - `<sequence-name>.seq`;
 - a MAT file containing the original `Setup` and resolved `Actual` structures.
 
-Always inspect the console output and plots before using the exported sequence.
+Always inspect the console output and plots before using the exported sequence on a scanner.
 
 ## 3. Generate a gSlider-TSE sequence
 
@@ -82,7 +93,7 @@ The repository currently generates gSlider-TSE acquisitions, but the MATLAB offl
 
 ## 4. First offline reconstruction
 
-Install `mapVBVD`, then edit:
+The bundled reconstruction currently targets **Siemens Twix raw data**. Install `mapVBVD`, then edit:
 
 ```text
 recon/matlab/examples/run_recon_TSE2D.m
@@ -163,12 +174,14 @@ These regularization values are starting points validated on the repository's ma
 
 A `.seq` file that passes software checks is not automatically ready for human scanning. At minimum, confirm:
 
-- scanner model and hardware limits;
+- the target scanner model and hardware limits;
 - RF peak amplitude, B1 and SAR;
-- PNS on the appropriate scanner model;
+- PNS using an appropriate platform-specific model or scanner-side safety system;
 - slice order and orientation;
-- PI acceleration and ACS settings in the Siemens protocol;
-- online phase-correction behavior if used; and
+- interpreter compatibility and any platform-specific acquisition/reconstruction metadata;
+- accelerated-imaging calibration settings when used; and
 - phantom image quality before volunteer/patient use.
+
+For the currently validated Siemens 7 T path, this additionally includes matching iPAT/ACS settings and checking the intended ICE phase-correction behavior when enabled.
 
 See [Validation and safety](validation-and-safety.md) before scanner deployment.
