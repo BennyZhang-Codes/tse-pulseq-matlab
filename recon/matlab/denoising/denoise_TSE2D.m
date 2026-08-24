@@ -217,7 +217,7 @@ end
 function pathUsed = configureBM3D(requestedPath)
     pathUsed = char(string(requestedPath));
     if isempty(pathUsed)
-        base = fileparts(mfilename('fullpath'));
+        base = fileparts(fileparts(mfilename('fullpath')));
         pathUsed = fullfile(base,'third_party_local','bm3d-4.0.3', ...
             'bm3d_matlab_package_4.0.3','bm3d');
     end
@@ -236,7 +236,7 @@ end
 function pathUsed = configureSANLM(requestedPath)
     pathUsed = char(string(requestedPath));
     if isempty(pathUsed)
-        base = fileparts(mfilename('fullpath'));
+        base = fileparts(fileparts(mfilename('fullpath')));
         pathUsed = fullfile(base,'third_party_local','cat12');
     end
     if exist('cat_sanlm','file') ~= 3

@@ -17,7 +17,7 @@ validation helpers, and a modular offline reconstruction path for conventional
 | --- | --- |
 | [`TSE_2D.m`](TSE_2D.m) | Conventional 2D multi-slice TSE generator. |
 | [`TSE_2D_gSlider.m`](TSE_2D_gSlider.m) | 2D TSE generator with gSlider excitation and optional TRAPS refocusing-flip schedules. |
-| [`recon/matlab/run_recon_TSE2D.m`](recon/matlab/run_recon_TSE2D.m) | Editable offline reconstruction script for conventional Cartesian 2D TSE Twix data. |
+| [`recon/matlab/examples/run_recon_TSE2D.m`](recon/matlab/examples/run_recon_TSE2D.m) | Editable offline reconstruction example for conventional Cartesian 2D TSE Twix data. |
 | [`recon/matlab/recon_TSE2D.m`](recon/matlab/recon_TSE2D.m) | Programmatic offline reconstruction entry point. |
 
 The sequence generators share the preparation modules in `prep/`. The offline
@@ -166,10 +166,10 @@ configure ICE.
 
 ## Offline conventional 2D TSE reconstruction
 
-Edit the configuration block in `recon/matlab/run_recon_TSE2D.m`, then run:
+Edit `recon/matlab/examples/run_recon_TSE2D.m`, then run:
 
 ```matlab
-run(fullfile('recon', 'matlab', 'run_recon_TSE2D.m'))
+run(fullfile('recon', 'matlab', 'examples', 'run_recon_TSE2D.m'))
 ```
 
 Or call the workflow directly:

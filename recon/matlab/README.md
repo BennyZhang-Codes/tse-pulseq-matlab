@@ -11,7 +11,7 @@ GRAPPA kernels, filtering, and intensity normalization.
 
 ## Quick start
 
-Edit the configuration block in `run_recon_TSE2D.m`, then run the script.
+Edit the configuration block in `examples/run_recon_TSE2D.m`, then run it.
 
 The programmatic entry point is:
 
@@ -60,10 +60,10 @@ For a faster single-slice diagnostic reconstruction:
 | `recon_TSE2D_GRAPPA.m` | Calibrates and applies diagnostic 1D PE-GRAPPA for integer acceleration factors R >= 2. |
 | `recon_TSE2D_SENSE.m` | Solves the ordinary ESPIRiT-SENSE least-squares problem by CG on the normal equations, with optional L2 stabilization. |
 | `recon_TSE2D_CS.m` | Solves the same SENSE encoding problem with isotropic TV and orthonormal Haar-L1 regularization. |
-| `tune_TSE2D_CS_parameters.m` | Reuses one prewhitened ESPIRiT model to compare TV/wavelet regularization candidates. |
-| `utils/evaluate_TSE2D_reconstruction.m` | Registers to a full reference and computes masked NRMSE, SSIM, PSNR, and error maps. |
-| `create_TSE2D_CS_comparison_figure.m` | Creates publication-style 600-dpi PNG/TIFF and vector-PDF reference/CS/error figures. |
-| `run_compare_TSE2D_CS_20250331.m` | Reproduces the matched R=1--5 phantom reconstruction and comparison workflow. |
+| `experiments/tune_TSE2D_CS_parameters.m` | Reuses one prewhitened ESPIRiT model to compare TV/wavelet regularization candidates. |
+| `experiments/evaluate_TSE2D_reconstruction.m` | Registers to a full reference and computes masked NRMSE, SSIM, PSNR, and error maps. |
+| `experiments/create_TSE2D_CS_comparison_figure.m` | Creates publication-style 600-dpi PNG/TIFF and vector-PDF reference/CS/error figures. |
+| `experiments/run_compare_TSE2D_CS_20250331.m` | Reproduces the matched R=1--5 phantom reconstruction and comparison workflow. |
 | `utils/prepare_TSE2D_sense_model.m` | Builds the shared PCA-compressed k-space, sampling mask, and ESPIRiT/RSS sensitivity model. |
 | `utils/sense_TSE2D_forward.m`, `utils/sense_TSE2D_adjoint.m` | Apply the common masked Cartesian PFS operator and its tested adjoint. |
 | `utils/estimate_TSE2D_espirit.m` | Estimates a single set of ESPIRiT maps from the ACS calibration matrix. |
@@ -73,11 +73,11 @@ For a faster single-slice diagnostic reconstruction:
 | `recon_TSE2D.m` | Orchestrates the complete workflow. |
 | `write_TSE2D_nifti.m` | Writes compressed single-precision volumes with complete Twix-derived or reference-NIfTI RAS geometry. |
 | `batch_recon_TSE2D.m` | Reconstructs every Twix `.dat` in an input directory to one `.nii.gz` per file. |
-| `estimate_TSE2D_image_noise.m` | Estimates corner-background noise power and a stationary 2-D colored-noise PSD. |
-| `denoise_TSE2D.m` | Provides one slice-wise interface to NLM, colored BM3D, optional CAT12 SANLM, and TGV2. |
-| `denoise_TGV2.m` | Implements transparent second-order TGV-L2 denoising with a primal-dual solver. |
-| `measure_TSE2D_denoising.m` | Measures noise removal, signal/edge retention, residual structure, and PE/RO residual anisotropy. |
-| `benchmark_TSE2D_denoisers.m` | Batch-denoises NIfTI volumes, preserves their sforms, and writes NIfTI, PNG, CSV, and text comparisons. |
+| `denoising/estimate_TSE2D_image_noise.m` | Estimates corner-background noise power and a stationary 2-D colored-noise PSD. |
+| `denoising/denoise_TSE2D.m` | Provides one slice-wise interface to NLM, colored BM3D, optional CAT12 SANLM, and TGV2. |
+| `denoising/denoise_TGV2.m` | Implements transparent second-order TGV-L2 denoising with a primal-dual solver. |
+| `denoising/measure_TSE2D_denoising.m` | Measures noise removal, signal/edge retention, residual structure, and PE/RO residual anisotropy. |
+| `denoising/benchmark_TSE2D_denoisers.m` | Batch-denoises NIfTI volumes, preserves its sform, and writes NIfTI, PNG, CSV, and text comparisons. |
 
 ## Prewhitening
 
@@ -182,6 +182,8 @@ Twix metadata. This is the path used by the denoising benchmark.
 The conservative default comparison is:
 
 ```matlab
+matlabDir = fullfile('recon','matlab');
+addpath(matlabDir,fullfile(matlabDir,'denoising'));
 [summary,metrics] = benchmark_TSE2D_denoisers(inputDir,outputDir);
 ```
 
@@ -212,7 +214,7 @@ be useful for genuinely near-isotropic 3-D brain volumes after validation.
 
 BM3D and SANLM are optional third-party dependencies and are deliberately not
 vendored. Installation, licensing, and citations are documented in
-`THIRD_PARTY_DENOISERS.md`. NLM and TGV2 use only repository/MATLAB code.
+`denoising/THIRD_PARTY_DENOISERS.md`. NLM and TGV2 use repository/MATLAB code.
 
 ## GRAPPA
 
@@ -273,7 +275,7 @@ appropriate when the object is contained in the calibration FOV; multi-map
 ESPIRiT remains an extension point for calibration-region aliasing or small-FOV
 cases.
 
-See `run_recon_TSE2D_iterative.m` for matched SENSE and CS NIfTI
+See `examples/run_recon_TSE2D_iterative.m` for matched SENSE and CS NIfTI
 reconstructions. The design follows the shared-operator structure used by
 [MRIReco.jl](https://github.com/MagneticResonanceImaging/MRIReco.jl),
 [SigPy](https://github.com/mikgroup/sigpy), and

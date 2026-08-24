@@ -1,6 +1,6 @@
 # Optional MATLAB denoiser dependencies
 
-Third-party denoisers are installed under `third_party_local/`, which is
+Third-party denoisers are installed under `../third_party_local/`, which is
 ignored by Git. Their source code and binaries must not be copied into this
 repository without complying with their own licenses.
 
@@ -9,7 +9,7 @@ repository without complying with their own licenses.
 - Official site: <https://webpages.tuni.fi/foi/GCF-BM3D/>
 - MATLAB archive: `bm3d_matlab_package_4.0.3.zip`
 - Expected local function:
-  `third_party_local/bm3d-4.0.3/bm3d_matlab_package_4.0.3/bm3d/BM3D.m`
+  `../third_party_local/bm3d-4.0.3/bm3d_matlab_package_4.0.3/bm3d/BM3D.m`
 - License: non-commercial education and scientific research only. Read and
   accept the official TAU limited license before downloading or using it.
 - This workflow uses the current correlated-noise interface and supplies a
@@ -28,7 +28,7 @@ Relevant publications:
 
 - Official repository: <https://github.com/ChristianGaser/cat12>
 - Expected local MEX:
-  `third_party_local/cat12/cat_sanlm.mexw64` on 64-bit Windows.
+  `../third_party_local/cat12/cat_sanlm.mexw64` on 64-bit Windows.
 - License: GNU GPL version 2 or later; see the repository `COPYING` file.
 - The default wrapper uses Gaussian SANLM and emulates 2-D processing by
   replicating each slice. This prevents through-plane mixing in anisotropic

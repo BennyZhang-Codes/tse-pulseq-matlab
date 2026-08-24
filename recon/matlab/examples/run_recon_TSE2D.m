@@ -4,8 +4,9 @@
 
 clear; clc;
 
-reconDir = fileparts(mfilename('fullpath'));
-addpath(reconDir);
+exampleDir = fileparts(mfilename('fullpath'));
+reconDir = fileparts(exampleDir);
+addpath(reconDir,fullfile(reconDir,'utils'),exampleDir);
 
 %% Configuration
 twixFile = "F:\TSE_2D\dat\meas_MID01108_FID25068_TSE2D_1p0x1p0x2p0_120x120x5_0p0_5000_14p0_2_39.dat";
