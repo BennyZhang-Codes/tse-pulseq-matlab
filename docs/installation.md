@@ -1,6 +1,6 @@
 # Installation
 
-This page describes the minimum environment required for sequence generation and offline reconstruction.
+This page separates the **Pulseq sequence-development environment** from the **current Siemens 7 T implementation, scanner-validation, and reconstruction dependencies**. Vendor-neutral deployment is the project direction rather than a claim that the present code is already scanner-independent; see [Platform Integration](platform-integration.md).
 
 ## 1. Clone with submodules
 
@@ -43,16 +43,18 @@ No repository-wide `addpath(genpath(...))` is required before running the mainta
 
 ## 3. Pulseq
 
-Pulseq is bundled as a submodule and is required for:
+Pulseq is bundled as a submodule and provides the portable sequence-description layer used for:
 
 - `mr.Sequence`;
 - RF, gradient, ADC and label objects;
 - timing validation;
 - sequence export;
 - k-space calculation; and
-- PNS calculation when a compatible Siemens `.asc` model is available.
+- PNS calculation when a compatible hardware model is available.
 
-The top-level README currently documents the bundled Pulseq submodule as v1.5.1. For a reproducible experiment, record the submodule commit SHA because the exact checked-out commit is more precise than a moving version description.
+The sequence design is intended to remain independent of a single MRI vendor. Executing the exported `.seq` file on a real platform still requires a compatible Pulseq interpreter and platform-specific validation.
+
+For a reproducible experiment, record the Pulseq submodule commit SHA because the exact checked-out commit is more precise than a moving version description.
 
 ## 4. VERSE
 
@@ -60,9 +62,9 @@ The `VERSE/` submodule contains VERSE and minimum-SAR RF utilities used by suppo
 
 `Setup.VERSE` controls whether the configured sequence path enables VERSE-related behavior where implemented. Enabling VERSE does not remove the need to inspect RF peak amplitude, B1, pulse fidelity, SAR and scanner compatibility.
 
-## 5. mapVBVD for Siemens Twix reconstruction
+## 5. Current Siemens Twix reconstruction path
 
-Offline MATLAB reconstruction requires [`mapVBVD`](https://github.com/pehses/mapVBVD).
+The bundled offline MATLAB reconstruction currently targets Siemens Twix raw data and requires [`mapVBVD`](https://github.com/pehses/mapVBVD).
 
 You can either add `mapVBVD.m` to the MATLAB path yourself or provide its folder to the reconstruction call:
 
@@ -73,9 +75,11 @@ result = recon_TSE2D(twixFile, ...
 
 The offline reconstruction reads conventional Cartesian 2D TSE Twix data and does not currently decode gSlider acquisitions.
 
-## 6. Siemens gradient hardware model for PNS prediction
+This Twix dependency belongs to the present reconstruction implementation; it does **not** make the Pulseq sequence design Siemens-specific.
 
-`check_PNS` calls the Pulseq PNS calculator using a scanner-specific Siemens `.asc` hardware model selected by `ScannerType`.
+## 6. Current Siemens 7 T PNS models
+
+`check_PNS` currently calls the Pulseq PNS calculator using scanner-specific Siemens `.asc` hardware models selected by `ScannerType`.
 
 Current mappings are:
 
@@ -86,13 +90,15 @@ Current mappings are:
 
 The example sequence design uses configurable *soft* limits, commonly 40 mT/m and 150 T/m/s, which are separate from the absolute hardware limits used to initialize the Pulseq system object.
 
-If the appropriate `.asc` file is unavailable, PNS checking may be disabled during software development, but PNS must still be assessed before scanner use.
+These presets reflect the currently validated Siemens 7 T environment. Porting the sequence to another scanner requires appropriate hardware limits and a corresponding PNS/safety-validation strategy rather than reusing a Terra model.
 
-## 7. Siemens Pulseq interpreter
+## 7. Scanner interpreter
 
-Scanner execution requires a compatible Siemens Pulseq interpreter. Online ICE behavior additionally depends on the interpreter and matching scanner protocol settings.
+Scanner execution requires a Pulseq interpreter compatible with the target MR platform.
 
-In particular, exported definitions such as `TurboFactor`, `PhaseCorrection`, PE matrix size, center LIN, ACS width and slice metadata only become effective when the target interpreter consumes them consistently.
+The repository's current scanner validation has been performed on Siemens 7 T systems. Consequently, several exported definitions and documentation pages also cover the Siemens interpreter/ICE contract, including `TurboFactor`, `PhaseCorrection`, PE matrix size, center LIN, ACS width and slice metadata.
+
+For another vendor, the Pulseq event sequence remains the portable layer, while interpreter-facing metadata and online reconstruction integration may need adaptation. Use [Platform Integration](platform-integration.md) as the porting checklist.
 
 ## 8. Optional GPU support
 
@@ -118,4 +124,4 @@ Then run a maintained sequence script after reviewing its configuration:
 run('TSE_2D.m')
 ```
 
-A successful development run should include timing, label and PNS output plus sequence/k-space plots. These checks do not by themselves establish scanner safety; see [Validation and safety](validation-and-safety.md).
+A successful development run should include timing, label and available PNS output plus sequence/k-space plots. These checks do not by themselves establish scanner safety or portability to an unvalidated platform; see [Validation and safety](validation-and-safety.md).

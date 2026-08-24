@@ -1,6 +1,8 @@
-# 7 T staged phantom validation SOP
+# Siemens 7 T staged phantom validation SOP
 
-This is a conservative development workflow for the Siemens-targeted 2D TSE and gSlider-TSE paths. It is not a clinical protocol or substitute for local MR safety procedures.
+This page documents the conservative scanner-validation workflow currently used for the 2D TSE and gSlider-TSE sequences on Siemens 7 T systems. The underlying Pulseq sequence design is intended to remain vendor-neutral; this SOP records the **currently validated platform**, not the only intended deployment target.
+
+It is not a clinical protocol or substitute for local MR safety procedures. A different scanner vendor or model should be treated as a new validation target and should repeat an equivalent staged process with its own hardware limits, safety models, interpreter behavior and reconstruction settings.
 
 ## Stage 0 — Freeze the software configuration
 
@@ -12,7 +14,7 @@ Before scanner transfer:
 
 - confirm `seq.checkTiming` passes;
 - inspect `seq.testReport` for gradient/slew maxima;
-- inspect PE order, the physical `ky=0` echo, PI LIN/ACS metadata, and labels;
+- inspect PE order, the physical `ky=0` echo, PI LIN/ACS metadata where applicable, and labels;
 - inspect gradient continuity around crushers, rephasers, and spoilers;
 - for VERSE/gSlider, inspect RF peak B1, pulse duration, slice profile, and nominal RF-energy metrics.
 
@@ -46,11 +48,13 @@ With geometry and contrast fixed:
 
 1. establish the `R=1` reference;
 2. test PI at R=2, then R=3 and R=4 only after validating each preceding setting;
-3. match scanner iPAT acceleration and ACS/reference settings to exported metadata;
-4. compare online reconstruction with offline reconstruction;
-5. test TSE phase correction off/on with otherwise identical data.
+3. match the target scanner's acceleration and calibration settings to the exported sequence metadata;
+4. compare online reconstruction with offline reconstruction when both are available;
+5. test TSE phase correction off/on with otherwise identical data when the platform supports it.
 
-For each R, confirm that `ky=0` uses the intended LIN, ACS is contiguous, and phase-direction artifacts do not increase unexpectedly. A one-line LIN convention mismatch can appear primarily as linear phase or direction-dependent artifacts.
+For the current Siemens 7 T implementation, this includes matching iPAT acceleration/ACS settings and checking the intended LIN and ICE phase-correction behavior.
+
+For each R, confirm that `ky=0` uses the intended encoding index, ACS is contiguous, and phase-direction artifacts do not increase unexpectedly. A metadata/indexing mismatch can appear primarily as linear phase or direction-dependent artifacts.
 
 ## Stage 5 — High-resolution and gSlider/VERSE extensions
 
@@ -58,6 +62,6 @@ Increase resolution or enable gSlider/VERSE only after the conventional baseline
 
 ## Stop criteria and evidence
 
-Stop and investigate before further escalation if scanner warnings occur, geometric/orientation errors appear, PI reconstruction is inconsistent with its R=1 reference, or artifacts systematically follow PE direction.
+Stop and investigate before further escalation if scanner warnings occur, geometric/orientation errors appear, accelerated reconstruction is inconsistent with its `R=1` reference, or artifacts systematically follow PE direction.
 
 Archive de-identified phantom images, window/level settings, raw-data identifiers permitted by local policy, reconstruction logs, and scanner messages together with the software record. Never commit identifiable raw scanner data to this repository.

@@ -3,14 +3,17 @@ message: "If you use this software, please cite it as below."
 type: software
 title: "TSE Pulseq for MATLAB"
 abstract: >-
-  MATLAB tools for Siemens-targeted Cartesian 2D turbo spin echo Pulseq
-  sequence generation and offline reconstruction of conventional 2D TSE
-  Siemens Twix data.
+  MATLAB/Pulseq tools for Cartesian 2D turbo spin echo sequence development
+  toward vendor-neutral deployment, including conventional TSE and gSlider-TSE.
+  The current implementation and scanner validation are based on Siemens 7 T
+  systems, and the bundled offline reconstruction currently targets conventional
+  2D TSE Siemens Twix data.
 authors:
   - family-names: "Zhang"
     given-names: "Jinyuan"
 repository-code: "https://github.com/BennyZhang-Codes/tse-pulseq-matlab"
 url: "https://github.com/BennyZhang-Codes/tse-pulseq-matlab"
+doi: "10.5281/zenodo.22076863"
 license: "MIT"
 keywords:
   - "MRI"
@@ -18,7 +21,8 @@ keywords:
   - "turbo spin echo"
   - "TSE"
   - "MATLAB"
-  - "Siemens"
+  - "vendor-neutral sequence development"
+  - "Siemens 7T validation"
 references:
   - type: conference-paper
     authors:
