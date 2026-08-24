@@ -9,7 +9,8 @@ function result = recon_TSE2D(filename, varargin)
 %   3. per-slice/per-echo NAV phase correction
 %   4. optional per-slice/per-echo NAV magnitude equalization
 %   5. LIN-based Cartesian k-space packing
-%   6. direct RSS (R=1) or 1D PE-GRAPPA followed by RSS (R>=2)
+%   6. RSS, GRAPPA, iterative ESPIRiT-SENSE, or regularized SENSE-CS
+%   7. magnitude output and optional NIfTI/MAT/diagnostic saving
 %
 % This workflow intentionally targets conventional 2D TSE only. It does not
 % implement gSlider encoding or proprietary Siemens ICE coil combination and
@@ -25,7 +26,14 @@ function result = recon_TSE2D(filename, varargin)
 %   EchoMagnitudeMethod     'power' (legacy) or 'wiener' (default power).
 %   EchoMagnitudeLambda     Wiener scalar or 'auto' (default auto).
 %   EchoMagnitudeMaxGain    Auto-Wiener smooth gain limit (default 2).
-%   GRAPPA                  Reconstruct accelerated data (default true).
+%   ReconstructionMethod    'auto', 'rss', 'grappa', 'sense', or 'cs'.
+%   GRAPPA                  Enable GRAPPA when method is 'auto' (true).
+%   IterativeUseGPU         Use GPU for SENSE/CS: true, false, or 'auto'.
+%   SensitivityMethod       'espirit' (default) or low-resolution 'rss'.
+%   SENSEIterations         Ordinary SENSE CG iterations (default 50).
+%   SENSETikhonov           Ordinary SENSE L2 weight (default 1e-4).
+%   CSIterations            Primal-dual iterations (default 250).
+%   CSTVWeight              CS isotropic-TV weight (default 0.006).
 %   ComparePhaseCorrection  Also reconstruct without NAV correction (false).
 %   Slices                  mapVBVD one-based SLC indices; [] means all.
 %   OutputDir               If nonempty, save requested outputs.
@@ -52,6 +60,8 @@ function result = recon_TSE2D(filename, varargin)
     p.addParameter('EchoMagnitudeLambda', 'auto', @isValidEchoMagnitudeLambda);
     p.addParameter('EchoMagnitudeMaxGain', 2, ...
         @(x) isnumeric(x) && isreal(x) && isscalar(x) && ~isnan(x) && x >= 1);
+    p.addParameter('ReconstructionMethod','auto', ...
+        @(x) ischar(x) || (isstring(x) && isscalar(x)));
     p.addParameter('GRAPPA', true, @(x) islogical(x) && isscalar(x));
     p.addParameter('GrappaKySourceCount', 4, ...
         @(x) isnumeric(x) && isscalar(x) && x >= 2 && mod(x,1) == 0);
@@ -59,6 +69,38 @@ function result = recon_TSE2D(filename, varargin)
         @(x) isnumeric(x) && isvector(x) && all(mod(x,1) == 0));
     p.addParameter('GrappaRegularization', 1e-4, ...
         @(x) isnumeric(x) && isscalar(x) && x >= 0);
+    p.addParameter('SENSEIterations',50, ...
+        @(x) isnumeric(x) && isscalar(x) && isfinite(x) && x >= 1 && mod(x,1) == 0);
+    p.addParameter('SENSETolerance',1e-5, ...
+        @(x) isnumeric(x) && isscalar(x) && isfinite(x) && x >= 0);
+    p.addParameter('SENSETikhonov',1e-4, ...
+        @(x) isnumeric(x) && isscalar(x) && isfinite(x) && x >= 0);
+    p.addParameter('CSIterations',250, ...
+        @(x) isnumeric(x) && isscalar(x) && isfinite(x) && x >= 1 && mod(x,1) == 0);
+    p.addParameter('CSTVWeight',0.006, ...
+        @(x) isnumeric(x) && isscalar(x) && isfinite(x) && x >= 0);
+    p.addParameter('CSWaveletWeight',0.0005, ...
+        @(x) isnumeric(x) && isscalar(x) && isfinite(x) && x >= 0);
+    p.addParameter('CSWaveletLevels',2, ...
+        @(x) isnumeric(x) && isscalar(x) && isfinite(x) && x >= 0 && mod(x,1) == 0);
+    p.addParameter('IterativeUseGPU','auto',@isValidUseGPU);
+    p.addParameter('SensitivityMethod','espirit', ...
+        @(x) ischar(x) || (isstring(x) && isscalar(x)));
+    p.addParameter('SensitivityReadoutWidth',30, ...
+        @(x) isnumeric(x) && isscalar(x) && isfinite(x) && x >= 1 && mod(x,1) == 0);
+    p.addParameter('ESPIRiTKernelSize',[6 6], ...
+        @(x) isnumeric(x) && isvector(x) && numel(x) == 2 && ...
+        all(isfinite(x)) && all(x >= 2) && all(mod(x,1) == 0));
+    p.addParameter('ESPIRiTSubspaceThreshold',0.02, ...
+        @(x) isnumeric(x) && isscalar(x) && isfinite(x) && x > 0 && x < 1);
+    p.addParameter('ESPIRiTEigenvalueCrop',0.95, ...
+        @(x) isnumeric(x) && isscalar(x) && isfinite(x) && x >= 0 && x < 1.5);
+    p.addParameter('CoilCompressionEnergy',0.99, ...
+        @(x) isnumeric(x) && isscalar(x) && isfinite(x) && x > 0 && x <= 1);
+    p.addParameter('MaximumVirtualCoils',12, ...
+        @(x) isnumeric(x) && isscalar(x) && isfinite(x) && x >= 1 && mod(x,1) == 0);
+    p.addParameter('KeepSensitivityMaps',false, ...
+        @(x) islogical(x) && isscalar(x));
     p.addParameter('ComparePhaseCorrection', false, ...
         @(x) islogical(x) && isscalar(x));
     p.addParameter('Slices', [], @(x) isnumeric(x) && (isempty(x) || isvector(x)));
@@ -74,6 +116,19 @@ function result = recon_TSE2D(filename, varargin)
     p.addParameter('Verbose', true, @(x) islogical(x) && isscalar(x));
     p.parse(filename, varargin{:});
     opt = p.Results;
+
+    reconstructionMethod = lower(string(opt.ReconstructionMethod));
+    if ~ismember(reconstructionMethod,["auto","rss","grappa","sense","cs"])
+        error('recon_TSE2D:InvalidReconstructionMethod', ...
+            ['ReconstructionMethod must be ''auto'', ''rss'', ''grappa'', ' ...
+             '''sense'', or ''cs''; received ''%s''.'],reconstructionMethod);
+    end
+    sensitivityMethod = lower(string(opt.SensitivityMethod));
+    if ~ismember(sensitivityMethod,["espirit","rss"])
+        error('recon_TSE2D:InvalidSensitivityMethod', ...
+            'SensitivityMethod must be ''espirit'' or ''rss''; received ''%s''.', ...
+            sensitivityMethod);
+    end
 
     opt.EchoMagnitudeMethod = lower(string(opt.EchoMagnitudeMethod));
     if ~ismember(opt.EchoMagnitudeMethod,["power","wiener"])
@@ -223,6 +278,12 @@ function result = recon_TSE2D(filename, varargin)
         images.reconstructedNoPhaseCorrection = zeros(meta.nRO,meta.nPE,nSliceOut,'single');
     end
     grappaInfo = cell(1,nSliceOut);
+    senseInfo = cell(1,nSliceOut);
+    csInfo = cell(1,nSliceOut);
+    sensitivityMaps = cell(1,nSliceOut);
+    samplingMasks = struct('image',{cell(1,nSliceOut)}, ...
+        'reference',{cell(1,nSliceOut)},'calibration',{cell(1,nSliceOut)}, ...
+        'acquired',{cell(1,nSliceOut)});
     if opt.KeepKspace
         finalKspace = cell(1,nSliceOut);
     else
@@ -230,6 +291,21 @@ function result = recon_TSE2D(filename, varargin)
     end
 
     R = meta.accelerationFactorPE;
+    if reconstructionMethod == "auto"
+        if R > 1 && opt.GRAPPA
+            selectedMethod = "grappa";
+        else
+            selectedMethod = "rss";
+        end
+    else
+        selectedMethod = reconstructionMethod;
+    end
+    if selectedMethod == "grappa" && R <= 1
+        selectedMethod = "rss";
+    end
+    if opt.Verbose
+        fprintf('recon_TSE2D: reconstruction method = %s\n',selectedMethod);
+    end
     for iSlice = 1:nSliceOut
         slice = slices(iSlice);
         if opt.Verbose
@@ -239,20 +315,41 @@ function result = recon_TSE2D(filename, varargin)
 
         [kspace,imageMask,refMask] = pack_TSE2D_kspace( ...
             imageDataCorrected,imageMdh,refDataCorrected,refMdh,meta.nPE,slice);
+        samplingMasks.image{iSlice} = logical(imageMask);
+        samplingMasks.reference{iSlice} = logical(refMask);
+        samplingMasks.acquired{iSlice} = logical(imageMask | refMask);
+        calibrationMask = resolveIterativeCalibrationMask( ...
+            refMask,imageMask | refMask);
+        samplingMasks.calibration{iSlice} = calibrationMask;
         images.zeroFilled(:,:,iSlice) = recon_TSE2D_RSS(kspace);
 
-        if R > 1 && opt.GRAPPA
-            [kspaceFinal,grappaInfo{iSlice}] = recon_TSE2D_GRAPPA( ...
-                kspace,imageMask,refMask,R, ...
-                'KySourceCount',opt.GrappaKySourceCount, ...
-                'KxKernel',opt.GrappaKxKernel, ...
-                'Regularization',opt.GrappaRegularization);
-        else
+        if selectedMethod == "sense" || selectedMethod == "cs"
+            [iterativeImage,iterativeInfo,sensitivityMaps{iSlice}] = ...
+                reconstructIterativeTSE2D(kspace,imageMask,calibrationMask, ...
+                selectedMethod,opt);
+            images.reconstructed(:,:,iSlice) = abs(iterativeImage);
             kspaceFinal = kspace;
-            grappaInfo{iSlice} = struct('accelerationFactor',R, ...
-                'calibrationNMSE',NaN,'missingLinesFilled',0);
+            grappaInfo{iSlice} = struct('applied',false, ...
+                'reason',sprintf('%s reconstruction selected',selectedMethod));
+            if selectedMethod == "sense"
+                senseInfo{iSlice} = iterativeInfo;
+            else
+                csInfo{iSlice} = iterativeInfo;
+            end
+        else
+            if selectedMethod == "grappa"
+                [kspaceFinal,grappaInfo{iSlice}] = recon_TSE2D_GRAPPA( ...
+                    kspace,imageMask,refMask,R, ...
+                    'KySourceCount',opt.GrappaKySourceCount, ...
+                    'KxKernel',opt.GrappaKxKernel, ...
+                    'Regularization',opt.GrappaRegularization);
+            else
+                kspaceFinal = kspace;
+                grappaInfo{iSlice} = struct('accelerationFactor',R, ...
+                    'calibrationNMSE',NaN,'missingLinesFilled',0);
+            end
+            images.reconstructed(:,:,iSlice) = recon_TSE2D_RSS(kspaceFinal);
         end
-        images.reconstructed(:,:,iSlice) = recon_TSE2D_RSS(kspaceFinal);
         if opt.KeepKspace
             finalKspace{iSlice} = kspaceFinal;
         end
@@ -260,13 +357,22 @@ function result = recon_TSE2D(filename, varargin)
         if opt.ComparePhaseCorrection
             [kspaceNoPC,imageMaskNoPC,refMaskNoPC] = pack_TSE2D_kspace( ...
                 imageDataNoPhaseCorrection,imageMdh,refDataNoPhaseCorrection,refMdh,meta.nPE,slice);
-            if R > 1 && opt.GRAPPA
-                kspaceNoPC = recon_TSE2D_GRAPPA(kspaceNoPC,imageMaskNoPC,refMaskNoPC,R, ...
-                    'KySourceCount',opt.GrappaKySourceCount, ...
-                    'KxKernel',opt.GrappaKxKernel, ...
-                    'Regularization',opt.GrappaRegularization);
+            calibrationMaskNoPC = resolveIterativeCalibrationMask( ...
+                refMaskNoPC,imageMaskNoPC | refMaskNoPC);
+            if selectedMethod == "sense" || selectedMethod == "cs"
+                iterativeImageNoPC = reconstructIterativeTSE2D( ...
+                    kspaceNoPC,imageMaskNoPC,calibrationMaskNoPC,selectedMethod,opt);
+                images.reconstructedNoPhaseCorrection(:,:,iSlice) = ...
+                    abs(iterativeImageNoPC);
+            else
+                if selectedMethod == "grappa"
+                    kspaceNoPC = recon_TSE2D_GRAPPA(kspaceNoPC,imageMaskNoPC,refMaskNoPC,R, ...
+                        'KySourceCount',opt.GrappaKySourceCount, ...
+                        'KxKernel',opt.GrappaKxKernel, ...
+                        'Regularization',opt.GrappaRegularization);
+                end
+                images.reconstructedNoPhaseCorrection(:,:,iSlice) = recon_TSE2D_RSS(kspaceNoPC);
             end
-            images.reconstructedNoPhaseCorrection(:,:,iSlice) = recon_TSE2D_RSS(kspaceNoPC);
         end
     end
 
@@ -280,6 +386,11 @@ function result = recon_TSE2D(filename, varargin)
     result.phaseCorrection = phaseCor;
     result.echoMagnitudeCorrection = echoMagCor;
     result.grappa = grappaInfo;
+    result.sense = senseInfo;
+    result.cs = csInfo;
+    result.sensitivityMaps = sensitivityMaps;
+    result.samplingMasks = samplingMasks;
+    result.reconstructionMethod = selectedMethod;
     result.images = images;
     result.kspace = finalKspace;
     result.rawStructure = raw;
@@ -303,6 +414,57 @@ function result = recon_TSE2D(filename, varargin)
             echoMagCor.applied,echoMagCor.method,echoMagCor.alpha);
     end
 end
+function [image,info,maps] = reconstructIterativeTSE2D( ...
+        kspace,imageMask,calibrationMask,method,opt)
+    commonArguments = {'UseGPU',opt.IterativeUseGPU, ...
+        'SensitivityMethod',opt.SensitivityMethod, ...
+        'SensitivityReadoutWidth',opt.SensitivityReadoutWidth, ...
+        'ESPIRiTKernelSize',opt.ESPIRiTKernelSize, ...
+        'ESPIRiTSubspaceThreshold',opt.ESPIRiTSubspaceThreshold, ...
+        'ESPIRiTEigenvalueCrop',opt.ESPIRiTEigenvalueCrop, ...
+        'CoilCompressionEnergy',opt.CoilCompressionEnergy, ...
+        'MaximumVirtualCoils',opt.MaximumVirtualCoils, ...
+        'KeepSensitivityMaps',opt.KeepSensitivityMaps, ...
+        'Verbose',opt.Verbose};
+    switch method
+        case "sense"
+            [image,info,maps] = recon_TSE2D_SENSE( ...
+                kspace,imageMask | calibrationMask,calibrationMask,commonArguments{:}, ...
+                'Iterations',opt.SENSEIterations, ...
+                'Tolerance',opt.SENSETolerance, ...
+                'Tikhonov',opt.SENSETikhonov);
+        case "cs"
+            [image,info,maps] = recon_TSE2D_CS( ...
+                kspace,imageMask | calibrationMask,calibrationMask,commonArguments{:}, ...
+                'Iterations',opt.CSIterations, ...
+                'TVWeight',opt.CSTVWeight, ...
+                'WaveletWeight',opt.CSWaveletWeight, ...
+                'WaveletLevels',opt.CSWaveletLevels);
+        otherwise
+            error('recon_TSE2D:InvalidIterativeMethod', ...
+                'Iterative method must be ''sense'' or ''cs''.');
+    end
+end
+
+function calibrationMask = resolveIterativeCalibrationMask(refMask,acquiredMask)
+    calibrationMask = logical(reshape(refMask,1,[]));
+    if nnz(calibrationMask) >= 4
+        return
+    end
+    acquiredMask = logical(reshape(acquiredMask,1,[]));
+    nPE = numel(acquiredMask);
+    width = min(30,nPE);
+    first = floor((nPE-width)/2)+1;
+    indices = first:first+width-1;
+    calibrationMask = false(1,nPE);
+    calibrationMask(indices) = acquiredMask(indices);
+    if nnz(calibrationMask) < 4
+        error('recon_TSE2D:NoIterativeCalibration', ...
+            ['SENSE/CS requires an ACS reference or at least four acquired ' ...
+             'central phase-encoding lines.']);
+    end
+end
+
 
 function variance = estimateWhitenedNoiseVariance(whiteningInfo)
     variance = NaN;
@@ -321,6 +483,15 @@ end
 function tf = isValidEchoMagnitudeLambda(value)
     tf = isnumeric(value) && isreal(value) && isscalar(value) && ...
         isfinite(value) && value >= 0;
+    if tf
+        return
+    end
+    tf = (ischar(value) || (isstring(value) && isscalar(value))) && ...
+        strcmpi(string(value),'auto');
+end
+
+function tf = isValidUseGPU(value)
+    tf = islogical(value) && isscalar(value);
     if tf
         return
     end

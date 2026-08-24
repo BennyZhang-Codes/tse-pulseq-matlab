@@ -3,8 +3,10 @@ function [filename, info, geometry] = write_TSE2D_nifti(volume, meta, outputDir,
 %
 %   [FILENAME,INFO,GEOMETRY] = WRITE_TSE2D_NIFTI(VOLUME,META,OUTPUTDIR)
 %   writes VOLUME in MATLAB array order [readout, phase encoding, slice].
-%   Its complete RAS sform is derived from Siemens MDH slice centers and
-%   scalar-first quaternions.
+%   META can be either the reconstruction metadata structure, in which case
+%   the RAS sform is derived from Siemens MDH slice centers and quaternions,
+%   or a NIFTIINFO structure whose existing geometry is preserved. The
+%   latter form is intended for image-domain post-processing.
 %
 %   Name-value options:
 %     Prefix       Output basename without .nii/.nii.gz (default "TSE2D")
@@ -77,7 +79,8 @@ function [filename, info, geometry] = write_TSE2D_nifti(volume, meta, outputDir,
     info.BitsPerPixel = 32;
     info.SpaceUnits = 'Millimeter';
     info.TimeUnits = 'Second';
-    info.Description = char(string(opt.Description));
+    description = char(string(opt.Description));
+    info.Description = description(1:min(numel(description),80));
     info.AdditiveOffset = 0;
     info.MultiplicativeScaling = 1;
     info.FrequencyDimension = 1;
