@@ -29,11 +29,15 @@ jobs:
       - name: Run tests
         uses: matlab-actions/run-command@v3
         with:
-          command: >-
-            addpath(genpath(fullfile(pwd,'pulseq')));
-            addpath(fullfile(pwd,'utils'),fullfile(pwd,'prep'),fullfile(pwd,'recon','matlab'),fullfile(pwd,'tests'));
-            results=runtests(fullfile(pwd,'tests'));
-            assertSuccess(results);
+          command: run(fullfile(pwd,'tests','run_ci_tests.m'));
+
+      - name: Upload MATLAB test report
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: matlab-junit-results
+          path: artifacts/junit.xml
+          if-no-files-found: error
 
 # This workflow does not validate scanner-side SAR, PNS, RF safety, Siemens
 # interpreter behavior, ICE reconstruction, or clinical use.

@@ -2,3 +2,5 @@ data
 Recon_dev
 seq
 recon/matlab/third_party_local/
+
+artifacts/
