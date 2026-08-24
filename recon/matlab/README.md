@@ -60,6 +60,10 @@ For a faster single-slice diagnostic reconstruction:
 | `recon_TSE2D_GRAPPA.m` | Calibrates and applies diagnostic 1D PE-GRAPPA for integer acceleration factors R >= 2. |
 | `recon_TSE2D_SENSE.m` | Solves the ordinary ESPIRiT-SENSE least-squares problem by CG on the normal equations, with optional L2 stabilization. |
 | `recon_TSE2D_CS.m` | Solves the same SENSE encoding problem with isotropic TV and orthonormal Haar-L1 regularization. |
+| `tune_TSE2D_CS_parameters.m` | Reuses one prewhitened ESPIRiT model to compare TV/wavelet regularization candidates. |
+| `utils/evaluate_TSE2D_reconstruction.m` | Registers to a full reference and computes masked NRMSE, SSIM, PSNR, and error maps. |
+| `create_TSE2D_CS_comparison_figure.m` | Creates publication-style 600-dpi PNG/TIFF and vector-PDF reference/CS/error figures. |
+| `run_compare_TSE2D_CS_20250331.m` | Reproduces the matched R=1--5 phantom reconstruction and comparison workflow. |
 | `utils/prepare_TSE2D_sense_model.m` | Builds the shared PCA-compressed k-space, sampling mask, and ESPIRiT/RSS sensitivity model. |
 | `utils/sense_TSE2D_forward.m`, `utils/sense_TSE2D_adjoint.m` | Apply the common masked Cartesian PFS operator and its tested adjoint. |
 | `utils/estimate_TSE2D_espirit.m` | Estimates a single set of ESPIRiT maps from the ACS calibration matrix. |
@@ -253,6 +257,11 @@ so the default regularization values are much less dependent on raw Twix
 amplitude. Both solvers run an explicit numerical forward/adjoint test and
 store convergence and residual histories in `result.sense` or `result.cs`.
 
+The reference-validated starting defaults are 250 maximum iterations, TV weight
+0.006, and two-level Haar-L1 weight 0.0005. They were selected from matched
+fully sampled and R=2--5 phantom data and should be retuned when contrast,
+resolution, coil configuration, or sampling masks change substantially.
+
 The supplied R=5 CS-TSE example has 60 sampled ky lines and 30 central ACS
 lines, but no phase-correction navigator. For that file use
 `PhaseCorrection=false` and `EchoMagnitudeCorrection=false`. The sampling is
@@ -282,6 +291,7 @@ result.reconstructionMethod
 result.sense                                  (ordinary SENSE diagnostics)
 result.cs                                     (CS diagnostics)
 result.sensitivityMaps                        (optional)
+result.samplingMasks                          (image/reference/calibration/acquired)
 result.images.zeroFilled
 result.images.reconstructed
 result.images.reconstructedNoPhaseCorrection   (optional)
@@ -305,7 +315,7 @@ When `OutputDir` is nonempty, the workflow writes:
 - Full encoded PE matrix size is supplied by the Twix header.
 - Integrated contiguous ACS is expected for GRAPPA.
 - Repeated acquisitions at one LIN are averaged.
-- RSS is used after optional prewhitening; no sensitivity-map coil combine is
-  included.
-- Partial Fourier, simultaneous multi-slice, gSlider, non-Cartesian sampling,
-  and compressed-sensing reconstruction are outside this workflow.
+- RSS, GRAPPA, ESPIRiT-SENSE, and ESPIRiT-SENSE with TV/Haar-L1 CS are
+  available after optional prewhitening.
+- Partial Fourier, simultaneous multi-slice, gSlider, and non-Cartesian
+  sampling are outside this workflow.
