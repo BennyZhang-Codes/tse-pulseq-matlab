@@ -150,7 +150,8 @@ protocol must still be set manually to the same total ACS width.
 
 Fully sampled (`R = 1`) and CS sampling retain their separate legacy label
 mapping. CS definitions are not intended to drive online ICE GRAPPA, and the
-offline MATLAB workflow does not implement CS reconstruction.
+offline MATLAB workflow implements Cartesian ESPIRiT-SENSE reconstruction with
+optional TV and Haar-wavelet CS regularization.
 
 When phase correction is enabled, the sequence exports:
 
@@ -195,9 +196,10 @@ The processing order is:
    the navigators and apply it to image and PAT reference data.
 4. Pack acquisitions by MDH `LIN`, averaging repeated acquisitions without
    double-weighting shared image/reference lines.
-5. Reconstruct fully sampled data by centered IFFT and RSS, or synthesize
-   missing PE lines with diagnostic 1D PE-GRAPPA for integer `R >= 2`.
-6. Save MAT, PNG, CSV, and text diagnostics when an output directory is given.
+5. Reconstruct by centered-IFFT RSS, diagnostic 1D PE-GRAPPA, ordinary
+   ESPIRiT-SENSE, or ESPIRiT-SENSE with TV/Haar-L1 CS regularization.
+6. Save NIfTI, MAT, PNG, CSV, and text diagnostics when an output directory is
+   given.
 
 The workflow is intended for sequence debugging and controlled A/B tests. It
 does not claim pixel-for-pixel equivalence with Siemens ICE, whose raw-data
@@ -242,8 +244,8 @@ diagnostics.
   assumptions to CS data.
 - The offline reconstruction supports Cartesian conventional 2D TSE only. It
   excludes gSlider decoding, partial Fourier, simultaneous multi-slice,
-  non-Cartesian trajectories, CS reconstruction, and sensitivity-map coil
-  combination.
+  and non-Cartesian trajectories. RSS, GRAPPA, ESPIRiT-SENSE, and Cartesian CS
+  reconstruction are available.
 - PE ordering changes TSE point-spread function, contrast modulation, ringing,
   and motion/phase sensitivity even when sequence timing is valid; ordering
   should therefore be chosen and validated for the intended contrast and

@@ -18,10 +18,10 @@ function [imageOut, info, sensitivities] = recon_TSE2D_CS( ...
     end
 
     p = inputParser;
-    p.addParameter('Iterations',120,@(x) isnumeric(x) && isscalar(x) && ...
+    p.addParameter('Iterations',250,@(x) isnumeric(x) && isscalar(x) && ...
         isfinite(x) && x >= 1 && mod(x,1) == 0);
-    p.addParameter('TVWeight',0.002,@isNonnegativeScalar);
-    p.addParameter('WaveletWeight',0.001,@isNonnegativeScalar);
+    p.addParameter('TVWeight',0.006,@isNonnegativeScalar);
+    p.addParameter('WaveletWeight',0.0005,@isNonnegativeScalar);
     p.addParameter('WaveletLevels',2,@(x) isnumeric(x) && isscalar(x) && ...
         isfinite(x) && x >= 0 && mod(x,1) == 0);
     p.addParameter('StepSize',0.30,@(x) isnumeric(x) && isscalar(x) && ...
@@ -354,7 +354,6 @@ function useGPU = resolveUseGPU(specification)
     if islogical(specification)
         useGPU = specification;
     else
-        useGPU = false;
         try
             useGPU = gpuDeviceCount('available') > 0;
         catch
