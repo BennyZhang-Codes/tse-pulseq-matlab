@@ -1,8 +1,8 @@
 # Developer guide
 
-This page describes the repository architecture and the recommended workflow for extending the project.
+This page describes the repository architecture and the conventions that should be preserved when extending sequence generation, platform integration, reconstruction, or documentation.
 
-## 1. Repository layout
+## Repository layout
 
 ```text
 TSE_2D.m               conventional 2D TSE entry point
@@ -10,234 +10,196 @@ TSE_2D_gSlider.m       gSlider-TSE entry point
 prep/                   sequence preparation modules
 check/                  timing, label and PNS development checks
 plot/                   sequence and k-space visualization
-utils/                  rasterized gradient solvers and general utilities
+utils/                  raster-aware gradient solvers and general utilities
 pulseq/                 Pulseq git submodule
 VERSE/                  VERSE/minimum-SAR RF git submodule
 recon/matlab/           conventional 2D TSE MATLAB reconstruction
 recon/julia/            Julia-side reconstruction code retained by the project
 seq/                     generated sequence/configuration outputs; not tracked
 docs/                    VitePress documentation source
-.github/workflows/       CI/deployment workflows
+.github/workflows/       CI and documentation deployment workflows
 ```
 
-## 2. Target architecture
+## Target architecture
 
-The long-term project structure should preserve a clear boundary between **vendor-neutral acquisition design** and **scanner-specific integration**.
+The long-term design should keep reusable acquisition logic separate from platform-specific implementation.
 
-```text
-Acquisition design
-configuration -> Actual
-      -> slice / logical PE / RF / gradient / ADC / labels / timing
-      -> sequence loop
-      -> Pulseq validation
-      -> .seq + configuration archive
-                |
-                v
-Platform integration
-hardware limits / PNS model / interpreter metadata / orientation
-online reconstruction contract / scanner protocol assumptions
-                |
-                v
-Scanner validation
-phantom + scanner-side RF/SAR/PNS/watchdog checks
-                |
-                v
-Optional vendor-specific raw-data reconstruction
+```mermaid
+flowchart TD
+    A["User configuration"] --> B["Vendor-neutral acquisition model"]
+    B --> C["Pulseq sequence + logical metadata"]
+    C --> D["Platform integration"]
+    D --> E["Scanner validation + acquisition"]
+    E --> F["Vendor raw-data reader"]
+    F --> G["Common reconstruction model"]
+    G --> H["Optional post-processing"]
 ```
 
 ::: warning Current implementation
-This separation is a **target architecture**, not a claim that the current code is already vendor-decoupled. Today, `prep_System` supports only the Terra profiles, `prep_PE3DOrder` contains the Siemens PI/LIN mapping, and `prep_Definition` writes Siemens-oriented interpreter definitions in the shared prep path.
+This is a target separation of concerns, not a claim that the current code is already vendor-decoupled. `prep_System` currently supports Terra profiles, accelerated PI includes Siemens LIN mapping, `prep_Definition` writes Siemens-oriented interpreter definitions, the development PNS path uses Siemens `.asc` files, and the bundled raw-data reader is Twix-specific.
 :::
 
-The maintained entry scripts should remain configuration-focused. Shared TSE behavior belongs in reusable preparation functions and sequence-loop code; platform-specific system profiles and metadata translation should progressively become explicit integration logic rather than accumulating inside the common acquisition path.
+Use [Architecture](/concepts-overview) and [Platform Integration](/platform-integration) as the public specification of this boundary.
 
-See [Platform Integration](platform-integration.md) for the current coupling points and porting checklist.
+## Preserve `Setup` versus `Actual`
 
-## 3. Preserve `Setup` versus `Actual`
+`Setup`, `SetupRF`, and `SetupSpoiling` represent requested configuration. `Actual` is the resolved configuration after preparation.
 
-`Setup` should represent user intent. `Actual` is the resolved configuration after preparation.
+New derived timing, hardware, PE, slice, RF, or export values should normally be written to `Actual` rather than changing the semantic meaning of the original user-facing field. This distinction is essential for reproducibility and for debugging platform-specific behavior.
 
-New derived values should normally be written to `Actual` rather than mutating the meaning of the original user-facing `Setup` field.
+## Gradient design rules
 
-This distinction is important for reproducibility and debugging.
+The custom gradient utilities treat a continuous analytical solution as a seed rather than as the scanner waveform.
 
-Platform-derived values such as resolved hardware limits, interpreter-facing indices, or scanner-specific metadata should be identifiable as derived configuration rather than being confused with the logical acquisition request.
+Every returned waveform must be validated on the integer gradient raster against:
 
-## 4. Gradient design rules
-
-The custom gradient utilities deliberately treat the continuous analytical solution as a seed, not as the final scanner waveform.
-
-A returned waveform must be valid on the integer gradient raster and satisfy:
-
-- requested area;
+- requested gradient area;
 - exact rasterized duration;
-- endpoint amplitudes;
+- initial and final amplitudes;
 - gradient-amplitude limit;
 - slew-rate limit.
 
-Do not replace the current raster-aware search with a simple continuous solution followed by naive rounding.
+Do not replace the raster-aware search with a continuous solution followed by naive rounding. For non-zero endpoints, fixed-duration feasibility can be non-monotonic, so a simple binary search is not a proof of the discrete minimum duration.
 
-For minimum-time problems with nonzero endpoints, do not assume fixed-duration feasibility is monotonic; an ordinary binary search is not a proof of the discrete minimum.
+Hardware limits must correspond to the selected scanner target. The current Terra profiles are implementation presets, not generic defaults for all Pulseq systems.
 
-Hardware limits must correspond to the selected scanner target. Do not reuse the currently implemented Terra limits or PNS models as generic defaults for a different gradient system.
+## Crusher and spoiler conventions
 
-## 5. Crusher/spoiler conventions
+Crusher/spoiler strength is expressed as dephasing cycles per physical reference length through `SetupSpoiling` and `prep_SpoilingArea`.
 
-Crusher and spoiler strength is defined as dephasing cycles per physical reference length.
+Supported references include `Slice`, `RO`, `PE`, `3D`, and `Slab`. New spoiler behavior should reuse this convention instead of embedding hard-coded gradient areas in a sequence loop.
 
-When adding a new spoiler type, use the centralized `SetupSpoiling`/`prep_SpoilingArea` convention rather than embedding raw gradient areas inside the sequence loop.
+This keeps the physical meaning stable when FOV, resolution, slice thickness, or slab geometry changes.
 
-This keeps behavior interpretable as voxel size, FOV or slice/slab thickness changes.
+## Logical encoding before platform metadata
 
-## 6. Encoding and platform metadata rules
+Keep the following sequence concepts vendor-independent where practical:
 
-Separate **logical encoding** from **platform-specific line numbering and reconstruction metadata**.
+- signed logical $k_y$ order;
+- echo-to-$k_y$ assignment;
+- full encoded matrix size;
+- physical k-space center;
+- PI/CS sampling intent;
+- ACS/reference intent;
+- slice acquisition order.
 
-For acquisition design:
+The target scanner adapter may then map those quantities to platform-specific line numbers and metadata.
 
-- preserve physical `ky` ordering independently of vendor index names;
-- keep PI and CS as distinct acquisition modes;
-- represent full matrix size, k-space center and ACS/reference intent explicitly;
-- test odd/even matrix sizes, multiple acceleration factors and central-line placement.
+For the current Siemens 7 T path, preserve the documented zero-based PI LIN mapping, regular acceleration-lattice checks, full matrix export, ACS bookkeeping, and interpreter definitions. For another platform, define its mapping deliberately instead of copying Siemens semantics.
 
-For the currently validated Siemens 7 T path:
+CS and PI should remain distinct acquisition modes. Do not silently apply online PI/ICE line conventions to CS data intended for offline iterative reconstruction.
 
-- preserve the zero-based Siemens LIN mapping used by the existing implementation;
-- preserve the regular accelerated lattice checks;
-- export the full encoded matrix size;
-- keep ACS bookkeeping consistent with `FirstRefLine` / `nRefLine`;
-- remember that Siemens iPAT protocol settings remain an external dependency.
+## gSlider-specific development
 
-For another platform, define its metadata mapping deliberately instead of copying Siemens LIN semantics. The same logical `ky` pattern may map to different index bases, labels or reconstruction parameters.
+Shared conventional/gSlider behavior belongs in common preparation functions. gSlider-specific encoding and repetition behavior belongs in the dedicated gSlider sequence loops unless the common abstraction is genuinely identical.
 
-For CS, do not silently reuse PI/ICE assumptions. Preserve compatibility with the intended offline iterative reconstruction path.
+Changes to gSlider excitation or TRAPS schedules should be reviewed for peak B1, slice profile, echo-envelope behavior, SAR, and reconstruction implications. The current bundled offline reconstruction does not decode gSlider data.
 
-See [Siemens 7 T encoding and ICE integration](phase-encoding-and-ice.md) for the current metadata contract.
+## Reconstruction architecture
 
-## 7. Platform integration expectations
-
-A new scanner target should explicitly define:
-
-- field strength and absolute gradient/slew limits;
-- raster/dead-time requirements when they differ;
-- PNS or equivalent hardware safety strategy;
-- supported Pulseq interpreter features and version;
-- orientation and logical-to-physical axis mapping;
-- acceleration/ACS metadata required by the scanner;
-- navigator or phase-correction metadata when used;
-- online reconstruction dependencies;
-- staged scanner validation evidence.
-
-Do not mark a platform as supported merely because the `.seq` file parses. A platform becomes a supported validation target only after interpreter behavior, safety constraints, geometry/orientation and phantom imaging have been checked.
-
-## 8. Reconstruction architecture
-
-`recon_TSE2D.m` orchestrates the current offline pipeline:
+`recon_TSE2D.m` orchestrates a transparent pipeline:
 
 ```text
 read Siemens Twix
-prewhiten
-estimate/apply navigator corrections
-pack Cartesian k-space
-reconstruct
-save diagnostics
+  -> prewhiten
+  -> estimate/apply navigator corrections
+  -> pack Cartesian k-space
+  -> RSS / GRAPPA / SENSE / CS
+  -> save geometry + diagnostics
 ```
 
-The **reconstruction model** and the **raw-data reader** should remain conceptually separate. If support for another raw-data format is added, map that vendor's data and metadata into the reconstruction model rather than spreading raw-data-format assumptions through the sequence design.
+The vendor raw-data reader and the reconstruction model should remain conceptually separate. If another raw-data format is added, translate its data and metadata into the common reconstruction representation rather than introducing raw-data assumptions into sequence-generation code.
 
-SENSE and CS intentionally share one multicoil encoding model and sensitivity/calibration preparation path. New iterative algorithms should reuse the same tested forward/adjoint operators when the encoding model is unchanged.
+SENSE and CS intentionally share one Cartesian multicoil forward/adjoint model and one calibration/sensitivity preparation path. New iterative methods should reuse those tested operators when the physical encoding model is unchanged.
 
-## 9. Numerical safeguards
+## Numerical safeguards
 
-Do not remove validation checks merely to make a dataset run.
+Do not remove validation checks merely to make a dataset execute. Important current safeguards include:
 
-Important current safeguards include:
-
-- explicit warnings/fallback for missing noise data;
-- navigator-data requirements for echo-magnitude correction;
+- warning/fallback for missing noise data;
+- navigator requirements for echo-magnitude correction;
 - GRAPPA calibration diagnostics;
-- ESPIRiT contiguous-calibration checks;
-- SENSE/CS forward-adjoint inner-product tests;
-- CS primal-dual step-size checks;
+- contiguous-ACS checks for ESPIRiT;
+- forward/adjoint inner-product tests for SENSE/CS;
+- primal-dual step-size checks;
 - NIfTI geometry consistency checks.
 
-If a safeguard is too strict for a legitimate new acquisition, update the model and tests rather than disabling the check globally.
+If a safeguard rejects a legitimate new acquisition, update the model, validation logic, and tests together rather than disabling the check globally.
 
-## 10. Documentation conventions
+## Documentation architecture
 
-The documentation remains intentionally **static Markdown**, rendered with VitePress for clear task-oriented navigation.
+The public documentation intentionally mirrors the project architecture and now follows the same VitePress organization used by `HighOrderMRI.jl`:
 
-Keep the public information architecture aligned with the project architecture:
+- **Getting Started** — installation, runnable examples, architecture overview;
+- **Theory** — symbols, TSE echo-train model, phase encoding/effective TE;
+- **Sequence Design** — implementation workflow, gSlider/TRAPS, parameters;
+- **Platform Integration** — portability boundary and current Siemens LIN/ICE contract;
+- **Reconstruction** — raw-data workflow, echo corrections, denoising;
+- **Validation** — scanner-independent principles and platform-specific phantom SOP;
+- **Reference** — reproducibility, developer guidance, literature;
+- **Support** — troubleshooting.
 
-- **Start here** — installation and runnable examples;
-- **Sequence design** — reusable acquisition concepts and current sequence workflow;
-- **Platform integration** — current coupling, target architecture and scanner-specific metadata;
-- **Reconstruction** — current raw-data/reconstruction implementation;
-- **Validation** — scanner-independent principles plus platform-specific validation evidence;
-- **Project** — reproducibility and contributor guidance.
+When behavior changes, update the page belonging to the affected layer rather than duplicating caveats across every page. Use cross-links from workflow pages to the dedicated theory or algorithm page.
 
-When behavior changes, update the page belonging to the affected layer rather than adding platform-specific caveats everywhere.
+Mathematical derivations should use MathJax-compatible Markdown. Architecture and processing-flow figures can use Mermaid fenced blocks. Avoid putting LaTeX inside Mermaid labels; keep exact mathematical notation in the surrounding document.
 
-## 11. Build documentation locally
+## Build documentation locally
 
-Install the Node dependency declared by the repository:
+Install the pinned dependencies from the repository root:
 
 ```bash
 npm install
 ```
 
-Build the site:
-
-```bash
-npm run docs:build
-```
-
-Preview while editing:
+Run a development server:
 
 ```bash
 npm run docs:dev
 ```
 
-VitePress prints the local preview URL in the terminal.
+Build the production site:
 
-## 12. GitHub Pages deployment
+```bash
+npm run docs:build
+```
 
-`.github/workflows/docs.yml` builds the VitePress site and deploys `docs/.vitepress/dist` through GitHub Pages Actions.
+The documentation stack is pinned to the same VitePress 2 alpha generation, Mermaid version, and MathJax dependency used by the reference `HighOrderMRI.jl` documentation branch.
 
-The workflow validates documentation pull requests and deploys documentation changes pushed to `main`.
+## GitHub Pages deployment
 
-Repository Settings must use **GitHub Actions** as the Pages publishing source.
+`.github/workflows/docs.yml` builds the site and deploys `docs/.vitepress/dist` through GitHub Pages Actions for documentation changes merged to `main`.
 
-The expected project Pages URL is:
+The expected project Pages URL is
 
 ```text
 https://bennyzhang-codes.github.io/tse-pulseq-matlab/
 ```
 
-## 13. Pull-request expectations
+Repository Pages settings should use **GitHub Actions** as the publishing source.
 
-A PR that changes sequence/reconstruction behavior should describe:
+## Pull-request expectations
 
-- motivation;
-- user-visible changes;
-- mathematical/algorithmic changes when relevant;
+A PR that changes sequence or reconstruction behavior should document:
+
+- motivation and user-visible behavior;
+- mathematical/algorithmic change when relevant;
 - acquisition versus platform-integration implications;
 - validation performed;
 - known limitations;
 - scanner-side validation still required.
 
-Update the corresponding documentation page when a PR changes a public workflow, configuration field, output convention or known limitation.
+Update the corresponding documentation page whenever a public configuration field, output convention, reconstruction option, validation claim, or platform-support statement changes.
 
-## 14. Release discipline
+## Release discipline
 
 Before a citation-oriented release:
 
-1. run the maintained sequence examples and reconstruction smoke tests available to you;
-2. verify submodule revisions;
+1. run the maintained sequence examples and available reconstruction tests;
+2. record Pulseq and VERSE submodule revisions;
 3. update documentation and platform-support statements;
 4. update `CITATION.cff` with release metadata;
-5. tag/release a fixed revision;
-6. archive through Zenodo if a DOI is desired;
-7. add the real DOI only after Zenodo assigns it.
+5. create a fixed tag/release;
+6. archive the release through Zenodo when appropriate;
+7. use the assigned version-specific DOI for work based on that release.
 
-See [Reproducibility and citation](reproducibility.md).
+See [Reproducibility & Citation](/reproducibility).

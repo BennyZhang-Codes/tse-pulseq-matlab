@@ -1,100 +1,71 @@
 ---
 layout: home
 
+title: TSE Pulseq for MATLAB
+titleTemplate: false
+
+description: Vendor-neutral Pulseq development of Cartesian 2D TSE and gSlider-TSE, with explicit platform integration and transparent MATLAB reconstruction.
+
 hero:
   name: TSE Pulseq
-  text: 2D TSE development toward vendor-neutral deployment
-  tagline: MATLAB development of Cartesian TSE and gSlider-TSE with Pulseq. The current implementation and scanner validation are on Siemens 7 T; bundled raw-data reconstruction currently targets Siemens Twix.
+  text: Vendor-neutral 2D TSE sequence development
+  tagline: A MATLAB/Pulseq framework for Cartesian TSE and gSlider-TSE sequence design, explicit scanner-platform integration, and transparent offline reconstruction. The reusable acquisition model is vendor-neutral in intent; the current scanner validation and bundled raw-data path are Siemens 7 T and Twix specific.
   actions:
     - theme: brand
-      text: Quick Start
+      text: Get Started
       link: /quickstart
     - theme: alt
-      text: Sequence Design
-      link: /sequence-generation
+      text: Explore Theory
+      link: /theory/tse-echo-train
+    - theme: alt
+      text: Reconstruction
+      link: /reconstruction
 
 features:
-  - title: Sequence design
-    details: Pulseq-based 2D TSE and gSlider-TSE with configurable RF, timing, echo train, slice ordering, PI/CS sampling, and TRAPS schedules.
+  - title: Echo-train-aware design
+    details: Treat echo ordering, effective TE, refocusing schedules, crushers, and k-space placement as one TSE acquisition model.
+    link: /theory/tse-echo-train
+  - title: Pulseq sequence generation
+    details: Generate conventional 2D TSE and gSlider-TSE from modular MATLAB preparation stages with raster-aware RF, gradients, ADC, labels, and timing.
     link: /sequence-generation
-  - title: Platform integration
-    details: Separate reusable acquisition concepts from scanner-specific hardware limits, interpreter metadata, safety models, and validation as the project expands beyond Siemens 7 T.
-    link: /platform-integration
-  - title: Reconstruction
-    details: Transparent RSS, diagnostic PE-GRAPPA, ESPIRiT-SENSE, and Cartesian CS for the current conventional 2D TSE Siemens Twix workflow.
+  - title: Transparent reconstruction
+    details: Reconstruct Siemens Twix data with prewhitening, navigator phase and magnitude correction, RSS, PE-GRAPPA, ESPIRiT-SENSE, and Cartesian CS.
     link: /reconstruction
-  - title: Validation
-    details: Timing and label checks, current Siemens PNS development checks, staged phantom validation, and explicit scanner-side safety boundaries.
+  - title: Explicit validation boundary
+    details: Separate vendor-neutral acquisition concepts from hardware limits, interpreter metadata, scanner safety checks, and platform-specific validation.
     link: /validation-and-safety
 ---
 
-<section class="home-section home-workflow">
-  <div class="section-kicker">HOW TO USE</div>
-  <h2>A clear path from sequence design to scanner data</h2>
-  <p class="section-lead">The documentation separates reusable acquisition concepts from scanner-specific implementation. Start with the sequence, then integrate and validate the target platform before relying on scanner or raw-data behavior.</p>
-
-  <div class="flow-grid">
-    <a class="flow-card" href="./quickstart">
-      <span class="flow-step">01</span>
-      <strong>Run a known example</strong>
-      <span>Install the project and generate a conventional 2D TSE `.seq` file with the current tested setup.</span>
-    </a>
-    <a class="flow-card" href="./sequence-generation">
-      <span class="flow-step">02</span>
-      <strong>Design the acquisition</strong>
-      <span>Configure RF, timing, echo train, geometry, ordering, PI, CS, and gSlider options.</span>
-    </a>
-    <a class="flow-card" href="./platform-integration">
-      <span class="flow-step">03</span>
-      <strong>Integrate the scanner</strong>
-      <span>Adapt system limits, interpreter metadata, orientation, safety models, and reconstruction contracts.</span>
-    </a>
-    <a class="flow-card" href="./validation-and-safety">
-      <span class="flow-step">04</span>
-      <strong>Validate, then acquire</strong>
-      <span>Complete software checks, staged phantom validation, and scanner-side RF/SAR/PNS review before in-vivo use.</span>
-    </a>
-  </div>
-</section>
-
-<section class="home-section">
-  <div class="section-kicker">PLATFORM STATUS</div>
-  <h2>Vendor-neutral goal, currently Siemens-coupled implementation</h2>
-
-  <div class="scope-strip">
-    <div class="scope-item">
-      <span class="scope-label">Design goal</span>
-      <strong>Vendor-neutral Pulseq TSE</strong>
-      <span>The acquisition concepts are intended to remain portable at the Pulseq level as support expands to additional scanner platforms.</span>
-    </div>
-    <div class="scope-item">
-      <span class="scope-label">Current implementation</span>
-      <strong>Siemens 7 T path</strong>
-      <span>Shared prep code currently includes Terra hardware presets, Siemens PI/LIN mapping, interpreter definitions, and `.asc` PNS models.</span>
-    </div>
-    <div class="scope-item">
-      <span class="scope-label">Raw-data reconstruction</span>
-      <strong>Siemens Twix</strong>
-      <span>The bundled MATLAB reader and reconstruction currently target conventional Cartesian 2D TSE Twix data through `mapVBVD`.</span>
-    </div>
-  </div>
-</section>
-
-::: info Porting to another vendor
-The project is intended to support vendor-neutral sequence development, but the current code path still contains Siemens-specific integration. See [Platform Integration](platform-integration.md) for the exact coupling points and the work required to add another scanner platform.
+::: warning Research software
+This repository is intended for research sequence development. A Pulseq sequence that passes software timing, label, or development PNS checks is not automatically safe for human scanning. Scanner-side RF/SAR, gradient/PNS, interpreter, watchdog, protocol, and local institutional checks remain mandatory.
 :::
 
-::: warning Research use only
-Pulseq timing checks, PNS prediction, and software-side validation do **not** replace scanner-side safety checks, RF/SAR review, protocol validation, gradient-watchdog checks, local approvals, or staged phantom testing before volunteer or patient imaging.
-:::
+## One acquisition model, explicit implementation layers
 
-<section class="home-section home-links">
-  <div class="section-kicker">REFERENCE</div>
-  <h2>Detailed references when you need them</h2>
-  <div class="reference-grid">
-    <a href="./parameter-reference"><strong>Parameter Reference</strong><span>Sequence controls, timing, geometry, acceleration, RF, and spoiling parameters.</span></a>
-    <a href="./platform-integration"><strong>Platform Integration</strong><span>Current Siemens coupling, target architecture, and a practical checklist for adding another scanner platform.</span></a>
-    <a href="./phase-encoding-and-ice"><strong>Siemens 7 T Encoding & ICE</strong><span>Current LIN, ACS, phase-correction, interpreter, and ICE metadata contract.</span></a>
-    <a href="./reproducibility"><strong>Reproducibility & Citation</strong><span>Pin software, submodules, platform details, protocol settings, and reconstruction options for published work.</span></a>
-  </div>
-</section>
+The documentation follows the same separation of concerns as the code: first define the TSE acquisition and its echo-to-k-space mapping, then resolve it against a scanner platform, then reconstruct and validate the resulting data.
+
+<div class="home-capabilities">
+  <div class="home-capability"><strong>Acquisition model</strong><span>RF · echo train · gradients · ADC · logical $k_y$ order · slice ordering</span></div>
+  <div class="home-capability"><strong>Platform integration</strong><span>Hardware limits · interpreter metadata · orientation · scanner safety model</span></div>
+  <div class="home-capability"><strong>Reconstruction</strong><span>Noise whitening · echo corrections · Cartesian PI/CS · image export</span></div>
+  <div class="home-capability"><strong>Validation</strong><span>Numerical checks · phantom studies · scanner-side acceptance and safety</span></div>
+</div>
+
+For a receive channel $c$ and an echo $e$ assigned to phase-encoding location $k_y$, a useful abstraction of the acquired TSE signal is
+
+$$
+y_{e,c}(k_x,k_y)
+=
+\int_{\Omega}
+m(\mathbf r)\,C_c(\mathbf r)\,E_e(\mathbf r)
+\exp\!\left[-i2\pi\left(k_xx+k_yy\right)\right]
+\,d\mathbf r,
+$$
+
+where $m(\mathbf r)$ is the underlying object, $C_c(\mathbf r)$ is the receive sensitivity, and $E_e(\mathbf r)$ represents echo-dependent amplitude and phase. The phase-encoding schedule determines the mapping $e\mapsto k_y$, so echo-train modulation and k-space ordering jointly determine contrast and the phase-encoding point-spread function.
+
+The repository does **not** treat every layer as vendor-neutral. The Pulseq acquisition concepts are intended to be portable, whereas the currently implemented hardware presets, Siemens LIN/ICE metadata, scanner validation, and Twix reader are explicit platform-specific components. See [Architecture](/concepts-overview) for the complete boundary.
+
+## Suggested reading order
+
+Start with **[Quick Start](/quickstart)** for a minimal conventional 2D TSE run. Continue with the **[architecture overview](/concepts-overview)** and **[TSE echo-train model](/theory/tse-echo-train)** before changing phase encoding, effective TE, or refocusing schedules. Use **[Sequence Generation](/sequence-generation)** and the **[Parameter Reference](/parameter-reference)** for implementation details. For raw data, follow the **[reconstruction workflow](/reconstruction)** and the dedicated **[echo-correction](/guide/echo-corrections)** page. Interpret all scanner results through **[Platform Integration](/platform-integration)** and **[Validation & Safety](/validation-and-safety)**.

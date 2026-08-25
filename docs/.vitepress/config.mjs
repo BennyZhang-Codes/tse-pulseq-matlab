@@ -1,115 +1,161 @@
 import { defineConfig } from 'vitepress'
+import { mermaidPlugin } from './plugins/vitepress-mermaid/index.js'
 
 export default defineConfig({
   title: 'TSE Pulseq for MATLAB',
-  titleTemplate: ':title · TSE Pulseq',
-  description: 'Pulseq-based Cartesian 2D TSE sequence development toward vendor-neutral deployment, with current implementation and validation on Siemens 7 T.',
+  description: 'Vendor-neutral Pulseq development of Cartesian 2D TSE and gSlider-TSE, with explicit platform integration and transparent MATLAB reconstruction.',
   base: '/tse-pulseq-matlab/',
   cleanUrls: true,
   lastUpdated: true,
   head: [
-    ['meta', { name: 'theme-color', content: '#a63b34' }]
+    ['meta', { name: 'theme-color', content: '#6366f1' }],
   ],
+  markdown: {
+    math: true,
+    config(md) {
+      md.use(mermaidPlugin)
+    },
+  },
   themeConfig: {
     siteTitle: 'TSE Pulseq',
     nav: [
       {
         text: 'Guide',
-        link: '/quickstart',
-        activeMatch: '^/(installation|quickstart)'
+        items: [
+          { text: 'Getting started', link: '/quickstart' },
+          { text: 'Installation', link: '/installation' },
+          { text: 'Architecture', link: '/concepts-overview' },
+        ],
+      },
+      {
+        text: 'Theory',
+        items: [
+          { text: 'Symbols & notation', link: '/theory/symbols' },
+          { text: 'TSE echo-train model', link: '/theory/tse-echo-train' },
+          { text: 'Phase encoding & effective TE', link: '/theory/phase-encoding' },
+        ],
       },
       {
         text: 'Sequence',
-        link: '/sequence-generation',
-        activeMatch: '^/(sequence-generation|parameter-reference)'
-      },
-      {
-        text: 'Platforms',
-        link: '/platform-integration',
-        activeMatch: '^/(platform-integration|phase-encoding-and-ice)'
-      },
-      { text: 'Reconstruction', link: '/reconstruction' },
-      {
-        text: 'Validation',
-        link: '/validation-and-safety',
-        activeMatch: '^/(validation-and-safety|staged-phantom-validation)'
-      }
-    ],
-    sidebar: [
-      {
-        text: 'Start here',
         items: [
-          { text: 'Overview', link: '/' },
-          { text: 'Installation', link: '/installation' },
-          { text: 'Quick Start', link: '/quickstart' }
-        ]
-      },
-      {
-        text: 'Sequence design',
-        items: [
-          { text: 'Sequence Workflow', link: '/sequence-generation' },
-          { text: 'Parameter Reference', link: '/parameter-reference' }
-        ]
-      },
-      {
-        text: 'Platform integration',
-        items: [
-          { text: 'Platform Overview', link: '/platform-integration' },
-          { text: 'Siemens 7 T Encoding & ICE', link: '/phase-encoding-and-ice' }
-        ]
+          { text: 'Sequence generation', link: '/sequence-generation' },
+          { text: 'gSlider & TRAPS', link: '/guide/gslider-traps' },
+          { text: 'Parameter reference', link: '/parameter-reference' },
+        ],
       },
       {
         text: 'Reconstruction',
         items: [
-          { text: 'Siemens Twix Reconstruction', link: '/reconstruction' }
-        ]
+          { text: 'Reconstruction workflow', link: '/reconstruction' },
+          { text: 'Echo corrections', link: '/guide/echo-corrections' },
+          { text: 'Image-domain denoising', link: '/guide/denoising' },
+        ],
       },
       {
         text: 'Validation',
         items: [
-          { text: 'Validation & Safety', link: '/validation-and-safety' },
-          { text: 'Siemens 7 T Phantom SOP', link: '/staged-phantom-validation' }
-        ]
+          { text: 'Platform integration', link: '/platform-integration' },
+          { text: 'Siemens 7 T LIN & ICE', link: '/phase-encoding-and-ice' },
+          { text: 'Validation & safety', link: '/validation-and-safety' },
+          { text: 'Siemens 7 T phantom SOP', link: '/staged-phantom-validation' },
+        ],
       },
       {
-        text: 'Project',
-        collapsed: true,
+        text: 'Reference',
         items: [
-          { text: 'Reproducibility & Citation', link: '/reproducibility' },
-          { text: 'Developer Guide', link: '/developer-guide' }
-        ]
-      }
+          { text: 'Reproducibility & citation', link: '/reproducibility' },
+          { text: 'Developer guide', link: '/developer-guide' },
+          { text: 'Literature references', link: '/references' },
+        ],
+      },
+      {
+        text: 'Support',
+        items: [
+          { text: 'Troubleshooting', link: '/troubleshooting' },
+          { text: 'GitHub repository', link: 'https://github.com/BennyZhang-Codes/tse-pulseq-matlab' },
+        ],
+      },
+    ],
+    sidebar: [
+      {
+        text: 'Getting Started',
+        items: [
+          { text: 'Overview', link: '/' },
+          { text: 'Installation', link: '/installation' },
+          { text: 'Quick Start', link: '/quickstart' },
+          { text: 'Architecture', link: '/concepts-overview' },
+        ],
+      },
+      {
+        text: 'Theory',
+        items: [
+          { text: 'Symbols & notation', link: '/theory/symbols' },
+          { text: 'TSE echo-train model', link: '/theory/tse-echo-train' },
+          { text: 'Phase encoding & effective TE', link: '/theory/phase-encoding' },
+        ],
+      },
+      {
+        text: 'Sequence Design',
+        items: [
+          { text: 'Sequence generation', link: '/sequence-generation' },
+          { text: 'gSlider & TRAPS', link: '/guide/gslider-traps' },
+          { text: 'Parameter reference', link: '/parameter-reference' },
+        ],
+      },
+      {
+        text: 'Platform Integration',
+        items: [
+          { text: 'Portability boundary', link: '/platform-integration' },
+          { text: 'Siemens 7 T LIN & ICE', link: '/phase-encoding-and-ice' },
+        ],
+      },
+      {
+        text: 'Reconstruction',
+        items: [
+          { text: 'Reconstruction workflow', link: '/reconstruction' },
+          { text: 'Echo phase & magnitude correction', link: '/guide/echo-corrections' },
+          { text: 'Image-domain denoising', link: '/guide/denoising' },
+        ],
+      },
+      {
+        text: 'Validation',
+        items: [
+          { text: 'Validation & safety', link: '/validation-and-safety' },
+          { text: 'Siemens 7 T phantom SOP', link: '/staged-phantom-validation' },
+        ],
+      },
+      {
+        text: 'Reference',
+        items: [
+          { text: 'Reproducibility & citation', link: '/reproducibility' },
+          { text: 'Developer guide', link: '/developer-guide' },
+          { text: 'Literature references', link: '/references' },
+        ],
+      },
+      {
+        text: 'Support',
+        items: [
+          { text: 'Troubleshooting', link: '/troubleshooting' },
+        ],
+      },
     ],
     socialLinks: [
-      { icon: 'github', link: 'https://github.com/BennyZhang-Codes/tse-pulseq-matlab' }
+      { icon: 'github', link: 'https://github.com/BennyZhang-Codes/tse-pulseq-matlab' },
     ],
     search: {
-      provider: 'local'
+      provider: 'local',
     },
     outline: {
       level: [2, 3],
-      label: 'On this page'
-    },
-    docFooter: {
-      prev: 'Previous',
-      next: 'Next'
-    },
-    lastUpdated: {
-      text: 'Updated'
-    },
-    returnToTopLabel: 'Back to top',
-    sidebarMenuLabel: 'Menu',
-    darkModeSwitchLabel: 'Theme',
-    lightModeSwitchTitle: 'Switch to light theme',
-    darkModeSwitchTitle: 'Switch to dark theme',
-    externalLinkIcon: true,
-    footer: {
-      message: 'Vendor-neutral design goal · Current implementation and scanner validation: Siemens 7 T.',
-      copyright: 'MIT License'
+      label: 'On this page',
     },
     editLink: {
-      pattern: 'https://github.com/BennyZhang-Codes/tse-pulseq-matlab/edit/main/docs/:path',
-      text: 'Edit this page on GitHub'
-    }
-  }
+      pattern: 'https://github.com/BennyZhang-Codes/tse-pulseq-matlab/edit/vitepress-style/docs/:path',
+      text: 'Edit this page on GitHub',
+    },
+    footer: {
+      message: 'Vendor-neutral Pulseq TSE design with explicit platform integration and transparent offline reconstruction.',
+      copyright: 'TSE Pulseq contributors',
+    },
+  },
 })
