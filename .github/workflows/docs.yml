@@ -42,26 +42,15 @@ jobs:
       - name: Build VitePress site
         run: npm run docs:build
 
-      - name: Upload PR preview artifact
-        if: github.event_name == 'pull_request'
-        uses: actions/upload-artifact@v4
-        with:
-          name: vitepress-preview
-          path: docs/.vitepress/dist
-          retention-days: 3
-
       - name: Configure GitHub Pages
-        if: github.event_name != 'pull_request'
         uses: actions/configure-pages@v5
 
       - name: Upload GitHub Pages artifact
-        if: github.event_name != 'pull_request'
         uses: actions/upload-pages-artifact@v4
         with:
           path: docs/.vitepress/dist
 
   deploy:
-    if: github.event_name != 'pull_request'
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
