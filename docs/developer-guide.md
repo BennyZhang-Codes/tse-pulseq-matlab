@@ -1,6 +1,6 @@
 # Developer guide
 
-This page describes the repository architecture and the conventions that should be preserved when extending sequence generation, platform integration, reconstruction, or documentation.
+This page describes the repository architecture and the conventions that should be preserved when extending sequence generation, platform integration, reconstruction, validation, or documentation.
 
 ## Repository layout
 
@@ -26,13 +26,13 @@ The long-term design should keep reusable acquisition logic separate from platfo
 
 ```mermaid
 flowchart TD
-    A["User configuration"] --> B["Vendor-neutral acquisition model"]
-    B --> C["Pulseq sequence + logical metadata"]
-    C --> D["Platform integration"]
-    D --> E["Scanner validation + acquisition"]
-    E --> F["Vendor raw-data reader"]
-    F --> G["Common reconstruction model"]
-    G --> H["Optional post-processing"]
+    A[User configuration] --> B[Acquisition model]
+    B --> C[Pulseq sequence]
+    C --> D[Platform integration]
+    D --> E[Scanner validation]
+    E --> F[Raw data reader]
+    F --> G[Reconstruction model]
+    G --> H[Post processing]
 ```
 
 ::: warning Current implementation
@@ -56,7 +56,7 @@ Every returned waveform must be validated on the integer gradient raster against
 - requested gradient area;
 - exact rasterized duration;
 - initial and final amplitudes;
-- gradient-amplitude limit;
+- gradient-amplitude limit; and
 - slew-rate limit.
 
 Do not replace the raster-aware search with a continuous solution followed by naive rounding. For non-zero endpoints, fixed-duration feasibility can be non-monotonic, so a simple binary search is not a proof of the discrete minimum duration.
@@ -80,7 +80,7 @@ Keep the following sequence concepts vendor-independent where practical:
 - full encoded matrix size;
 - physical k-space center;
 - PI/CS sampling intent;
-- ACS/reference intent;
+- ACS/reference intent; and
 - slice acquisition order.
 
 The target scanner adapter may then map those quantities to platform-specific line numbers and metadata.
@@ -101,11 +101,12 @@ Changes to gSlider excitation or TRAPS schedules should be reviewed for peak B1,
 
 ```text
 read Siemens Twix
-  -> prewhiten
-  -> estimate/apply navigator corrections
-  -> pack Cartesian k-space
-  -> RSS / GRAPPA / SENSE / CS
-  -> save geometry + diagnostics
+→ prewhiten
+→ estimate/apply navigator corrections
+→ pack Cartesian k-space
+→ prepare coil model
+→ RSS / GRAPPA / SENSE / CS
+→ save geometry + diagnostics
 ```
 
 The vendor raw-data reader and the reconstruction model should remain conceptually separate. If another raw-data format is added, translate its data and metadata into the common reconstruction representation rather than introducing raw-data assumptions into sequence-generation code.
@@ -121,27 +122,102 @@ Do not remove validation checks merely to make a dataset execute. Important curr
 - GRAPPA calibration diagnostics;
 - contiguous-ACS checks for ESPIRiT;
 - forward/adjoint inner-product tests for SENSE/CS;
-- primal-dual step-size checks;
+- primal-dual step-size checks; and
 - NIfTI geometry consistency checks.
 
 If a safeguard rejects a legitimate new acquisition, update the model, validation logic, and tests together rather than disabling the check globally.
 
 ## Documentation architecture
 
-The public documentation intentionally mirrors the project architecture and now follows the same VitePress organization used by `HighOrderMRI.jl`:
+The documentation is intended to behave like an MRI Methods companion site rather than a collection of code notes.
 
-- **Getting Started** — installation, runnable examples, architecture overview;
-- **Theory** — symbols, TSE echo-train model, phase encoding/effective TE;
-- **Sequence Design** — implementation workflow, gSlider/TRAPS, parameters;
-- **Platform Integration** — portability boundary and current Siemens LIN/ICE contract;
-- **Reconstruction** — raw-data workflow, echo corrections, denoising;
-- **Validation** — scanner-independent principles and platform-specific phantom SOP;
-- **Reference** — reproducibility, developer guidance, literature;
-- **Support** — troubleshooting.
+The preferred scientific reading order is
 
-When behavior changes, update the page belonging to the affected layer rather than duplicating caveats across every page. Use cross-links from workflow pages to the dedicated theory or algorithm page.
+```text
+physics / signal model
+→ discrete encoding
+→ matrix formulation
+→ explicit sequence implementation
+→ reconstruction workflow
+→ scientific validation
+→ performance
+→ API / troubleshooting
+```
 
-Mathematical derivations should use MathJax-compatible Markdown. Architecture and processing-flow figures can use Mermaid fenced blocks. Avoid putting LaTeX inside Mermaid labels; keep exact mathematical notation in the surrounding document.
+The main responsibilities are therefore separated as follows:
+
+- **Getting Started** — installation, runnable examples, local documentation build, reading paths;
+- **Theory** — symbols, continuous/discrete TSE model, matrix encoding, PE/effective-TE interpretation;
+- **Sequence Design** — implementation workflow, gSlider/TRAPS, parameters, platform boundary;
+- **Reconstruction** — full measured-data-to-image processing chain;
+- **Validation & Performance** — evidence hierarchy, frozen comparison protocol, scanner safety, phantom SOP, benchmarking contract;
+- **Reference** — API lookup, source links, reproducibility, literature;
+- **Support** — troubleshooting and engineering compatibility issues.
+
+Theory pages answer **why**. API pages answer **how to call it**. Validation pages answer **what evidence supports the claim**. Do not duplicate long derivations across these layers.
+
+## Theory-writing conventions
+
+A scientific encoding page should normally follow
+
+```text
+continuous signal model
+→ discrete formulation
+→ matrix formulation
+→ explicit implementation
+→ approximation / reconstruction method
+→ implementation conventions
+```
+
+Do not start a Theory page with MATLAB array dimensions or internal variable names. Introduce them only after the physical and matrix models are defined.
+
+The common symbols, units, phase convention, and index meanings belong in [Symbols & notation](/theory/symbols).
+
+## Mermaid conventions
+
+Use Mermaid for **conceptual flow**, not mathematical typesetting.
+
+- keep node labels to ordinary English/ASCII when possible;
+- keep exact symbols/equations in MathJax prose below the figure;
+- use transparent backgrounds and light/no borders;
+- avoid thick outlines, glassmorphism, heavy animation, or decorative effects;
+- keep diagrams at natural SVG size and allow horizontal scrolling rather than shrinking a wide scientific diagram until text becomes unreadable;
+- ensure render IDs are globally unique when multiple diagrams appear on one page.
+
+The current `MermaidDiagram.vue` uses a module-level render serial and a horizontally scrollable natural-size SVG container for these reasons.
+
+## Code-fence conventions
+
+Fence languages should describe the actual content:
+
+- MATLAB code → `matlab`;
+- shell commands → `bash`;
+- Mermaid diagrams → `mermaid`;
+- native logs / stack traces → `text`.
+
+Do not turn a stack trace into a Mermaid figure simply because it contains arrows or indentation.
+
+## References and claims
+
+Scientific method pages should use numbered citations linked to `/references#ref-n`. References use MRM-like journal abbreviations and verified DOI metadata where available.
+
+Do not mix internal design logs, private vendor manuals, CI logs, or Notion notes into the public scientific reference list. Vendor-specific integration documentation can be acknowledged separately when it is needed to explain implementation behavior.
+
+## Validation before performance
+
+The documentation order is intentional:
+
+```text
+implementation consistency
+→ approximation accuracy
+→ independent numerical validation
+→ physical validation
+→ performance
+```
+
+A successful forward/adjoint self-check should not be promoted as independent physical validation. Likewise, a runtime benchmark should not be promoted until the reconstruction protocol, accuracy target, and hardware/timing scope are frozen.
+
+See [Scientific validation strategy](/validation/scientific-validation), [Reconstruction protocol](/validation/reconstruction-protocol), and [Performance & benchmarking](/validation/performance-benchmarking).
 
 ## Build documentation locally
 
@@ -163,32 +239,55 @@ Build the production site:
 npm run docs:build
 ```
 
-The documentation stack is pinned to the same VitePress 2 alpha generation, Mermaid version, and MathJax dependency used by the reference `HighOrderMRI.jl` documentation branch.
+The site uses VitePress with MathJax and a custom Mermaid component.
 
 ## GitHub Pages deployment
 
-`.github/workflows/docs.yml` builds the site and deploys `docs/.vitepress/dist` through GitHub Pages Actions for documentation changes merged to `main`.
+`.github/workflows/docs.yml` performs
 
-The expected project Pages URL is
+```text
+install documentation dependencies
+→ VitePress production build
+→ configure GitHub Pages
+→ upload Pages artifact
+→ deploy
+```
+
+`main` is the production source branch. During the current documentation redesign, `vitepress-style` is also configured as a source branch and deploys through a separate preview environment. The generated Pages output should not be edited manually.
+
+The site URL is
 
 ```text
 https://bennyzhang-codes.github.io/tse-pulseq-matlab/
 ```
 
-Repository Pages settings should use **GitHub Actions** as the publishing source.
+A green build is necessary but not a complete visual check. Mermaid is client-side hydrated, so generated SSR HTML may contain the component container before an SVG exists. Final review should therefore include opening the deployed browser page and checking equations, diagrams, navigation, and mobile overflow.
 
 ## Pull-request expectations
 
-A PR that changes sequence or reconstruction behavior should document:
+A PR that changes sequence or reconstruction behavior should document
 
 - motivation and user-visible behavior;
 - mathematical/algorithmic change when relevant;
 - acquisition versus platform-integration implications;
-- validation performed;
-- known limitations;
+- validation performed and its evidence level;
+- known limitations; and
 - scanner-side validation still required.
 
 Update the corresponding documentation page whenever a public configuration field, output convention, reconstruction option, validation claim, or platform-support statement changes.
+
+## README consistency
+
+The README and website should agree on
+
+- Cartesian/gSlider scope;
+- portable design goal versus validated scanner platform;
+- reconstruction/raw-data support;
+- documentation URL;
+- validation claims; and
+- release/version status.
+
+A documentation architecture change is incomplete until the README is checked against it.
 
 ## Release discipline
 
@@ -196,10 +295,13 @@ Before a citation-oriented release:
 
 1. run the maintained sequence examples and available reconstruction tests;
 2. record Pulseq and VERSE submodule revisions;
-3. update documentation and platform-support statements;
-4. update `CITATION.cff` with release metadata;
-5. create a fixed tag/release;
-6. archive the release through Zenodo when appropriate;
-7. use the assigned version-specific DOI for work based on that release.
+3. freeze the relevant reconstruction/validation protocol;
+4. update documentation and platform-support statements;
+5. update `CITATION.cff` with release metadata;
+6. create a fixed tag/release;
+7. archive the release through Zenodo when appropriate; and
+8. use the assigned version-specific DOI for work based on that release.
+
+Do not fabricate a `stable` documentation version before the repository actually has a corresponding release/tag.
 
 See [Reproducibility & Citation](/reproducibility).
