@@ -65,5 +65,52 @@ classdef TestReconstructionCore < matlab.unittest.TestCase
                 'AbsTol', 1e-12);
             testCase.verifyLessThanOrEqual(correction.maximumGain, 2);
         end
+
+        function powerEchoMagnitudeCorrectionUsesPerSlicePerEchoGains(testCase)
+            phaseCor = struct('referenceEcho', 1, ...
+                'amplitudeNorm', [1 0.5; 0.25 1]);
+            data = ones(3,2,4);
+            mdh = struct('Sli', [1 2 1 2], 'Seg', [2 1 1 2]);
+
+            [output, correction] = apply_TSE_echomagcor(data, mdh, phaseCor, 0);
+
+            testCase.verifyEqual(correction.method, "power");
+            testCase.verifyEqual(correction.gain, [1 2; 4 1], 'AbsTol', 1e-12);
+            testCase.verifyEqual(squeeze(output(1,1,:)).', [2 4 1 1], 'AbsTol', 1e-12);
+            testCase.verifyEqual(correction.correctedAmplitude, ones(2), 'AbsTol', 1e-12);
+        end
+
+        function autoWienerCorrectionUsesNoiseAndGainRegularization(testCase)
+            phaseCor = struct('referenceEcho', 1, ...
+                'amplitudeNorm', [1 0.5 0.25; 1 0.75 0.5], ...
+                'referenceNoiseToSignalRatio', [0.05; NaN]);
+            data = ones(2,1,6);
+            mdh = struct('Sli', [1 1 1 2 2 2], 'Seg', [1 2 3 1 2 3]);
+
+            [output, correction] = apply_TSE_echomagcor(data, mdh, phaseCor, 0, ...
+                'Method', 'wiener', 'Lambda', 'auto', 'MaximumGain', 1.3);
+
+            testCase.verifyEqual(correction.lambdaMode, "auto");
+            testCase.verifyEqual(correction.lambdaNoiseBySlice(1), 0.05, 'AbsTol', eps);
+            testCase.verifyEqual(correction.lambdaNoiseBySlice(2), 0, 'AbsTol', eps);
+            testCase.verifyGreaterThanOrEqual(correction.lambdaBySlice, ...
+                correction.lambdaNoiseBySlice);
+            testCase.verifyLessThanOrEqual(correction.maximumGain, 1.3 + 1e-12);
+            testCase.verifyEqual(squeeze(output(1,1,:)).', ...
+                [correction.gain(1,:) correction.gain(2,:)], 'AbsTol', 1e-12);
+        end
+
+        function echoMagnitudeCorrectionRejectsMalformedMetadata(testCase)
+            phaseCor = struct('referenceEcho', 1, 'amplitudeNorm', [1 0.5]);
+            testCase.verifyEqual(apply_TSE_echomagcor([], struct(), phaseCor, 0), []);
+            testCase.verifyError(@() apply_TSE_echomagcor(ones(1,1,1), ...
+                struct('Sli',1), phaseCor, 0), 'apply_TSE_echomagcor:MissingMdh');
+            testCase.verifyError(@() apply_TSE_echomagcor(ones(1,1,2), ...
+                struct('Sli',[1 1], 'Seg',1), phaseCor, 0), ...
+                'apply_TSE_echomagcor:MdhSizeMismatch');
+            testCase.verifyError(@() apply_TSE_echomagcor(ones(1,1,1), ...
+                struct('Sli',1, 'Seg',3), phaseCor, 0), ...
+                'apply_TSE_echomagcor:MissingGain');
+        end
     end
 end
