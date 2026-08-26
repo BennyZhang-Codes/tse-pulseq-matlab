@@ -43,17 +43,44 @@ No repository-wide `addpath(genpath(...))` is required before running the mainta
 
 ## 3. Pulseq
 
-Pulseq is bundled as a submodule and provides the portable sequence-description layer used for `mr.Sequence`, RF/gradient/ADC/label objects, timing validation, sequence export, k-space calculation, and PNS calculation when a compatible hardware model is available.
+Pulseq is bundled as a submodule and provides the portable sequence-description layer used for `mr.Sequence`, RF/gradient/ADC/label objects, timing validation, sequence export, k-space calculation, and PNS calculation interfaces.
 
 The sequence design is intended to remain independent of a single MRI vendor. Executing the exported `.seq` file on a real platform still requires a compatible Pulseq interpreter and platform-specific validation.
 
-## 4. VERSE and generated RF pulse banks
+## 4. SAFE PNS prediction dependency
+
+`check/check_PNS.m` calls Pulseq `Sequence.calcPNS`. In the Pulseq revision tracked by this repository, `calcPNS` explicitly depends on the external MATLAB package [`safe_pns_prediction`](https://github.com/filip-szczepankiewicz/safe_pns_prediction).
+
+The dependency chain is:
+
+```text
+check_PNS
+→ Pulseq Sequence.calcPNS
+→ safe_pns_prediction
+→ scanner-specific MP_GPA*.asc SAFE parameters
+```
+
+Install the external package separately and add it to the MATLAB path, for example:
+
+```matlab
+addpath(genpath('path-to-safe_pns_prediction'));
+```
+
+The package implements PNS prediction using the SAFE model [[26]](/references#ref-26 "Hebrank FX, Gebhardt M. SAFE-Model—A new method for predicting peripheral nerve stimulations in MRI. Proc Intl Soc Magn Reson Med. 2000;8. Abstract #2007.") and asks users to consider citing Szczepankiewicz et al. [[27]](/references#ref-27 "Szczepankiewicz F, Westin C-F, Nilsson M. Gradient waveform design for tensor-valued encoding in diffusion MRI. J Neurosci Methods. 2021;348:109007.").
+
+`safe_pns_prediction` is **not** included as a submodule in this repository. Scanner-specific `MP_GPA*.asc` SAFE hardware parameters are also not distributed with that package or this repository and must be supplied for the intended Siemens gradient system.
+
+::: warning Development check only
+The SAFE-model calculation is useful for sequence development but does not replace scanner-side gradient/PNS supervision or local safety validation.
+:::
+
+## 5. VERSE and generated RF pulse banks
 
 The `VERSE/` submodule contains VERSE and minimum-SAR RF utilities used by supported RF-design paths. `Setup.VERSE` controls whether the configured sequence path enables VERSE-related behavior where implemented.
 
 The bundled SLR and gSlider `.mat` RF pulse banks were generated offline through `prep/pulse/RF_pulse.ipynb` using SigPy RF. Python/SigPy is therefore not required for normal MATLAB sequence generation unless those pulse banks are regenerated. See [Dependencies & method provenance](/reference/provenance).
 
-## 5. Current Siemens Twix reconstruction path
+## 6. Current Siemens Twix reconstruction path
 
 The bundled offline MATLAB reconstruction currently targets Siemens Twix raw data and requires [`mapVBVD`](https://github.com/pehses/mapVBVD).
 
@@ -64,22 +91,22 @@ result = recon_TSE2D(twixFile, ...
     'MapVBVDPath', 'E:\\Tools\\mapVBVD');
 ```
 
-Available production reconstruction methods are:
+Available reconstruction methods are:
 
 ```text
 RSS
-regular Cartesian 1D PE-GRAPPA
-ESPIRiT-SENSE
-Cartesian TV/Haar CS
+GRAPPA
+SENSE
+CS
 ```
 
-The GRAPPA path requires regular integer PE acceleration with contiguous integrated ACS. Partial-Fourier GRAPPA, SMS/slice-GRAPPA, non-Cartesian GRAPPA, and irregular variable-density mask reconstruction are not implemented. See [Reconstruction](/reconstruction) for the exact support boundary.
+ESPIRiT is used for the default SENSE/CS sensitivity-map estimation. The current GRAPPA implementation uses Cartesian undersampling with acceleration along PE, integer acceleration, and contiguous integrated ACS. Partial-Fourier GRAPPA, SMS/slice-GRAPPA, non-Cartesian GRAPPA, and irregular variable-density mask reconstruction are not implemented. See [Reconstruction](/reconstruction) for the complete support boundary.
 
 The offline reconstruction does not currently decode gSlider acquisitions.
 
-## 6. Current Siemens 7 T PNS models
+## 7. Current Siemens 7 T PNS hardware models
 
-`check_PNS` currently calls the Pulseq PNS calculator using scanner-specific Siemens `.asc` hardware models selected by `ScannerType`.
+`check_PNS` passes a scanner-specific Siemens `.asc` hardware file to Pulseq `calcPNS`, which then uses `safe_pns_prediction` for the SAFE-model calculation.
 
 | `ScannerType` | Hard gradient limit | Hard slew limit | `.asc` model expected on MATLAB path |
 | --- | ---: | ---: | --- |
@@ -90,7 +117,7 @@ The example sequence design uses configurable soft limits, commonly 40 mT/m and 
 
 These presets reflect the currently validated Siemens 7 T environment. Porting the sequence to another scanner requires appropriate hardware limits and a corresponding PNS/safety-validation strategy rather than reusing a Terra model.
 
-## 7. Scanner interpreter
+## 8. Scanner interpreter
 
 Scanner execution requires a Pulseq interpreter compatible with the target MR platform.
 
@@ -98,9 +125,9 @@ The repository's current scanner validation has been performed on Siemens 7 T sy
 
 For another vendor, the Pulseq event sequence remains the portable layer, while interpreter-facing metadata and online reconstruction integration may need adaptation. Use [Platform Integration](platform-integration.md) as the porting checklist.
 
-## 8. Optional GPU support
+## 9. Optional GPU support
 
-Iterative SENSE and CS reconstruction can use a MATLAB-supported GPU:
+SENSE and CS reconstruction can use a MATLAB-supported GPU:
 
 ```matlab
 'IterativeUseGPU', 'auto'
@@ -108,12 +135,13 @@ Iterative SENSE and CS reconstruction can use a MATLAB-supported GPU:
 
 `'auto'` uses a GPU when MATLAB reports one as available and otherwise falls back to CPU. GPU support is optional; RSS and GRAPPA use the standard MATLAB path and do not require it.
 
-## 9. Verify the installation
+## 10. Verify the installation
 
-From the repository root, first confirm that the sequence entry point can resolve Pulseq:
+From the repository root, confirm Pulseq and SAFE PNS functions can be resolved when PNS checking is required:
 
 ```matlab
 which mr.Sequence
+which safe_gwf_to_pns
 ```
 
 Then run a maintained sequence script after reviewing its configuration:
