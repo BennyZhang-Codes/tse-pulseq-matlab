@@ -3,7 +3,7 @@ import { mermaidPlugin } from './plugins/vitepress-mermaid/index.js'
 
 export default defineConfig({
   title: 'TSE Pulseq for MATLAB',
-  description: 'Engineering documentation for an open-source Cartesian 2D TSE and gSlider-TSE Pulseq implementation, including sequence construction, scanner integration, transparent MATLAB reconstruction, validation and method provenance.',
+  description: 'Engineering documentation for an open-source Cartesian 2D TSE and gSlider-TSE Pulseq implementation, including sequence construction, platform integration, MATLAB reconstruction, validation and method provenance.',
   base: '/tse-pulseq-matlab/',
   cleanUrls: true,
   lastUpdated: true,
@@ -37,7 +37,6 @@ export default defineConfig({
           { text: 'gSlider-TSE & TRAPS', link: '/guide/gslider-traps' },
           { text: 'Parameter Reference', link: '/parameter-reference' },
           { text: 'Platform Integration', link: '/platform-integration' },
-          { text: 'Siemens 7 T LIN & ICE', link: '/phase-encoding-and-ice' },
         ],
       },
       {
@@ -53,11 +52,11 @@ export default defineConfig({
         text: 'Validation & Safety',
         items: [
           { text: 'Validation Strategy', link: '/validation/scientific-validation' },
-          { text: 'Scanner Validation & Safety', link: '/validation-and-safety' },
-          { text: 'Siemens 7 T Phantom SOP', link: '/staged-phantom-validation' },
+          { text: 'Validation & Safety', link: '/validation-and-safety' },
           { text: 'Performance & Benchmarking', link: '/validation/performance-benchmarking' },
         ],
       },
+      { text: 'TO DO', link: '/todo' },
       {
         text: 'Reference',
         items: [
@@ -85,6 +84,7 @@ export default defineConfig({
           { text: 'Installation', link: '/installation' },
           { text: 'Quick Start', link: '/quickstart' },
           { text: 'Repository Architecture', link: '/concepts-overview' },
+          { text: 'TO DO & Checklist', link: '/todo' },
         ],
       },
       {
@@ -96,7 +96,6 @@ export default defineConfig({
           { text: 'gSlider-TSE & TRAPS', link: '/guide/gslider-traps' },
           { text: 'Parameter Reference', link: '/parameter-reference' },
           { text: 'Platform Integration', link: '/platform-integration' },
-          { text: 'Siemens 7 T LIN & ICE', link: '/phase-encoding-and-ice' },
         ],
       },
       {
@@ -113,8 +112,7 @@ export default defineConfig({
         text: 'Validation & Safety',
         items: [
           { text: 'Validation Strategy', link: '/validation/scientific-validation' },
-          { text: 'Scanner Validation & Safety', link: '/validation-and-safety' },
-          { text: 'Siemens 7 T Phantom SOP', link: '/staged-phantom-validation' },
+          { text: 'Validation & Safety', link: '/validation-and-safety' },
           { text: 'Performance & Benchmarking', link: '/validation/performance-benchmarking' },
         ],
       },
@@ -157,7 +155,7 @@ export default defineConfig({
       next: 'Next page',
     },
     footer: {
-      message: 'Open-source Pulseq sequence engineering: acquisition implementation, platform integration, transparent reconstruction, validation, and traceable method provenance.',
+      message: 'Open-source Pulseq sequence engineering: acquisition implementation, platform integration, reconstruction, validation, and traceable method provenance.',
       copyright: 'TSE Pulseq contributors',
     },
   },
