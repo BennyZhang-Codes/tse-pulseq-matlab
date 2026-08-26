@@ -107,18 +107,21 @@ outputDir = "path-to-output";
 mapVBVDPath = "path-to-mapVBVD";
 ```
 
-The routine-use example currently enables:
+The maintained example keeps the optional echo-magnitude equalizer disabled by default:
 
 ```matlab
 applyPrewhitening = true;
 applyPhaseCorrection = true;
-applyEchoMagnitudeCorrection = true;
+applyEchoMagnitudeCorrection = false;
+
 echoMagnitudeMethod = "wiener";
 echoMagnitudeAlpha = 0;
 echoMagnitudeLambda = "auto";
 echoMagnitudeMaxGain = 2;
 runGrappa = true;
 ```
+
+Set `applyEchoMagnitudeCorrection = true` only when you intentionally want navigator-derived echo-envelope equalization. The package exposes this as a reconstruction option rather than a required step; compare corrected and uncorrected results for the target dataset and report the selected settings. See [Echo phase & magnitude correction](/guide/echo-corrections).
 
 Run:
 
@@ -170,7 +173,13 @@ result = recon_TSE2D(twixFile, ...
 
 These regularization values are starting points validated on the repository's matched phantom experiments, not universal optimum values. Retune them when contrast, resolution, coil configuration, ACS width or sampling changes materially.
 
-## 6. Before scanning
+## 6. Optional post-reconstruction denoising
+
+Image-domain denoising is a separate optional module and is not invoked by `recon_TSE2D` automatically. Available comparison paths include NLM, BM3D, SANLM and TGV2.
+
+BM3D is an external optional dependency rather than a required part of the reconstruction. If denoising is used, preserve the unfiltered reconstruction, report the method and parameters, and evaluate structural change rather than assuming that a smoother image is more accurate. See [Image-domain denoising](/guide/denoising).
+
+## 7. Before scanning
 
 A `.seq` file that passes software checks is not automatically ready for human scanning. At minimum, confirm:
 
