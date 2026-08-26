@@ -18,6 +18,10 @@ Scientific references use numbered citations in the main text. Numbers are order
   <li id="ref-13"><span id="ref-sanlm"></span><strong>Manjón JV, Coupé P, Martí-Bonmatí L, Collins DL, Robles M.</strong> Adaptive non-local means denoising of MR images with spatially varying noise levels. <em>J Magn Reson Imaging.</em> 2010;31(1):192–203. doi:10.1002/jmri.22003.</li>
   <li id="ref-14"><span id="ref-gslider"></span><strong>Zhang J, Wu Y, Xue R, Zhuo Y, Zhang Z.</strong> gSlider-TSE for high-resolution isotropic T2-weighted imaging with high contrast and high SNR. In: <em>Proc Intl Soc Magn Reson Med.</em> 2024. Program #3256.</li>
   <li id="ref-15"><span id="ref-wiener"></span><strong>Wiener N.</strong> <em>Extrapolation, Interpolation, and Smoothing of Stationary Time Series, with Engineering Applications.</em> Cambridge, MA: MIT Press; 1949.</li>
+  <li id="ref-16"><span id="ref-oshio-rare-correction"></span><strong>Oshio K, Singh M.</strong> Correction of T2 distortion in multi-excitation RARE sequence. <em>IEEE Trans Med Imaging.</em> 1992;11(1):123–128. doi:10.1109/42.126919.</li>
+  <li id="ref-17"><span id="ref-zhou-fse-demod"></span><strong>Zhou X, Liang ZP, Cofer GP, Beaulieu CF, Suddarth SA, Johnson GA.</strong> Reduction of ringing and blurring artifacts in fast spin-echo imaging. <em>J Magn Reson Imaging.</em> 1993;3(5):803–807. doi:10.1002/jmri.1880030518.</li>
+  <li id="ref-18"><span id="ref-chen-wiener-fse"></span><strong>Chen H, Avram H, Kaufman L, Hale J, Kramer D.</strong> T2 restoration and noise suppression of hybrid MR images using Wiener and linear prediction techniques. <em>IEEE Trans Med Imaging.</em> 1994;13(4):667–676. doi:10.1109/42.363101.</li>
+  <li id="ref-19"><span id="ref-busse-wiener-fse"></span><strong>Busse RF, Riederer SJ, Fletcher JG, Bharucha AE, Brandt KR.</strong> Interactive fast spin-echo imaging. <em>Magn Reson Med.</em> 2000;44(3):339–348. doi:10.1002/1522-2594(200009)44:3&lt;339::AID-MRM1&gt;3.0.CO;2-N.</li>
 </ol>
 
 ## Software resources
