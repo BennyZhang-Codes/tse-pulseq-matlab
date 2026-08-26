@@ -6,7 +6,7 @@ MATLAB/Pulseq research software for **Cartesian 2D turbo spin echo (TSE)** seque
 
 The documentation is organized around the needs of an **open-source sequence implementation**: configuration and sequence construction → RF/phase-encoding/acceleration implementation → scanner integration → raw-data reconstruction → optional corrections/post-processing → validation/safety → source and method provenance.
 
-> **Platform status.** Vendor-neutral deployment is a project goal, but the current implementation remains coupled to the Siemens 7 T development path in scanner presets, PI/LIN mapping, interpreter definitions, and PNS models. Scanner validation has so far been performed on Siemens 7 T systems, and the bundled offline raw-data reconstruction currently targets Siemens Twix. Other vendors are not yet implemented or validated.
+> **Platform status.** Vendor-neutral deployment is a project goal, but the current implementation remains coupled to the Siemens 7 T development path in scanner presets, PI/LIN mapping, interpreter definitions, and PNS integration. Scanner validation has so far been performed on Siemens 7 T systems, and the bundled offline raw-data reconstruction currently targets Siemens Twix. Other vendors are not yet implemented or validated.
 
 > **Research software.** MATLAB/Pulseq timing checks, PNS estimates, CI results, and offline reconstruction do not replace scanner-side RF/SAR, gradient/PNS, protocol, interpreter, watchdog, or local institutional validation before volunteer or patient scanning.
 
@@ -15,7 +15,7 @@ The documentation is organized around the needs of an **open-source sequence imp
 | Layer | Current scope |
 | --- | --- |
 | Design goal | Portable Pulseq development for Cartesian 2D TSE and gSlider-TSE with configurable RF, timing, PE order, PI/CS sampling, slice ordering, and TRAPS-style schedules. |
-| Current sequence implementation | Pulseq-based, with Siemens-specific Terra profiles, PI/LIN mapping, interpreter definitions, and development PNS models still present in shared code. |
+| Current sequence implementation | Pulseq-based, with Siemens-specific Terra profiles, PI/LIN mapping, interpreter definitions, and current PNS integration still present in shared code. |
 | Validated scanner path | Siemens 7 T systems only at present. |
 | Offline reconstruction | Conventional Cartesian 2D TSE from Siemens Twix: RSS, GRAPPA, SENSE, and CS, with ESPIRiT sensitivity estimation, optional navigator echo-magnitude correction, and optional image-domain denoising. |
 | Not currently implemented | Validated non-Siemens scanner paths, offline gSlider decoding, partial Fourier, SMS, non-Cartesian reconstruction, and oblique sequence orientation. |
@@ -67,7 +67,7 @@ The offline reconstruction does **not** implement gSlider decoding.
 The repository records both the scientific method and the concrete code/tool source where relevant. Important examples include:
 
 - **Pulseq** — tracked as the `pulseq/` Git submodule; sequence construction uses the Pulseq MATLAB API.
-- **PNS prediction** — `check_PNS` calls Pulseq `Sequence.calcPNS`, which in the tracked Pulseq version requires the external [`safe_pns_prediction`](https://github.com/filip-szczepankiewicz/safe_pns_prediction) MATLAB package on the path. The calculation uses the SAFE model and scanner-specific Siemens `MP_GPA*.asc` parameters.
+- **PNS prediction** — `check_PNS` calls Pulseq `Sequence.calcPNS`, which in the tracked Pulseq version requires the external [`safe_pns_prediction`](https://github.com/filip-szczepankiewicz/safe_pns_prediction) MATLAB package. The target scanner's hardware parameters are external inputs to that calculation and are not distributed by this repository.
 - **CS sampling** — `prep/CS/genPDF.m` and `genSampling.m` retain `(c) Michael Lustig 2007`; `genSampling_TSE.m` is the TSE-oriented adaptation. The current implementation uses one-dimensional polynomial variable-density PE sampling with Monte-Carlo interference minimization.
 - **SLR and gSlider RF banks** — generated offline by `prep/pulse/RF_pulse.ipynb` using `sigpy.mri.rf` and stored as `.mat` pulse banks for MATLAB use.
 - **VERSE** — provided through the `VERSE/` Git submodule, whose repository documents its upstream code lineage.
@@ -91,7 +91,7 @@ If necessary:
 git submodule update --init --recursive
 ```
 
-The SAFE PNS package is an external dependency and is **not** included as a submodule in this repository. Its scanner-specific `MP_GPA*.asc` hardware parameters are also not distributed here.
+The SAFE PNS package is an external dependency and is **not** included as a submodule in this repository. Scanner-specific hardware parameters required for PNS prediction are likewise not distributed here.
 
 The bundled SLR/gSlider `.mat` RF pulse banks can be used without Python/SigPy at MATLAB runtime. SigPy is required only when regenerating those pulse banks through `prep/pulse/RF_pulse.ipynb`.
 
@@ -99,7 +99,7 @@ The bundled SLR/gSlider `.mat` RF pulse banks can be used without Python/SigPy a
 
 - `ScannerType='Terra-XJ'` or `'Terra-XR'` in the currently implemented system profiles.
 - A compatible Siemens Pulseq interpreter for scanner execution in the validated environment.
-- `safe_pns_prediction` plus a compatible Siemens `MP_GPA*.asc` SAFE/PNS hardware model when running `check_PNS`.
+- `safe_pns_prediction` plus a compatible target-system hardware model when running `check_PNS`.
 - [`mapVBVD`](https://github.com/pehses/mapVBVD) on the MATLAB path for Siemens Twix reconstruction.
 
 ## Documentation
