@@ -131,9 +131,9 @@ then generates and maps the variable-density PE mask. See [Phase encoding & acce
 
 ## gSlider-TSE
 
-`TSE_2D_gSlider.m` uses a gSlider excitation bank and dedicated gSlider TSE loops. See [gSlider-TSE](/guide/gslider-traps) for the RF source, encoding loop, and current reconstruction status.
+`TSE_2D_gSlider.m` uses a gSlider excitation bank and dedicated gSlider TSE loops. See [gSlider-TSE](/guide/gslider-tse) for the RF source, encoding loop, and current reconstruction status.
 
-The repository also contains `utils/fliptraps.m` as an **experimental/test path** for a TRAPS-style variable refocusing schedule [[22]](/references#ref-22 "Hennig J, Weigel M, Scheffler K. Multiecho sequences with variable refocusing flip angles: optimization of signal behavior using smooth transitions between pseudo steady states (TRAPS). Magn Reson Med. 2003;49:527-535."). It is not a core gSlider-TSE feature and is not part of the normal usage path.
+The repository also contains `utils/fliptraps.m` as an experimental/test path for a TRAPS-style variable refocusing schedule [[22]](/references#ref-22 "Hennig J, Weigel M, Scheffler K. Multiecho sequences with variable refocusing flip angles: optimization of signal behavior using smooth transitions between pseudo steady states (TRAPS). Magn Reson Med. 2003;49:527-535."). It is not a core gSlider-TSE feature and is not part of the normal usage path.
 
 ## Crushers and spoilers
 
