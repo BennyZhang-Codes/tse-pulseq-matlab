@@ -1,134 +1,68 @@
-# Echo phase and magnitude correction
+# Echo phase & magnitude correction
 
-The offline MATLAB workflow uses TSE phase-correction navigators to estimate echo-dependent phase and, optionally, echo-magnitude modulation. These operations are performed **after receive-noise prewhitening and before Cartesian k-space packing** so that imaging data and calibration/reference data remain in a consistent coil basis.
+The MATLAB reconstruction uses the TSE phase-correction navigator train to estimate echo-dependent phase and, optionally, a slice-level echo-magnitude envelope. Corrections are applied **after receive-noise prewhitening and before Cartesian k-space packing**.
 
-::: info Optional reconstruction choice
-Navigator phase correction and echo-magnitude equalization are separate operations. Echo-magnitude equalization is **optional and disabled by default** in both the core API and the maintained reconstruction example. The package provides the method and diagnostics; users should decide whether to enable it for a particular acquisition, comparison, or scientific question and should report the selected settings when it is used.
+::: info Optional magnitude correction
+Navigator phase correction and echo-magnitude equalization are separate features. `EchoMagnitudeCorrection` is **disabled by default**. The package exposes the method, settings and diagnostics; the user decides whether it is appropriate for a particular dataset or study.
 :::
 
-## Processing order
+## Implementation order
 
 ```mermaid
 flowchart LR
-    A[Twix data] --> B[Prewhitening]
-    B --> C[Navigator phase]
-    C --> D[Phase correction]
-    D --> E[Echo envelope]
-    E --> F[Optional gain]
-    F --> G[K-space packing]
-    G --> H[Reconstruction]
+    A[Prewhitened navigator] --> B[Relative phase fit]
+    B --> C[Phase correction]
+    C --> D[Echo envelope estimate]
+    D --> E[Optional regularized gain]
+    E --> F[Cartesian packing]
 ```
 
-The same fitted phase and magnitude corrections are applied to compatible imaging and PAT-reference acquisitions according to their slice and echo counters. This avoids reconstructing imaging data in one correction basis while calibrating GRAPPA or sensitivity estimation from another.
+The same compatible correction basis is applied to imaging and PAT-reference acquisitions so that calibration and image data are not reconstructed in inconsistent coil/echo bases.
 
-## Scientific basis for echo-envelope correction
+## MRI literature basis
 
-Echo-dependent signal modulation across the TSE/RARE echo train maps into the phase-encoding direction through echo-to-$k_y$ ordering. The resulting k-space modulation can broaden the phase-encoding point-spread function or produce structured ringing when the modulation is discontinuous. Correction of this effect has a long history in RARE/FSE reconstruction.
+Echo-dependent signal modulation in RARE/TSE maps into $k_y$ through echo ordering and therefore changes the phase-encoding PSF. Correction or demodulation of this effect has been studied in RARE/FSE reconstruction:
 
-The current implementation is most closely related to four published lines of work:
-
-| Reference | Relevant idea | Relation to this implementation |
+| Citation | Published idea | Relation to this package |
 | --- | --- | --- |
-| [[16]](/references#ref-16 "Oshio and Singh, IEEE TMI 1992") | Correction of T2-dependent distortion in multi-excitation RARE, including human studies | Establishes RARE/TSE echo-modulation correction as a reconstruction problem; the present code uses a different measured-envelope formulation |
-| [[17]](/references#ref-17 "Zhou et al., JMRI 1993") | Demodulation of FSE phase-encoding weighting using a set of non-phase-encoded echoes acquired after an extra excitation | Closest acquisition precedent for the present unencoded navigator echo train; the present code estimates a normalized measured envelope directly rather than fitting multiple tissue-specific T2 values |
-| [[18]](/references#ref-18 "Chen et al., IEEE TMI 1994") | Global T2 amplitude restoration in k-space using Wiener filtering while accounting for additive noise | Direct precedent for regularized global k-space amplitude restoration; the present implementation does not reproduce the paper's additional local linear-prediction stage |
-| [[19]](/references#ref-19 "Busse et al., MRM 2000") | Wiener demodulation of FSE k-space before reconstruction to reduce T2-decay blur while constraining inverse-filter noise | Direct precedent for using Wiener regularization instead of unstable inverse-envelope weighting |
+| [[16]](/references#ref-16 "Oshio K, Singh M. Correction of T2 distortion in multi-excitation RARE sequence. IEEE Trans Med Imaging. 1992;11:123-128.") | correction of T2-dependent distortion in RARE | establishes echo-modulation correction as a reconstruction problem |
+| [[17]](/references#ref-17 "Zhou X, Liang ZP, Cofer GP, Beaulieu CF, Suddarth SA, Johnson GA. Reduction of ringing and blurring artifacts in fast spin-echo imaging. J Magn Reson Imaging. 1993;3:803-807.") | demodulation using non-phase-encoded FSE echoes | closest acquisition precedent for the package's unencoded navigator train |
+| [[18]](/references#ref-18 "Chen H, Avram H, Kaufman L, Hale J, Kramer D. T2 restoration and noise suppression of hybrid MR images using Wiener and linear prediction techniques. IEEE Trans Med Imaging. 1994;13:667-676.") | global k-space amplitude restoration with Wiener filtering | precedent for regularized inverse-envelope weighting |
+| [[19]](/references#ref-19 "Busse RF, Riederer SJ, Fletcher JG, Bharucha AE, Brandt KR. Interactive fast spin-echo imaging. Magn Reson Med. 2000;44:339-348.") | Wiener demodulation of FSE k-space | precedent for controlling inverse-filter noise amplification |
 
-These references support the **general strategy** of estimating or modeling echo-train modulation and compensating it before image reconstruction. They do not imply that the exact gain function or automatic regularization used here is identical to any one published implementation.
-
-The classical Wiener theory in [[15]](/references#ref-15 "Wiener, 1949") provides the general inverse-filtering background; references [[16]](/references#ref-16 "Oshio and Singh, IEEE TMI 1992")–[[19]](/references#ref-19 "Busse et al., MRM 2000") are the MRI-specific methodological basis.
-
-## How the current implementation differs from a tissue T2 model
-
-The current estimator derives one normalized scalar envelope value for each slice and echo,
-
-$$
-A_{s,e}>0,
-\qquad
-A_{s,e_{\mathrm{ref}}}=1,
-$$
-
-from the measured non-phase-encoded navigator data after prewhitening and noise-floor correction.
-
-It therefore represents a **measured effective echo-train envelope**, not a voxelwise estimate of tissue $T_2$. In general, the true TSE modulation can depend on
-
-$$
-E_e(\mathbf r)
-=
-E_e\!\left(
-T_1(\mathbf r),
-T_2(\mathbf r),
-B_1^+(\mathbf r),
-\text{slice profile},
-\{\alpha_n\},
-\ldots
-\right),
-$$
-
-so a single $A_{s,e}$ cannot invert spatially varying tissue, $B_1^+$, stimulated-echo, or slice-profile behavior. This is why the feature is described as **navigator-derived global echo-envelope equalization**, rather than as a quantitative T2 correction.
-
-## Noise prewhitening first
-
-Let the mean-removed noise matrix be
-
-$$
-\mathbf N\in\mathbb C^{M\times C},
-$$
-
-where $M$ is the number of noise samples and $C$ is the number of receive channels. The sample covariance is regularized toward its diagonal and an inverse Hermitian square root is used to construct a prewhitening transform $\mathbf W_N$.
-
-For row-wise coil data $\mathbf D$,
-
-$$
-\widetilde{\mathbf D}=\mathbf D\mathbf W_N.
-$$
-
-The transform is applied consistently to image, phase-correction, and reference data. If no usable noise stream exists, the reconstruction warns and falls back to an identity transform rather than silently claiming that prewhitening was performed.
+General Wiener inverse-filtering background is reference [[15]](/references#ref-15 "Wiener N. Extrapolation, Interpolation, and Smoothing of Stationary Time Series, with Engineering Applications. MIT Press; 1949."). The exact normalized gain and automatic regularization rule below are repository implementation choices, not a claim of reproducing one of these papers exactly.
 
 ## Navigator phase model
 
-For slice $s$, echo $e$, receive channel $c$, and normalized readout coordinate $\kappa$, define the relative navigator with respect to a reference echo $e_{\mathrm{ref}}$ as
+For slice $s$, echo $e$, coil $c$ and normalized readout coordinate $\kappa$,
 
 $$
 z_{s,e,c}(\kappa)
 =
-n_{s,e,c}(\kappa)
-n^*_{s,e_{\mathrm{ref}},c}(\kappa).
+n_{s,e,c}(\kappa)n^*_{s,e_{\mathrm{ref}},c}(\kappa).
 $$
 
-The unwrapped relative phase is fitted with a magnitude-weighted linear model,
+The unwrapped relative phase is fitted as
 
 $$
 \arg z_{s,e,c}(\kappa)
 \approx
-\beta_{1,s,e,c}\kappa
-+
-\beta_{0,s,e,c}.
+\beta_{1,s,e,c}\kappa+\beta_{0,s,e,c},
 $$
 
-The two terms capture
-
-- $\beta_0$: echo-to-echo constant phase offset;
-- $\beta_1$: readout-linear phase variation.
-
-The correction is
+where $\beta_0$ is the echo-dependent constant phase and $\beta_1$ is a readout-linear term. The applied phase factor is
 
 $$
 p_{s,e,c}(\kappa)
 =
-\exp\!\left[-i\left(
-\beta_{1,s,e,c}\kappa+
-\beta_{0,s,e,c}
-\right)\right].
+\exp[-i(\beta_{1,s,e,c}\kappa+\beta_{0,s,e,c})].
 $$
 
-This is a transparent offline model of the constant and readout-linear components visible in the TSE navigator. It is **not** a reproduction of proprietary Siemens ICE filtering or adaptive reconstruction internals.
+This is a transparent offline fit to the measured navigator. It is not a byte-for-byte model of Siemens ICE phase correction.
 
-## Echo-magnitude estimate
+## Measured echo envelope
 
-Repeated navigators are complex averaged before estimating their power. The implementation uses the prewhitened noise estimate to remove the expected navigator noise floor before normalizing each echo to a reference echo.
-
-Denote the resulting normalized magnitude by
+Repeated navigators are complex averaged. When a prewhitened noise estimate is available, the expected noise floor is removed from the navigator power before normalization to the reference echo. The result is
 
 $$
 A_{s,e}>0,
@@ -136,11 +70,13 @@ A_{s,e}>0,
 A_{s,e_{\mathrm{ref}}}=1.
 $$
 
-This measured navigator envelope is used only when echo-magnitude correction is enabled.
+`estimate_TSE_phasecor.m` stores this as `phaseCor.amplitudeNorm`.
 
-## Power-law equalization
+The quantity $A_{s,e}$ is a **measured effective slice-level echo envelope**. It is not a voxelwise tissue-$T_2$ estimate. In reality, TSE echo behavior can vary with $T_1$, $T_2$, $B_1^+$, slice profile, refocusing history and stimulated echoes.
 
-The backward-compatible power-law gain is
+## Power-law option
+
+`apply_TSE_echomagcor.m` supports
 
 $$
 g^{\mathrm{power}}_{s,e}
@@ -149,46 +85,41 @@ A_{s,e}^{\alpha-1},
 \qquad 0\leq\alpha\leq1.
 $$
 
-Interpretation:
-
 - $\alpha=0$: target full inverse-envelope equalization;
 - $\alpha=1$: preserve the measured envelope;
 - intermediate $\alpha$: partial equalization.
 
-Direct inversion can amplify late-echo noise strongly when $A_{s,e}$ is small.
+When $A_{s,e}$ is small, direct inversion can strongly amplify noise.
 
-## Wiener-style regularized equalization
+## Wiener-style regularized option
 
-The alternative normalized Wiener-style gain is
+The package also provides
 
 $$
-g^{\mathrm{W}}_{s,e}
+g^{\mathrm W}_{s,e}
 =
 (1+\lambda_s)
-\frac{A_{s,e}^{\alpha+1}}
-{A_{s,e}^2+\lambda_s}.
+\frac{A_{s,e}^{\alpha+1}}{A_{s,e}^2+\lambda_s}.
 $$
 
-This normalization gives
+The factor $(1+\lambda_s)$ preserves unity gain at $A=1$. As $\lambda_s\to0$, the formula approaches the power-law form.
 
-$$
-g^{\mathrm{W}}(A=1)=1
-$$
+With
 
-for any non-negative $\lambda_s$, and approaches the power-law form as $\lambda_s\rightarrow0$.
+```matlab
+'EchoMagnitudeLambda','auto'
+```
 
-With `EchoMagnitudeLambda='auto'`, the code chooses a separate $\lambda_s$ for each slice from the larger of
+$\lambda_s$ is selected separately per slice from the larger of
 
 - a navigator noise-to-signal regularization term; and
-- the regularization needed to respect the configured smooth maximum-gain target.
+- the regularization needed to meet `EchoMagnitudeMaxGain` through the smooth gain curve.
 
-`EchoMagnitudeMaxGain` therefore changes the **regularized gain curve**. It is not implemented as a hard post-hoc clipping operation.
+This is therefore documented as a **normalized Wiener-style regularized equalizer**, not as a uniquely optimal LMMSE Wiener estimator.
 
-The factor $(1+\lambda_s)$ and the automatic $\lambda_s$ rule are implementation choices used to retain unity gain at the reference envelope and to provide a practical noise/gain safeguard. They should be described as a **Wiener-style regularized equalizer**, not as a uniquely optimal Wiener estimator.
+## Defaults and explicit use
 
-## Defaults and explicit opt-in
-
-The core API uses
+The API defaults are
 
 ```matlab
 'EchoMagnitudeCorrection', false
@@ -196,13 +127,7 @@ The core API uses
 'EchoMagnitudeAlpha', 1
 ```
 
-The maintained example also keeps the operation disabled:
-
-```matlab
-applyEchoMagnitudeCorrection = false;
-```
-
-When a user deliberately enables the feature, a practical regularized configuration is available through
+A user can explicitly request, for example,
 
 ```matlab
 'EchoMagnitudeCorrection', true
@@ -212,34 +137,39 @@ When a user deliberately enables the feature, a practical regularized configurat
 'EchoMagnitudeMaxGain', 2
 ```
 
-These settings are **available options, not a recommendation that all TSE data should be equalized**. The appropriate choice depends on echo ordering, echo envelope, tissue contrast, noise, acceleration, field strength, and the purpose of the reconstruction.
+This example demonstrates availability; it is not a package-wide recommendation.
 
-## What the correction can and cannot do
+## Limits of the correction
 
-Echo-magnitude equalization can reduce a measured global navigator envelope imposed across phase-encoding lines and may reduce TSE blur or ringing when that envelope is an important source of k-space modulation. However,
+The global navigator envelope can compensate a measured echo-dependent weighting across PE lines, but it cannot generally invert spatially varying TSE physics. In particular:
 
-- upweighting a weak echo also upweights its noise;
-- one slice-wise envelope does not represent all tissues or all spatial locations;
-- stimulated echoes, $B_1^+$, slice profile, relaxation, motion, and other effects are not explicitly inverted;
-- the method does not recover information that was never encoded;
-- changing the echo envelope can change image contrast as well as apparent sharpness;
-- the uncorrected reconstruction should be retained for comparison when the method is evaluated.
+- weak echoes and their noise are both affected by gain;
+- different tissues can have different echo envelopes;
+- $B_1^+$, stimulated echoes and slice profile can vary spatially;
+- correction can alter contrast as well as apparent sharpness;
+- information not encoded in the acquired data cannot be recovered.
 
-For quantitative T2 estimation or claims of tissue-specific signal restoration, a tissue- and sequence-aware model such as EPG/Bloch simulation would be required in addition to, or instead of, this global measured-envelope correction.
+For quantitative T2 restoration or tissue-specific modeling, a sequence-aware spatial model such as EPG/Bloch would be required beyond this global envelope correction.
 
-## Reporting the option
+## What to report when used
 
-If echo-magnitude equalization is used in a study, report at least
+Record
 
-- whether it was enabled;
-- navigator/reference echo definition;
-- `EchoMagnitudeMethod`;
-- `EchoMagnitudeAlpha`;
-- manual or automatic $\lambda$ selection;
-- `EchoMagnitudeMaxGain` when automatic regularization is used;
-- measured echo envelope and gain range when relevant; and
-- whether corrected and uncorrected reconstructions were compared.
+- `EchoMagnitudeCorrection`;
+- reference echo;
+- `EchoMagnitudeMethod` and `EchoMagnitudeAlpha`;
+- manual/automatic $\lambda$;
+- `EchoMagnitudeMaxGain` when relevant;
+- measured envelope/gain diagnostics; and
+- whether an uncorrected reconstruction was retained for comparison.
 
-This allows another user to reproduce the reconstruction without implying that the optional correction is part of the sequence definition itself.
+## Source map
 
-For the acquisition-side interpretation, see [TSE signal and echo-train model](/theory/tse-echo-train). For the full processing chain, see [Reconstruction workflow](/reconstruction).
+| Role | Source |
+| --- | --- |
+| navigator phase/envelope estimate | [`estimate_TSE_phasecor.m`](https://github.com/BennyZhang-Codes/tse-pulseq-matlab/blob/vitepress-style/recon/matlab/estimate_TSE_phasecor.m) |
+| phase application | [`apply_TSE_phasecor.m`](https://github.com/BennyZhang-Codes/tse-pulseq-matlab/blob/vitepress-style/recon/matlab/apply_TSE_phasecor.m) |
+| magnitude gain | [`apply_TSE_echomagcor.m`](https://github.com/BennyZhang-Codes/tse-pulseq-matlab/blob/vitepress-style/recon/matlab/apply_TSE_echomagcor.m) |
+| pipeline integration | [`recon_TSE2D.m`](https://github.com/BennyZhang-Codes/tse-pulseq-matlab/blob/vitepress-style/recon/matlab/recon_TSE2D.m) |
+
+See [Reconstruction](/reconstruction) for the complete pipeline and [Dependencies & method provenance](/reference/provenance) for package-wide attribution.
