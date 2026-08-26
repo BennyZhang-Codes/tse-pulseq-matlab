@@ -19,9 +19,22 @@ If the repository was cloned without submodules:
 git submodule update --init --recursive
 ```
 
-The tracked submodules are Pulseq and VERSE. See [Dependencies & method provenance](/reference/provenance) before redistributing or modifying inherited/adapted components.
+The tracked submodules are Pulseq and VERSE.
 
-## 2. Generate conventional 2D TSE
+## 2. Install the PNS prediction dependency
+
+The maintained sequence scripts call `check_PNS`, which calls Pulseq `Sequence.calcPNS`. The tracked Pulseq implementation requires the external [`safe_pns_prediction`](https://github.com/filip-szczepankiewicz/safe_pns_prediction) MATLAB package.
+
+Add that package to the MATLAB path before sequence generation:
+
+```matlab
+addpath(genpath('path-to-safe_pns_prediction'));
+which safe_gwf_to_pns
+```
+
+The current Siemens PNS check also requires the correct scanner-specific `MP_GPA*.asc` SAFE hardware model. The SAFE calculation is based on the model of Hebrank and Gebhardt [[26]](/references#ref-26 "Hebrank FX, Gebhardt M. SAFE-Model—A new method for predicting peripheral nerve stimulations in MRI. Proc Intl Soc Magn Reson Med. 2000;8. Abstract #2007."). See [Installation](/installation#safe-pns-prediction-dependency) and [Validation & Safety](/validation-and-safety#pns-prediction).
+
+## 3. Generate conventional 2D TSE
 
 Open MATLAB in the repository root. Review the main configuration block in `TSE_2D.m`, for example:
 
@@ -59,13 +72,13 @@ Generate the sequence:
 run('TSE_2D.m')
 ```
 
-The script resolves `Setup` into `Actual`, prepares RF/gradient/ADC/PE objects, assembles the sequence loop, performs the available timing/label/PNS development checks and writes the `.seq` plus a MAT archive of the configuration.
+The script resolves `Setup` into `Actual`, prepares RF/gradient/ADC/PE objects, assembles the sequence loop, performs timing/label/PNS development checks, and writes the `.seq` plus a MAT archive of the configuration.
 
 See [Sequence Implementation](/sequence-generation) for the source-level pipeline.
 
-## 3. Choose PI or CS acquisition deliberately
+## 4. Choose PI or CS acquisition deliberately
 
-Parallel-imaging and compressed-sensing acquisition use different PE patterns:
+Parallel imaging and compressed sensing use different PE patterns:
 
 ```matlab
 Setup.AccelerationMode = 'PI';
@@ -73,11 +86,11 @@ Setup.AccelerationMode = 'PI';
 Setup.AccelerationMode = 'CS';
 ```
 
-The CS path uses Michael Lustig-derived SparseMRI sampling utilities [[8]](/references#ref-8 "Lustig M, Donoho D, Pauly JM. Sparse MRI: the application of compressed sensing for rapid MR imaging. Magn Reson Med. 2007;58:1182-1195.") to generate **1D polynomial variable-density PE sampling with Monte-Carlo interference minimization**. It is not Poisson-disc sampling.
+The current CS sampling implementation uses Michael Lustig-derived SparseMRI utilities [[8]](/references#ref-8 "Lustig M, Donoho D, Pauly JM. Sparse MRI: the application of compressed sensing for rapid MR imaging. Magn Reson Med. 2007;58:1182-1195."). It generates a one-dimensional polynomial variable-density PE mask with Monte-Carlo interference minimization; Poisson-disc sampling is not implemented.
 
 Before changing `R`, `p`, `r`, `nEcho`, `TEeff` or PE mode, read [Phase Encoding & Acceleration](/theory/phase-encoding).
 
-## 4. Generate gSlider-TSE
+## 5. Generate gSlider-TSE
 
 Run:
 
@@ -92,13 +105,13 @@ Setup.TRAPS = 'on';
 SetupRF.typeEx = 'gSlider';
 ```
 
-The bundled gSlider/SLR RF banks were generated offline with SigPy RF. gSlider method provenance is documented with [[21]](/references#ref-21 "Setsompop K, Fan Q, Stockmann J, et al. High-resolution in vivo diffusion imaging of the human brain with generalized slice dithered enhanced resolution: simultaneous multislice (gSlider-SMS). Magn Reson Med. 2018;79:141-151.") and the TRAPS-style refocusing schedule with [[22]](/references#ref-22 "Hennig J, Weigel M, Scheffler K. Multiecho sequences with variable refocusing flip angles: optimization of signal behavior using smooth transitions between pseudo steady states (TRAPS). Magn Reson Med. 2003;49:527-535."). See [gSlider-TSE & TRAPS](/guide/gslider-traps).
+The bundled gSlider/SLR RF banks were generated offline with SigPy RF. gSlider method provenance is documented with [[21]](/references#ref-21 "Setsompop K, Fan Q, Stockmann J, et al. High-resolution in vivo diffusion imaging of the human brain with generalized slice dithered enhanced resolution: simultaneous multislice (gSlider-SMS). Magn Reson Med. 2018;79:141-151.") and TRAPS with [[22]](/references#ref-22 "Hennig J, Weigel M, Scheffler K. Multiecho sequences with variable refocusing flip angles: optimization of signal behavior using smooth transitions between pseudo steady states (TRAPS). Magn Reson Med. 2003;49:527-535."). See [gSlider-TSE & TRAPS](/guide/gslider-traps).
 
 ::: info Offline gSlider reconstruction
 The repository generates gSlider-TSE acquisitions, but the bundled MATLAB reconstruction does **not** implement gSlider decoding.
 :::
 
-## 5. First offline reconstruction
+## 6. First offline reconstruction
 
 The current reconstruction consumes Siemens Twix through external [mapVBVD](https://github.com/pehses/mapVBVD). Edit:
 
@@ -114,7 +127,7 @@ outputDir = "path-to-output";
 mapVBVDPath = "path-to-mapVBVD";
 ```
 
-The maintained example keeps optional echo-envelope equalization disabled:
+The maintained example keeps optional echo magnitude correction disabled:
 
 ```matlab
 applyPrewhitening = true;
@@ -136,7 +149,7 @@ slices = 3;
 comparePhaseCorrection = false;
 ```
 
-## 6. Choose a reconstruction method
+## 7. Choose a reconstruction method
 
 The programmatic entry point supports
 
@@ -148,9 +161,13 @@ sense
 cs
 ```
 
-The `grappa` path is regular Cartesian **1D PE-GRAPPA** calibrated from contiguous ACS. Its current support boundary is documented explicitly in [Reconstruction](/reconstruction): no partial-Fourier GRAPPA, SMS/slice-GRAPPA, non-Cartesian GRAPPA, or irregular variable-density mask reconstruction.
+The method names are standard MRI terms. Package-specific restrictions are documented separately:
 
-Example ESPIRiT-SENSE:
+- **GRAPPA** — current implementation uses Cartesian PE acceleration with integer `R` and contiguous integrated ACS; partial Fourier, SMS/slice-GRAPPA, non-Cartesian GRAPPA, and irregular variable-density masks are not implemented.
+- **SENSE** — current implementation uses the package's Cartesian `PFS` operator; ESPIRiT is the default sensitivity estimation method.
+- **CS** — current implementation uses the same Cartesian multicoil data-consistency model with TV and Haar-L1 regularization.
+
+Example SENSE:
 
 ```matlab
 result = recon_TSE2D(twixFile, ...
@@ -161,7 +178,7 @@ result = recon_TSE2D(twixFile, ...
     'IterativeUseGPU', 'auto');
 ```
 
-Example Cartesian CS:
+Example CS:
 
 ```matlab
 result = recon_TSE2D(twixFile, ...
@@ -173,25 +190,26 @@ result = recon_TSE2D(twixFile, ...
     'IterativeUseGPU', 'auto');
 ```
 
-The [Reconstruction](/reconstruction) chapter contains the calling interface, equations, defaults, calibration choices and source functions in one place. The numeric defaults above are starting values, not universal optimum parameters.
+See [Reconstruction](/reconstruction) for equations, defaults, implementation details, and support limits.
 
-## 7. Optional processing stays optional
+## 8. Optional processing stays optional
 
 ### Echo magnitude correction
 
-Enable `EchoMagnitudeCorrection` only when deliberately evaluating navigator-derived echo-envelope equalization. The feature is disabled by default and its RARE/FSE literature basis, gain equations and limits are documented in [Optional Echo Correction](/guide/echo-corrections).
+Enable `EchoMagnitudeCorrection` only when deliberately evaluating navigator-derived echo-envelope equalization. The feature is disabled by default and its RARE/FSE literature basis, gain equations, and limits are documented in [Optional Echo Correction](/guide/echo-corrections).
 
 ### Image-domain denoising
 
 NLM, BM3D, SANLM and TGV2 live in a separate post-reconstruction module. `recon_TSE2D` does not run them automatically. See [Optional Denoising](/guide/denoising).
 
-## 8. Before scanner use
+## 9. Before scanner use
 
 A generated `.seq` file is not automatically ready for human scanning. Confirm at minimum:
 
 - target scanner model and hardware limits;
 - RF peak B1 and scanner-side SAR supervision;
-- gradient/PNS behavior with the correct target-system safety path;
+- `safe_pns_prediction` plus the correct hardware model for the development PNS calculation;
+- scanner-side gradient/PNS supervision;
 - slice order/orientation;
 - interpreter compatibility;
 - PI/ACS settings when used;
