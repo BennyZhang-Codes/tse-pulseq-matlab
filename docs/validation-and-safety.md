@@ -44,24 +44,12 @@ The dependency chain is:
 check_PNS
 → Pulseq Sequence.calcPNS
 → safe_pns_prediction
-→ scanner-specific MP_GPA*.asc SAFE parameters
+→ scanner-specific hardware model
 ```
 
-Therefore two external pieces are required for the current Siemens PNS check:
+The PNS calculation therefore requires both the SAFE implementation and hardware parameters compatible with the target gradient system. Those scanner-specific hardware parameters are **not part of this repository and are not distributed here**.
 
-1. `safe_pns_prediction` on the MATLAB path;
-2. the appropriate Siemens `MP_GPA*.asc` hardware model for the target gradient system.
-
-The hardware files are not distributed by `safe_pns_prediction` or this repository.
-
-Current documented mappings are:
-
-| `ScannerType` | `.asc` hardware model |
-| --- | --- |
-| `Terra-XJ` | `MP_GPA_K2259_2000V_650A_SC72CD_EGA.asc` |
-| `Terra-XR` | `MP_GPA_K2298_2250V_793A_SC72CD_EGA.asc` |
-
-The SAFE model is a model-based prediction. The upstream package itself cautions that predictions can be inaccurate and should be interpreted carefully. A software PNS pass therefore remains development evidence rather than a substitute for scanner-side gradient/PNS supervision. citeturn652792search1
+The SAFE model is a model-based prediction. A software PNS pass therefore remains development evidence rather than a substitute for scanner-side gradient/PNS supervision.
 
 ### PNS is not validated by documentation CI
 
@@ -125,8 +113,7 @@ For a new scanner vendor or model, repeat the platform-specific validation rathe
 Current important limitations include:
 
 - scanner validation has currently been performed only on Siemens 7 T systems;
-- current hardware/PNS presets cover the documented Terra configurations;
-- `safe_pns_prediction` and scanner-specific `MP_GPA*.asc` data are external dependencies of `check_PNS`;
+- `safe_pns_prediction` and target-system hardware parameters are external dependencies of `check_PNS`;
 - non-oblique sequence orientation only;
 - offline gSlider reconstruction is absent;
 - partial Fourier, SMS and non-Cartesian offline reconstruction are absent;
