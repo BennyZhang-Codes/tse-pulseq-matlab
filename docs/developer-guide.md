@@ -1,307 +1,287 @@
 # Developer guide
 
-This page describes the repository architecture and the conventions that should be preserved when extending sequence generation, platform integration, reconstruction, validation, or documentation.
+This page defines the engineering and documentation conventions to preserve when extending sequence generation, scanner integration, reconstruction, validation or third-party method support.
 
 ## Repository layout
 
 ```text
 TSE_2D.m               conventional 2D TSE entry point
 TSE_2D_gSlider.m       gSlider-TSE entry point
-prep/                   sequence preparation modules
+prep/                   sequence preparation, RF assets and PE sampling
 check/                  timing, label and PNS development checks
 plot/                   sequence and k-space visualization
-utils/                  raster-aware gradient solvers and general utilities
-pulseq/                 Pulseq git submodule
-VERSE/                  VERSE/minimum-SAR RF git submodule
+utils/                  raster-aware gradient and shared sequence utilities
+pulseq/                 Pulseq Git submodule
+VERSE/                  VERSE Git submodule
 recon/matlab/           conventional 2D TSE MATLAB reconstruction
-recon/julia/            Julia-side reconstruction code retained by the project
-seq/                     generated sequence/configuration outputs; not tracked
+recon/julia/            retained Julia reconstruction code
+seq/                     generated sequence/configuration outputs
 docs/                    VitePress documentation source
 .github/workflows/       CI and documentation deployment workflows
 ```
 
-## Target architecture
+## Engineering separation of concerns
 
-The long-term design should keep reusable acquisition logic separate from platform-specific implementation.
+The desired long-term architecture is
 
 ```mermaid
-flowchart TD
-    A[User configuration] --> B[Acquisition model]
-    B --> C[Pulseq sequence]
-    C --> D[Platform integration]
-    D --> E[Scanner validation]
-    E --> F[Raw data reader]
-    F --> G[Reconstruction model]
-    G --> H[Post processing]
+flowchart LR
+    A[Protocol] --> B[Sequence implementation]
+    B --> C[Pulseq SEQ]
+    C --> D[Platform adapter]
+    D --> E[Scanner / raw data]
+    E --> F[Reconstruction]
+    F --> G[Optional post-processing]
 ```
 
-::: warning Current implementation
-This is a target separation of concerns, not a claim that the current code is already vendor-decoupled. `prep_System` currently supports Terra profiles, accelerated PI includes Siemens LIN mapping, `prep_Definition` writes Siemens-oriented interpreter definitions, the development PNS path uses Siemens `.asc` files, and the bundled raw-data reader is Twix-specific.
-:::
-
-Use [Architecture](/concepts-overview) and [Platform Integration](/platform-integration) as the public specification of this boundary.
+This is a target separation, not a claim that the current implementation is already vendor-decoupled. Current Siemens-specific coupling is documented in [Repository Architecture](/concepts-overview) and [Platform Integration](/platform-integration).
 
 ## Preserve `Setup` versus `Actual`
 
-`Setup`, `SetupRF`, and `SetupSpoiling` represent requested configuration. `Actual` is the resolved configuration after preparation.
+`Setup`, `SetupRF` and `SetupSpoiling` express requested user configuration. `Actual` contains the resolved implementation after timing/raster/system/PE preparation.
 
-New derived timing, hardware, PE, slice, RF, or export values should normally be written to `Actual` rather than changing the semantic meaning of the original user-facing field. This distinction is essential for reproducibility and for debugging platform-specific behavior.
+New derived timing, hardware, PE, RF, slice or exported values should normally be added to `Actual` rather than silently changing the meaning of a user-facing field. Save both structures with the generated `.seq` for reproducibility.
+
+## Logical acquisition before platform metadata
+
+Where practical, keep these concepts platform-independent:
+
+- logical signed $k_y$;
+- echo-to-$k_y$ assignment;
+- full encoded matrix size;
+- k-space center;
+- PI/CS sampling intent;
+- ACS/reference intent;
+- slice acquisition order.
+
+A platform adapter can then map them to vendor-specific counters/metadata. Siemens LIN is one current adapter convention; it should not become the internal definition of PE position.
 
 ## Gradient design rules
 
-The custom gradient utilities treat a continuous analytical solution as a seed rather than as the scanner waveform.
+Custom gradient utilities must validate the **discrete rasterized waveform**, not only a continuous analytical solution. Check
 
-Every returned waveform must be validated on the integer gradient raster against:
+- requested area;
+- exact duration;
+- initial/final amplitude;
+- maximum gradient; and
+- maximum slew.
 
-- requested gradient area;
-- exact rasterized duration;
-- initial and final amplitudes;
-- gradient-amplitude limit; and
-- slew-rate limit.
+Do not replace raster-aware search with continuous optimization followed by naive rounding. Hardware limits must belong to the selected target system rather than be treated as global defaults.
 
-Do not replace the raster-aware search with a continuous solution followed by naive rounding. For non-zero endpoints, fixed-duration feasibility can be non-monotonic, so a simple binary search is not a proof of the discrete minimum duration.
+## Crusher / spoiler convention
 
-Hardware limits must correspond to the selected scanner target. The current Terra profiles are implementation presets, not generic defaults for all Pulseq systems.
+Spoiler strength is expressed as dephasing cycles divided by a physical reference length through `SetupSpoiling`. Reuse this convention (`Slice`, `RO`, `PE`, `3D`, `Slab`) instead of embedding fixed gradient areas inside new sequence loops.
 
-## Crusher and spoiler conventions
+## Adding or changing a sampling algorithm
 
-Crusher/spoiler strength is expressed as dephasing cycles per physical reference length through `SetupSpoiling` and `prep_SpoilingArea`.
+Sampling code is scientifically visible sequence behavior. A contribution that changes PI or CS sampling must document
 
-Supported references include `Slice`, `RO`, `PE`, `3D`, and `Slab`. New spoiler behavior should reuse this convention instead of embedding hard-coded gradient areas in a sequence loop.
+1. the actual mask geometry (1D PE, 2D, Cartesian/non-Cartesian, etc.);
+2. target sample count / acceleration definition;
+3. randomization and seed behavior;
+4. ACS/fully sampled center handling;
+5. ordering into the TSE echo train;
+6. source code provenance; and
+7. the primary scientific method citation.
 
-This keeps the physical meaning stable when FOV, resolution, slice thickness, or slab geometry changes.
+The current CS path is explicitly documented as the Lustig-derived SparseMRI polynomial variable-density + Monte-Carlo interference-minimization implementation [[8]](/references#ref-8 "Lustig M, Donoho D, Pauly JM. Sparse MRI: the application of compressed sensing for rapid MR imaging. Magn Reson Med. 2007;58:1182-1195."). Preserve retained copyright/source headers in `prep/CS/`.
 
-## Logical encoding before platform metadata
+## Adding or regenerating RF pulses
 
-Keep the following sequence concepts vendor-independent where practical:
+Do not add a generated RF `.mat` file without recording how it was produced. For each pulse bank document
 
-- signed logical $k_y$ order;
-- echo-to-$k_y$ assignment;
-- full encoded matrix size;
-- physical k-space center;
-- PI/CS sampling intent;
-- ACS/reference intent; and
-- slice acquisition order.
+- generator/toolbox and version where possible;
+- script/notebook path;
+- design method citation;
+- input design parameters; and
+- whether the generator is required at runtime.
 
-The target scanner adapter may then map those quantities to platform-specific line numbers and metadata.
+The current SLR and gSlider banks are generated by `prep/pulse/RF_pulse.ipynb` using SigPy RF, with SLR [[20]](/references#ref-20 "Pauly JM, Le Roux P, Nishimura DG, Macovski A. Parameter relations for the Shinnar-Le Roux selective excitation pulse design algorithm. IEEE Trans Med Imaging. 1991;10:53-65.") and gSlider [[21]](/references#ref-21 "Setsompop K, Fan Q, Stockmann J, et al. High-resolution in vivo diffusion imaging of the human brain with generalized slice dithered enhanced resolution: simultaneous multislice (gSlider-SMS). Magn Reson Med. 2018;79:141-151.") method citations.
 
-For the current Siemens 7 T path, preserve the documented zero-based PI LIN mapping, regular acceleration-lattice checks, full matrix export, ACS bookkeeping, and interpreter definitions. For another platform, define its mapping deliberately instead of copying Siemens semantics.
+## Third-party and adapted code provenance
 
-CS and PI should remain distinct acquisition modes. Do not silently apply online PI/ICE line conventions to CS data intended for offline iterative reconstruction.
+Every externally derived component should distinguish three levels:
 
-## gSlider-specific development
+1. **scientific method** — original/primary method publication;
+2. **software/code source** — upstream repository/toolbox/copyright header;
+3. **repository adaptation** — what this project changed, wrapped or generated.
 
-Shared conventional/gSlider behavior belongs in common preparation functions. gSlider-specific encoding and repetition behavior belongs in the dedicated gSlider sequence loops unless the common abstraction is genuinely identical.
+Do not call adapted code an independent implementation. Conversely, do not imply that repository-local code came from an upstream toolbox merely because both follow the same paper.
 
-Changes to gSlider excitation or TRAPS schedules should be reviewed for peak B1, slice profile, echo-envelope behavior, SAR, and reconstruction implications. The current bundled offline reconstruction does not decode gSlider data.
+The canonical package-wide map is [Dependencies & Method Provenance](/reference/provenance). Update it whenever a public algorithm/tool/dependency changes.
+
+## gSlider / TRAPS development
+
+Shared behavior belongs in common preparation functions; gSlider-specific encoding belongs in gSlider-specific loops unless the abstraction is genuinely common.
+
+`utils/fliptraps.m` is documented as a repository implementation of the TRAPS concept [[22]](/references#ref-22 "Hennig J, Weigel M, Scheffler K. Multiecho sequences with variable refocusing flip angles: optimization of signal behavior using smooth transitions between pseudo steady states (TRAPS). Magn Reson Med. 2003;49:527-535."), not as original distributed TRAPS source code.
+
+Changes to gSlider/refocusing schedules require review of RF profile, B1, stimulated-echo behavior, SAR and reconstruction implications. The current bundled reconstruction does not decode gSlider.
 
 ## Reconstruction architecture
 
-`recon_TSE2D.m` orchestrates a transparent pipeline:
+`recon_TSE2D.m` orchestrates
 
 ```text
-read Siemens Twix
-→ prewhiten
-→ estimate/apply navigator corrections
-→ pack Cartesian k-space
-→ prepare coil model
+Twix/mapVBVD
+→ prewhitening
+→ navigator correction
+→ optional echo-envelope gain
+→ Cartesian packing
+→ coil calibration
 → RSS / GRAPPA / SENSE / CS
-→ save geometry + diagnostics
+→ geometry / diagnostics
 ```
 
-The vendor raw-data reader and the reconstruction model should remain conceptually separate. If another raw-data format is added, translate its data and metadata into the common reconstruction representation rather than introducing raw-data assumptions into sequence-generation code.
+The raw-data reader should stay separate from the numerical encoding model. A future vendor-specific reader should map its native data/metadata into the common representation rather than introducing vendor assumptions into sequence generation.
 
-SENSE and CS intentionally share one Cartesian multicoil forward/adjoint model and one calibration/sensitivity preparation path. New iterative methods should reuse those tested operators when the physical encoding model is unchanged.
+SENSE and CS share one tested Cartesian $PFS$ operator and sensitivity/calibration path. Reuse the operator when the physical encoding model is unchanged.
+
+## Optional processing contract
+
+Optional methods must remain explicit:
+
+- `EchoMagnitudeCorrection=false` is the default; users opt into navigator-derived envelope equalization.
+- NLM/BM3D/SANLM/TGV2 are post-reconstruction functions and are not automatically called by `recon_TSE2D`.
+
+Do not change an optional method into an implicit default without documentation, validation, compatibility review and a clear reason.
 
 ## Numerical safeguards
 
-Do not remove validation checks merely to make a dataset execute. Important current safeguards include:
+Do not remove checks merely to make one dataset run. Current examples include
 
 - warning/fallback for missing noise data;
-- navigator requirements for echo-magnitude correction;
+- navigator requirements when an echo correction is requested;
 - GRAPPA calibration diagnostics;
-- contiguous-ACS checks for ESPIRiT;
-- forward/adjoint inner-product tests for SENSE/CS;
-- primal-dual step-size checks; and
-- NIfTI geometry consistency checks.
+- ESPIRiT ACS checks;
+- SENSE/CS forward-adjoint identity tests;
+- primal-dual stability checks; and
+- NIfTI geometry checks.
 
-If a safeguard rejects a legitimate new acquisition, update the model, validation logic, and tests together rather than disabling the check globally.
+If a legitimate new acquisition violates an assumption, update the model, checks, tests and documentation together.
 
 ## Documentation architecture
 
-The documentation is intended to behave like an MRI Methods companion site rather than a collection of code notes.
+The website is **engineering documentation for an open-source sequence package**, not a reconstruction-library API manual and not a standalone MRI Methods manuscript.
 
-The preferred scientific reading order is
-
-```text
-physics / signal model
-→ discrete encoding
-→ matrix formulation
-→ explicit sequence implementation
-→ reconstruction workflow
-→ scientific validation
-→ performance
-→ API / troubleshooting
-```
-
-The main responsibilities are therefore separated as follows:
-
-- **Getting Started** — installation, runnable examples, local documentation build, reading paths;
-- **Theory** — symbols, continuous/discrete TSE model, matrix encoding, PE/effective-TE interpretation;
-- **Sequence Design** — implementation workflow, gSlider/TRAPS, parameters, platform boundary;
-- **Reconstruction** — full measured-data-to-image processing chain;
-- **Validation & Performance** — evidence hierarchy, frozen comparison protocol, scanner safety, phantom SOP, benchmarking contract;
-- **Reference** — API lookup, source links, reproducibility, literature;
-- **Support** — troubleshooting and engineering compatibility issues.
-
-Theory pages answer **why**. API pages answer **how to call it**. Validation pages answer **what evidence supports the claim**. Do not duplicate long derivations across these layers.
-
-## Theory-writing conventions
-
-A scientific encoding page should normally follow
+The primary organization is
 
 ```text
-continuous signal model
-→ discrete formulation
-→ matrix formulation
-→ explicit implementation
-→ approximation / reconstruction method
-→ implementation conventions
+Getting Started
+→ Sequence Implementation
+→ Reconstruction
+→ Validation & Safety
+→ Reference & Provenance
+→ Support
 ```
 
-Do not start a Theory page with MATLAB array dimensions or internal variable names. Introduce them only after the physical and matrix models are defined.
+Theory appears next to the implementation that needs it:
 
-The common symbols, units, phase convention, and index meanings belong in [Symbols & notation](/theory/symbols).
+- TSE echo physics and effective TE are under **Sequence Implementation**;
+- PI/CS sampling theory is next to the PE implementation;
+- SENSE/CS equations are inside **Reconstruction**;
+- optional echo correction and denoising each have their own implementation page.
+
+Avoid duplicating the same principle in separate “Theory” and “API” chapters when one engineering page can clearly present **purpose → implementation → equations → options → source**.
+
+## Citation convention — match HighOrderMRI
+
+All scientific citations in VitePress prose should use the HighOrderMRI interaction pattern:
+
+```md
+[[8]](/references#ref-8 "Lustig M, Donoho D, Pauly JM. Sparse MRI: the application of compressed sensing for rapid MR imaging. Magn Reson Med. 2007;58:1182-1195.")
+```
+
+Requirements:
+
+- visible text is the MRM-style number `[8]`;
+- link target is `/references#ref-8`;
+- the Markdown link `title` contains enough bibliographic text to make the hover tooltip useful;
+- the numbered References page uses **one continuous `<ol>`**;
+- each item has a stable `id="ref-n"`;
+- DOI text on the References page must be a clickable `https://doi.org/...` link;
+- use the primary scientific citation for the method, while code/tool provenance is documented separately when applicable.
+
+The existing theme CSS renders `title` as the hover tooltip and highlights the targeted reference after navigation. Do not introduce a second citation widget unless this mechanism can no longer meet the requirement.
+
+## Reference-list rules
+
+The public bibliography contains scientific publications, not internal design notes or private vendor manuals. Software/code provenance belongs under [Dependencies & Method Provenance](/reference/provenance), with scientific papers linked back into the numbered reference list.
+
+When adding a reference:
+
+1. verify authors/title/journal/year/pages;
+2. verify DOI against a primary/authoritative bibliographic source where available;
+3. add one numbered `<li id="ref-n">`;
+4. make DOI clickable;
+5. use the same reference number consistently throughout the site.
 
 ## Mermaid conventions
 
-Use Mermaid for **conceptual flow**, not mathematical typesetting.
+Use Mermaid for conceptual/implementation flow, not detailed equations.
 
-- keep node labels to ordinary English/ASCII when possible;
-- keep exact symbols/equations in MathJax prose below the figure;
-- use transparent backgrounds and light/no borders;
-- avoid thick outlines, glassmorphism, heavy animation, or decorative effects;
-- keep diagrams at natural SVG size and allow horizontal scrolling rather than shrinking a wide scientific diagram until text becomes unreadable;
-- ensure render IDs are globally unique when multiple diagrams appear on one page.
+- short labels;
+- equations remain in MathJax prose;
+- transparent background / light styling;
+- no decorative heavy borders/animation;
+- wide diagrams keep natural width and scroll horizontally;
+- small diagrams are enlarged by `MermaidDiagram.vue` so they do not render as unreadable thumbnails;
+- globally unique Mermaid render IDs must remain enabled.
 
-The current `MermaidDiagram.vue` uses a module-level render serial and a horizontally scrollable natural-size SVG container for these reasons.
+When adding a new diagram, inspect both desktop and narrow layouts. Do not solve a wide diagram by globally shrinking SVG to the article width.
 
-## Code-fence conventions
+## Validation before performance claims
 
-Fence languages should describe the actual content:
-
-- MATLAB code → `matlab`;
-- shell commands → `bash`;
-- Mermaid diagrams → `mermaid`;
-- native logs / stack traces → `text`.
-
-Do not turn a stack trace into a Mermaid figure simply because it contains arrows or indentation.
-
-## References and claims
-
-Scientific method pages should use numbered citations linked to `/references#ref-n`. References use MRM-like journal abbreviations and verified DOI metadata where available.
-
-Do not mix internal design logs, private vendor manuals, CI logs, or Notion notes into the public scientific reference list. Vendor-specific integration documentation can be acknowledged separately when it is needed to explain implementation behavior.
-
-## Validation before performance
-
-The documentation order is intentional:
+Keep the evidence hierarchy explicit:
 
 ```text
 implementation consistency
-→ approximation accuracy
-→ independent numerical validation
-→ physical validation
-→ performance
+→ independent numerical/algorithm validation where relevant
+→ phantom / physical validation
+→ platform safety validation
+→ performance reporting
 ```
 
-A successful forward/adjoint self-check should not be promoted as independent physical validation. Likewise, a runtime benchmark should not be promoted until the reconstruction protocol, accuracy target, and hardware/timing scope are frozen.
+A forward/adjoint self-check is not physical validation. A visually sharper optional correction is not automatically more accurate. A runtime number without a frozen protocol/hardware scope is not a reusable performance claim.
 
-See [Scientific validation strategy](/validation/scientific-validation), [Reconstruction protocol](/validation/reconstruction-protocol), and [Performance & benchmarking](/validation/performance-benchmarking).
+See [Validation Strategy](/validation/scientific-validation), [Reconstruction Protocol](/validation/reconstruction-protocol) and [Performance & Benchmarking](/validation/performance-benchmarking).
 
-## Build documentation locally
+## Documentation build
 
-Install the pinned dependencies from the repository root:
+From the repository root:
 
 ```bash
 npm install
-```
-
-Run a development server:
-
-```bash
 npm run docs:dev
-```
-
-Build the production site:
-
-```bash
 npm run docs:build
 ```
 
-The site uses VitePress with MathJax and a custom Mermaid component.
-
-## GitHub Pages deployment
-
-`.github/workflows/docs.yml` performs
-
-```text
-install documentation dependencies
-→ VitePress production build
-→ configure GitHub Pages
-→ upload Pages artifact
-→ deploy
-```
-
-`main` is the production source branch. During the current documentation redesign, `vitepress-style` is also configured as a source branch and deploys through a separate preview environment. The generated Pages output should not be edited manually.
-
-The site URL is
-
-```text
-https://bennyzhang-codes.github.io/tse-pulseq-matlab/
-```
-
-A green build is necessary but not a complete visual check. Mermaid is client-side hydrated, so generated SSR HTML may contain the component container before an SVG exists. Final review should therefore include opening the deployed browser page and checking equations, diagrams, navigation, and mobile overflow.
+GitHub Actions builds and deploys `docs/`; generated Pages output is not hand-edited.
 
 ## Pull-request expectations
 
-A PR that changes sequence or reconstruction behavior should document
+A PR changing sequence/reconstruction behavior should state
 
-- motivation and user-visible behavior;
-- mathematical/algorithmic change when relevant;
-- acquisition versus platform-integration implications;
-- validation performed and its evidence level;
-- known limitations; and
-- scanner-side validation still required.
+- user-visible behavior;
+- affected source paths;
+- scientific method/source provenance if new;
+- acquisition/platform implications;
+- validation performed;
+- optional/default behavior changes; and
+- known limitations / scanner work still required.
 
-Update the corresponding documentation page whenever a public configuration field, output convention, reconstruction option, validation claim, or platform-support statement changes.
+Update public documentation and References/Provenance in the same PR when a user-visible algorithm or dependency changes.
 
-## README consistency
+## README / release consistency
 
-The README and website should agree on
+README and website must agree on
 
-- Cartesian/gSlider scope;
-- portable design goal versus validated scanner platform;
-- reconstruction/raw-data support;
-- documentation URL;
-- validation claims; and
+- sequence scope;
+- platform-validation boundary;
+- current raw-data/reconstruction support;
+- optional processing defaults;
+- dependency/provenance statements;
+- documentation URL; and
 - release/version status.
 
-A documentation architecture change is incomplete until the README is checked against it.
-
-## Release discipline
-
-Before a citation-oriented release:
-
-1. run the maintained sequence examples and available reconstruction tests;
-2. record Pulseq and VERSE submodule revisions;
-3. freeze the relevant reconstruction/validation protocol;
-4. update documentation and platform-support statements;
-5. update `CITATION.cff` with release metadata;
-6. create a fixed tag/release;
-7. archive the release through Zenodo when appropriate; and
-8. use the assigned version-specific DOI for work based on that release.
-
-Do not fabricate a `stable` documentation version before the repository actually has a corresponding release/tag.
-
-See [Reproducibility & Citation](/reproducibility).
+Before a citation-oriented release, freeze/record the relevant submodule revisions, generated RF assets/configuration, reconstruction settings, references and provenance. See [Reproducibility & Citation](/reproducibility).
