@@ -27,7 +27,7 @@ features:
     link: /sequence-generation
   - title: gSlider-TSE
     details: gSlider RF-encoded TSE acquisition with bundled RF pulse banks.
-    link: /guide/gslider-traps
+    link: /guide/gslider-tse
   - title: PI and CS sampling
     details: Parallel-imaging PE patterns and variable-density compressed-sensing PE sampling.
     link: /theory/phase-encoding
@@ -99,6 +99,6 @@ A generated `.seq` file is not by itself evidence of scanner safety. Use the tar
 ## Documentation
 
 - **Use the package:** [Quick Start](/quickstart) · [Installation](/installation) · [Parameter Reference](/parameter-reference)
-- **Understand the sequence:** [Sequence Implementation](/sequence-generation) · [TSE Echo Train](/theory/tse-echo-train) · [Phase Encoding & Acceleration](/theory/phase-encoding) · [gSlider-TSE](/guide/gslider-traps)
+- **Understand the sequence:** [Sequence Implementation](/sequence-generation) · [TSE Echo Train](/theory/tse-echo-train) · [Phase Encoding & Acceleration](/theory/phase-encoding) · [gSlider-TSE](/guide/gslider-tse)
 - **Reconstruct data:** [Reconstruction](/reconstruction) · [Optional Echo Correction](/guide/echo-corrections) · [Optional Denoising](/guide/denoising)
 - **Source and citations:** [Dependencies & Method Provenance](/reference/provenance) · [References](/references)
