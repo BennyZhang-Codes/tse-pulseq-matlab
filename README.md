@@ -84,7 +84,7 @@ The current sequence scripts still call `check_PNS` directly. Making PNS predict
 - [Sequence Implementation](https://bennyzhang-codes.github.io/tse-pulseq-matlab/sequence-generation)
 - [Parameter Reference](https://bennyzhang-codes.github.io/tse-pulseq-matlab/parameter-reference)
 - [Phase Encoding & Acceleration](https://bennyzhang-codes.github.io/tse-pulseq-matlab/theory/phase-encoding)
-- [gSlider-TSE](https://bennyzhang-codes.github.io/tse-pulseq-matlab/guide/gslider-traps)
+- [gSlider-TSE](https://bennyzhang-codes.github.io/tse-pulseq-matlab/guide/gslider-tse)
 - [Reconstruction](https://bennyzhang-codes.github.io/tse-pulseq-matlab/reconstruction)
 - [Dependencies & Method Provenance](https://bennyzhang-codes.github.io/tse-pulseq-matlab/reference/provenance)
 - [Literature References](https://bennyzhang-codes.github.io/tse-pulseq-matlab/references)
