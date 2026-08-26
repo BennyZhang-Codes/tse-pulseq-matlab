@@ -1,160 +1,96 @@
-# TSE signal and echo-train model
+# TSE signal & echo-train implementation
 
-This page presents the acquisition model in the order used by a Methods section: **continuous signal → discrete echo-train formulation → matrix form → current numerical realization → reconstruction approximations**. Code variables and array layouts are discussed only after the physical model is defined.
+This page explains the signal model only to the level needed to understand the sequence implementation: **why echo ordering matters, what the code is assigning to $k_y$, and why the reconstruction cannot treat every acquired row as physically identical before correction**.
 
-## 1. Continuous signal model
+The acquisition is a Pulseq implementation [[2]](/references#ref-2 "Layton KJ, Kroboth S, Jia F, et al. Pulseq: a rapid and hardware-independent pulse sequence prototyping framework. Magn Reson Med. 2017;77:1544-1552.") of a RARE/TSE-family echo train [[1]](/references#ref-1 "Hennig J, Nauerth A, Friedburg H. RARE imaging: a fast imaging method for clinical MR. Magn Reson Med. 1986;3:823-833.").
 
-For receive channel $c$, the complex MR signal can be written as
+## Echo-dependent acquisition model
+
+For receive channel $c$,
 
 $$
 s_c(t)
 =
-\int_{\Omega}
-m(\mathbf r)\,C_c(\mathbf r)\,E(\mathbf r,t)
-\exp\!\left[-i2\pi\mathbf k(t)\cdot\mathbf r\right]
+\int_\Omega
+m(\mathbf r)C_c(\mathbf r)E(\mathbf r,t)
+\exp[-i2\pi\mathbf k(t)\cdot\mathbf r]
 \,d\mathbf r
-+\varepsilon_c(t),
++\varepsilon_c(t).
 $$
 
-where
+The implementation-relevant term is $E(\mathbf r,t)$: the TSE echo train changes while different echoes are assigned to different PE rows.
 
-- $m(\mathbf r)$ is the underlying transverse object representation;
-- $C_c(\mathbf r)$ is the complex receive sensitivity;
-- $E(\mathbf r,t)$ contains echo-train-dependent amplitude and phase;
-- $\mathbf k(t)$ is the logical Cartesian encoding trajectory; and
-- $\varepsilon_c(t)$ is receive noise.
-
-For a TSE acquisition, the critical feature is that $E(\mathbf r,t)$ changes across the echo train while different echoes are assigned to different phase-encoding locations. This couples **echo evolution** to **k-space ordering**.
-
-The original RARE/TSE concept is described by Hennig et al. [[1]](/references#ref-1 "Hennig et al. RARE, MRM 1986"). The repository expresses the acquisition using Pulseq, which provides a hardware-independent sequence description layer [[2]](/references#ref-2 "Layton et al. Pulseq, MRM 2017").
-
-## 2. Discrete echo-train formulation
-
-Let
-
-- $e=1,\ldots,N_E$ denote echo index;
-- $j$ denote the ADC sample within one readout;
-- $v$ denote voxel index;
-- $c$ denote receive channel; and
-- $k_{y,e}$ denote the logical phase-encoding location assigned to echo $e$.
-
-A discrete Cartesian model is
+For echo $e$, readout sample $j$, voxel $v$ and coil $c$,
 
 $$
 y_{e,j,c}
 \approx
-\sum_{v=1}^{N_v}
-m_v\,C_{v,c}\,E_{e,v}
-\exp\!\left[-i2\pi
-\left(k_{x,e,j}x_v+k_{y,e}y_v\right)
-\right]\Delta V
+\sum_v
+m_v C_{v,c} E_{e,v}
+\exp[-i2\pi(k_{x,e,j}x_v+k_{y,e}y_v)]\Delta V
 +\varepsilon_{e,j,c}.
 $$
 
-The echo-dependent factor may be written
+The echo factor $E_{e,v}$ can include relaxation, refocusing history, stimulated echoes, B1 and slice-profile effects. It should not generally be reduced to a single global exponential.
 
-$$
-E_{e,v}=A_{e,v}\exp(i\phi_{e,v}),
-$$
+## Why PE ordering matters
 
-but this factor should **not** be interpreted as a single-exponential $T_2$ model in general. Real TSE signal evolution can include
-
-- refocusing-flip-angle history;
-- stimulated-echo pathways;
-- B1+ variation;
-- excitation/refocusing slice profiles;
-- relaxation; and
-- other sequence-specific phase terms.
-
-A simple exponential envelope is useful intuition, but predictive modeling of a variable-flip-angle TSE train generally requires Bloch- or EPG-style modeling.
-
-## 3. Echo-to-$k_y$ mapping and PSF
-
-If the PE schedule assigns echo $e(k_y)$ to logical phase-encoding coordinate $k_y$, then the echo train produces a PE modulation
+If `prep_PE3DOrder` assigns echo $e(k_y)$ to a logical PE coordinate, the sequence places the echo modulation across k-space as
 
 $$
 w(k_y,\mathbf r)=E_{e(k_y)}(\mathbf r).
 $$
 
-Ignoring spatial dependence momentarily, the corresponding phase-encoding point-spread behavior is approximately
+Ignoring spatial dependence for intuition,
 
 $$
 \mathrm{PSF}_{\mathrm{PE}}(y)
 \propto
-\mathcal F^{-1}_{k_y}\!\left\{w(k_y)\right\}.
+\mathcal F^{-1}_{k_y}\{w(k_y)\}.
 $$
 
-This explains why echo ordering, effective TE, turbo factor, refocusing schedule, tissue properties, and reconstruction should be considered together rather than as unrelated controls.
+Therefore `PEMode`, ETL, `TEeff`, refocusing angles and optional echo correction affect the same acquisition/reconstruction chain.
 
-## 4. Matrix formulation
-
-For one echo, define a diagonal echo-modulation operator
-
-$$
-D_e=\operatorname{diag}(E_{e,1},\ldots,E_{e,N_v}),
-$$
-
-coil-sensitivity operator $S$, centered Cartesian Fourier operator $F$, and a sampling operator $P_e$ that selects the samples assigned to echo $e$.
-
-The physical acquisition model can then be expressed compactly as
-
-$$
-y_e=P_eFSD_e x+\varepsilon_e.
-$$
-
-Stacking all echoes gives
-
-$$
-\mathbf y
-=
-\begin{bmatrix}
-P_1FSD_1\\
-P_2FSD_2\\
-\vdots\\
-P_{N_E}FSD_{N_E}
-\end{bmatrix}x
-+\boldsymbol\varepsilon
-\equiv
-E_{\mathrm{TSE}}x+\boldsymbol\varepsilon.
-$$
-
-This matrix level is the bridge between acquisition physics and the reconstruction implementation. It also makes explicit that changing the PE schedule changes the stacked operator even if the underlying RF echo train is unchanged.
-
-## 5. Current explicit implementation
-
-The sequence generator resolves the acquisition in two stages:
-
-```text
-requested Setup
-→ resolved echo timing / PE ordering / labels
-→ Pulseq RF, gradient, ADC and definition blocks
+```mermaid
+flowchart LR
+    A[RF echo train] --> B[Echo amplitudes / phases]
+    B --> C[Echo-to-ky assignment]
+    C --> D[PE k-space modulation]
+    D --> E[Image contrast + PSF]
 ```
 
-The current MATLAB implementation uses `prep_PE3DOrder` to determine the logical PE order and current platform metadata, then assembles the pulse sequence through the preparation/sequence-loop functions documented in [Sequence API](/reference/sequence-api).
+## Physical operator versus implemented reconstruction
 
-For the currently validated Siemens path, logical $k_y$ must be distinguished from Siemens LIN metadata and from one-based mapVBVD indices. See [Symbols & notation](/theory/symbols) and [Siemens 7 T LIN & ICE](/phase-encoding-and-ice).
-
-## 6. Reconstruction model after correction
-
-The bundled iterative reconstruction does **not** explicitly invert the full spatially varying $D_e$ model. Instead, it first applies measured navigator-based corrections to reduce dominant echo-dependent phase and optional magnitude modulation in the acquired data.
-
-After preprocessing, SENSE and CS use the simplified Cartesian multicoil model
+For one echo, a convenient physical model is
 
 $$
-A=PFS,
+y_e=P_eFSD_ex+\varepsilon_e,
 $$
 
-which can be interpreted as assuming that the retained echo-dependent modulation is sufficiently small or is treated as part of the effective image contrast rather than explicitly modeled in the encoding operator.
+where
 
-This distinction is important:
+- $D_e$ contains echo-dependent voxel modulation;
+- $S$ contains receive sensitivities;
+- $F$ is Cartesian Fourier encoding; and
+- $P_e$ selects the samples assigned to echo $e$.
 
-> **The acquisition model is TSE echo dependent; the current iterative reconstruction model is a corrected Cartesian $PFS$ model.**
+Stacking all echoes yields an echo-dependent TSE encoding operator.
 
-The navigator correction therefore changes the data presented to the reconstruction, not the fundamental RF echo-train physics.
+The current iterative reconstruction does **not** solve this full spatially varying model. After measured navigator preprocessing, SENSE/CS use
 
-## 7. Effective TE
+$$
+A=PFS.
+$$
 
-The maintained sequence exposes
+This is an explicit implementation choice:
+
+> The sequence is physically echo dependent; the current iterative reconstructor uses a corrected Cartesian $PFS$ model.
+
+See [Reconstruction](/reconstruction) for the implemented operator, solver and options.
+
+## Effective TE in the code
+
+The sequence exposes
 
 ```matlab
 Setup.TE1
@@ -162,96 +98,71 @@ Setup.TEeff
 Setup.nEcho
 ```
 
-The current center-echo prescription is
+and uses the approximate center-echo prescription
 
 $$
 e_0
 =
-\max\!\left(
-\operatorname{round}\!\left(\frac{T_{E,\mathrm{eff}}}{T_{E,1}}\right),
-1
-\right).
+\max\!\left[
+\operatorname{round}\!\left(\frac{T_{E,\mathrm{eff}}}{T_{E,1}}\right),1
+\right].
 $$
 
-The PE order is shifted so that physical $k_y=0$ is associated with echo $e_0$ when the discrete train allows it.
+The PE order is shifted so that physical $k_y=0$ is acquired near echo $e_0$ when the discrete matrix/ETL/acceleration pattern permits it.
 
-::: info Effective TE is a mapping, not a complete contrast model
-`TEeff` specifies the desired relationship between the echo train and central k-space. Final image contrast still depends on the full echo envelope, PE ordering, refocusing schedule, tissue properties, B1+, and reconstruction.
-:::
+`TEeff` is therefore primarily a **center-k-space placement parameter** in the implementation. Final tissue contrast still depends on the entire echo train.
 
-## 8. Linear and centric ordering
+## Linear and centric modes
 
-The maintained sequence supports `Linear`, `CentricFull`, and `CentricHalf` PE modes.
+The maintained modes are
 
-- **Linear** ordering distributes consecutive echoes progressively through $k_y$ and generally produces a smoother echo-envelope modulation across PE.
-- **Centric** ordering prioritizes central k-space around the requested center echo and redistributes later-echo attenuation toward outer spatial frequencies.
-
-Neither is universally superior. Comparisons should hold geometry, echo spacing, turbo factor, RF schedule, acceleration, and reconstruction protocol fixed.
-
-See [Phase encoding & effective TE](/theory/phase-encoding) for the exact logical-order interpretation.
-
-## 9. Refocusing schedules and gSlider
-
-Conventional TSE can use a fixed `Setup.rflip`. The gSlider entry point can enable a TRAPS schedule:
-
-```matlab
-Setup.TRAPS = 'on';
+```text
+Linear
+CentricFull
+CentricHalf
 ```
 
-Variable refocusing angles alter stimulated-echo pathways and echo amplitudes. gSlider excitation additionally changes the slab/subslice encoding problem. These effects belong to the physical acquisition model and should not be reduced to a scalar post-reconstruction intensity correction.
+- **Linear** distributes echo evolution progressively through $k_y$.
+- **Centric** prioritizes central k-space around the selected effective echo and moves other echoes toward higher spatial frequencies.
 
-See [gSlider & TRAPS](/guide/gslider-traps).
+Neither ordering is universally preferable. The sequence code makes the mapping explicit so it can be inspected and validated rather than hidden inside scanner reconstruction assumptions.
 
-## 10. Echo correction as a measured data model
+See [Phase encoding & acceleration](/theory/phase-encoding) for the exact logical sampling/ordering path.
 
-The navigator model estimates a relative echo phase and amplitude envelope from acquired phase-correction data. The current correction layer includes
+## Variable refocusing and gSlider
 
-1. per-slice/per-echo/per-coil phase correction; and
-2. optional power or Wiener-style echo-magnitude equalization.
+The conventional entry point can use fixed refocusing angles. `TSE_2D_gSlider.m` can additionally use a TRAPS-style schedule based on Hennig et al. [[22]](/references#ref-22 "Hennig J, Weigel M, Scheffler K. Multiecho sequences with variable refocusing flip angles: optimization of signal behavior using smooth transitions between pseudo steady states (TRAPS). Magn Reson Med. 2003;49:527-535."). Variable refocusing changes stimulated-echo pathways and therefore changes $E_{e,v}$.
 
-The magnitude correction can reduce line-to-line envelope modulation but increases noise when weak echoes are upweighted. It is therefore a controlled preprocessing trade-off, not a replacement for sequence design or a full inversion of $D_e$.
+The gSlider excitation itself follows gSlider RF encoding [[21]](/references#ref-21 "Setsompop K, Fan Q, Stockmann J, et al. High-resolution in vivo diffusion imaging of the human brain with generalized slice dithered enhanced resolution: simultaneous multislice (gSlider-SMS). Magn Reson Med. 2018;79:141-151."), while the repository's TSE-specific implementation is associated with [[14]](/references#ref-14 "Zhang J, Wu Y, Xue R, Zhuo Y, Zhang Z. gSlider-TSE for high-resolution isotropic T2-weighted imaging with high contrast and high SNR. Proc Intl Soc Magn Reson Med. 2024; Program #3256.").
 
-See [Echo phase & magnitude correction](/guide/echo-corrections).
+See [gSlider-TSE & TRAPS](/guide/gslider-traps) for code-level behavior.
 
-## 11. Relation to previous methods
+## Echo-envelope correction in this model
 
-The repository combines established MRI components rather than presenting every component as new.
+The navigator path estimates measured phase and a global slice-level echo envelope. Optional magnitude equalization can reduce the measured line-to-line modulation before the simplified $PFS$ reconstruction, drawing on prior RARE/FSE correction literature [[16]](/references#ref-16 "Oshio K, Singh M. Correction of T2 distortion in multi-excitation RARE sequence. IEEE Trans Med Imaging. 1992;11:123-128.")–[[19]](/references#ref-19 "Busse RF, Riederer SJ, Fletcher JG, Bharucha AE, Brandt KR. Interactive fast spin-echo imaging. Magn Reson Med. 2000;44:339-348.").
 
-| Component | Established basis | Current implementation |
+The measured slice-level envelope is not equivalent to $D_e$ because $D_e$ can vary spatially and by tissue. See [Echo phase & magnitude correction](/guide/echo-corrections).
+
+## Established components used by the package
+
+| Component | Method basis | Repository implementation |
 | --- | --- | --- |
-| TSE / RARE echo train | Multi-echo spin-echo acquisition [[1]](/references#ref-1 "Hennig et al. RARE, MRM 1986") | Pulseq implementation with explicit echo-to-$k_y$ ordering |
-| Portable sequence description | Pulseq [[2]](/references#ref-2 "Layton et al. Pulseq, MRM 2017") | MATLAB sequence-generation and scanner-integration layers |
-| Parallel imaging | SENSE / GRAPPA [[5]](/references#ref-5 "Griswold et al. GRAPPA, MRM 2002") [[6]](/references#ref-6 "Pruessmann et al. SENSE, MRM 1999") | Diagnostic PE-GRAPPA and ESPIRiT-SENSE paths |
-| Sensitivity estimation | ESPIRiT [[7]](/references#ref-7 "Uecker et al. ESPIRiT, MRM 2014") | Native MATLAB single-map estimator |
-| Compressed sensing | Sparse MRI [[8]](/references#ref-8 "Lustig et al. Sparse MRI, MRM 2007") | Cartesian TV + Haar regularized solver |
-| Echo correction | Navigator-based measured correction concept | TSE-specific phase fit plus optional regularized magnitude equalization |
+| RARE/TSE echo train | [[1]](/references#ref-1 "Hennig J, Nauerth A, Friedburg H. RARE imaging: a fast imaging method for clinical MR. Magn Reson Med. 1986;3:823-833.") | Pulseq TSE loops and explicit PE ordering |
+| Pulseq sequence description | [[2]](/references#ref-2 "Layton KJ, Kroboth S, Jia F, et al. Pulseq. Magn Reson Med. 2017;77:1544-1552.") | `pulseq/` submodule and MATLAB `mr.*` events |
+| PI reconstruction | GRAPPA [[5]](/references#ref-5 "Griswold MA, Jakob PM, Heidemann RM, et al. GRAPPA. Magn Reson Med. 2002;47:1202-1210."); SENSE [[6]](/references#ref-6 "Pruessmann KP, Weiger M, Scheidegger MB, Boesiger P. SENSE. Magn Reson Med. 1999;42:952-962.") | PE-GRAPPA and ESPIRiT-SENSE |
+| Sensitivity estimation | ESPIRiT [[7]](/references#ref-7 "Uecker M, Lai P, Murphy MJ, et al. ESPIRiT. Magn Reson Med. 2014;71:990-1001.") | repository single-map MATLAB estimator |
+| CS | Sparse MRI [[8]](/references#ref-8 "Lustig M, Donoho D, Pauly JM. Sparse MRI. Magn Reson Med. 2007;58:1182-1195.") | Lustig-derived PE sampling + TV/Haar-L1 reconstruction |
 
-The useful software contribution is the explicit integration of sequence generation, scanner metadata, correction, reconstruction, and validation in one inspectable research workflow. Claims should remain attached to the actually validated platform and experiments.
+For the full source/citation lineage, see [Dependencies & method provenance](/reference/provenance).
 
-## 12. Implementation conventions
+## Implementation checklist
 
-When translating equations to code, preserve these distinctions:
+When changing the sequence, inspect together
 
-- logical signed $k_y$ is not Siemens LIN;
-- sequence-side LIN metadata are zero based;
-- mapVBVD indices are one based;
-- prewhitening matrix and Haar-wavelet transform are different operators;
-- measured echo corrections are data preprocessing, not the same object as $D_e$ in the physical model;
-- the current iterative forward operator is Cartesian $PFS$ after correction.
-
-The common notation is centralized in [Symbols & notation](/theory/symbols).
-
-## Design checklist
-
-When modifying a TSE protocol, inspect together
-
-- `TE1`, `TEeff`, and `nEcho`;
-- PE mode and the echo assigned to physical $k_y=0$;
-- fixed or variable refocusing angles;
-- RF duration/slice profile and crusher timing;
+- `TE1`, `TEeff`, ETL and PE mode;
+- which echo acquires physical $k_y=0$;
 - PI/CS sampling and ACS placement;
-- navigator phase and amplitude behavior;
-- PE blur/ringing under a matched reconstruction protocol; and
-- scanner RF/SAR/PNS consequences.
-
-Continue with [Phase encoding & effective TE](/theory/phase-encoding), then [Reconstruction](/reconstruction) and [Scientific validation strategy](/validation/scientific-validation).
+- fixed or variable refocusing angles;
+- RF duration/profile and crusher timing;
+- navigator phase/envelope behavior; and
+- matched reconstruction blur/ringing and contrast.
