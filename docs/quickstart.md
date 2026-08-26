@@ -60,7 +60,7 @@ Run:
 run('TSE_2D_gSlider.m')
 ```
 
-The gSlider sequence can use the bundled gSlider RF pulse bank and optional TRAPS-style variable refocusing. See [gSlider-TSE & TRAPS](/guide/gslider-traps).
+The gSlider sequence uses the bundled gSlider RF pulse bank and dedicated gSlider sequence loops. See [gSlider-TSE](/guide/gslider-traps).
 
 The bundled MATLAB reconstruction does not currently implement offline gSlider decoding.
 
