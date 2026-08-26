@@ -87,7 +87,7 @@ The example TV/Haar regularization values are starting points, not universal set
 
 The bundled MATLAB reconstruction does **not** currently implement gSlider decoding. `recon_TSE2D` is for conventional Cartesian 2D TSE.
 
-See [gSlider-TSE](/guide/gslider-traps).
+See [gSlider-TSE](/guide/gslider-tse).
 
 ## Slice order or orientation is wrong
 
