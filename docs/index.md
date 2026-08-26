@@ -26,7 +26,7 @@ features:
     details: Conventional multi-slice Cartesian 2D TSE with configurable timing, RF, slice ordering and phase encoding.
     link: /sequence-generation
   - title: gSlider-TSE
-    details: gSlider excitation with optional TRAPS variable-refocusing schedules.
+    details: gSlider RF-encoded TSE acquisition with bundled RF pulse banks.
     link: /guide/gslider-traps
   - title: PI and CS sampling
     details: Parallel-imaging PE patterns and variable-density compressed-sensing PE sampling.
@@ -54,7 +54,6 @@ The repository also includes a companion MATLAB reconstruction for conventional 
 | Sequence | conventional 2D TSE, gSlider-TSE, inversion recovery, multi-slice acquisition |
 | Phase encoding | Linear, CentricFull, CentricHalf; PI and CS sampling |
 | RF | sinc, SLR pulse banks, gSlider pulse banks, optional VERSE |
-| Refocusing | fixed flip angles and TRAPS-style variable refocusing |
 | Sequence checks | Pulseq timing, labels, sequence/k-space plots; PNS prediction path when its external inputs are available |
 | Reconstruction | RSS, GRAPPA, SENSE, CS; ESPIRiT sensitivity estimation; coil compression |
 | Preprocessing | noise prewhitening and navigator phase correction |
@@ -100,6 +99,6 @@ A generated `.seq` file is not by itself evidence of scanner safety. Use the tar
 ## Documentation
 
 - **Use the package:** [Quick Start](/quickstart) · [Installation](/installation) · [Parameter Reference](/parameter-reference)
-- **Understand the sequence:** [Sequence Implementation](/sequence-generation) · [TSE Echo Train](/theory/tse-echo-train) · [Phase Encoding & Acceleration](/theory/phase-encoding) · [gSlider-TSE & TRAPS](/guide/gslider-traps)
+- **Understand the sequence:** [Sequence Implementation](/sequence-generation) · [TSE Echo Train](/theory/tse-echo-train) · [Phase Encoding & Acceleration](/theory/phase-encoding) · [gSlider-TSE](/guide/gslider-traps)
 - **Reconstruct data:** [Reconstruction](/reconstruction) · [Optional Echo Correction](/guide/echo-corrections) · [Optional Denoising](/guide/denoising)
 - **Source and citations:** [Dependencies & Method Provenance](/reference/provenance) · [References](/references)
