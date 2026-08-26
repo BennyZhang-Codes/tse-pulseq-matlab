@@ -2,14 +2,18 @@
 
 The `recon/matlab/denoising/` module provides **optional post-reconstruction denoising and benchmarking**. It is not called automatically by the Twix reconstruction pipeline and should not be treated as a substitute for acquisition-side echo-envelope optimization or a well-conditioned reconstruction.
 
+::: info Optional post-processing
+Denoising methods in this repository are **available tools, not mandatory reconstruction stages**. `recon_TSE2D` returns the reconstruction without BM3D, NLM, SANLM, or TGV2 unless a user separately calls the denoising module. The package does not select a denoiser on the user's behalf; whether denoising is appropriate depends on the data, noise characteristics, downstream analysis, and reporting requirements.
+:::
+
 ## Available methods
 
-| Method | Implementation | Intended role |
+| Method | Implementation | Role in the package |
 | --- | --- | --- |
-| NLM | MATLAB workflow through `denoise_TSE2D.m` | Simple non-local baseline |
-| BM3D | Optional external BM3D 4.x dependency | Correlated-noise-aware comparison |
-| SANLM | Optional CAT12 dependency | Additional adaptive non-local comparison |
-| TGV2 | Repository-local `denoise_TGV2.m` | Transparent variational MRI denoising baseline |
+| NLM | MATLAB workflow through `denoise_TSE2D.m` | Optional non-local baseline |
+| BM3D | Optional external BM3D 4.x dependency | Optional collaborative-filtering path with correlated-noise support |
+| SANLM | Optional CAT12 dependency | Optional adaptive non-local comparison |
+| TGV2 | Repository-local `denoise_TGV2.m` | Optional transparent variational MRI baseline |
 
 The common wrapper is
 
@@ -23,13 +27,13 @@ Noise estimation, benchmarking, and quantitative diagnostics are implemented sep
 
 ```mermaid
 flowchart LR
-    A["Reconstructed NIfTI / image"] --> B["Background noise + PSD estimation"]
-    B --> C["NLM / BM3D / SANLM / TGV2"]
-    C --> D["Signal + edge + residual metrics"]
-    D --> E["Comparison report / denoised output"]
+    A[Reconstructed image] --> B[Noise estimation]
+    B --> C[Optional denoiser]
+    C --> D[Residual metrics]
+    D --> E[Comparison output]
 ```
 
-Relevant utilities include:
+Relevant utilities include
 
 ```text
 estimate_TSE2D_image_noise.m
@@ -66,13 +70,17 @@ $$
 
 where $f$ is the input image, $u$ is the denoised image, $w$ is an auxiliary vector field, and $E$ is the symmetrized gradient. The solver uses a conservative Chambolle-Pock primal-dual iteration with matched discrete adjoints and zero-Neumann boundaries.
 
-See [Knoll et al.](/references#ref-tgv "Knoll et al., Second order total generalized variation for MRI, MRM 2011") and [Chambolle & Pock](/references#ref-chambolle-pock "Chambolle and Pock, first-order primal-dual algorithm, JMIV 2011") for the underlying methods.
+See [[10]](/references#ref-10 "Knoll et al., Second order TGV for MRI, MRM 2011") and [[9]](/references#ref-9 "Chambolle and Pock, first-order primal-dual algorithm, JMIV 2011") for the underlying methods.
 
 ## BM3D and correlated noise
 
-The optional BM3D path uses a separately installed BM3D 4.x package and can supply a two-dimensional background-estimated noise PSD to the correlated-noise interface. The third-party implementation is **not vendored** because its license must be accepted separately.
+BM3D is exposed as an **optional external denoiser**. The repository does not vendor the third-party BM3D implementation and does not invoke it as part of the standard reconstruction.
 
-See [Dabov et al.](/references#ref-bm3d "Dabov et al., BM3D collaborative filtering, IEEE TIP 2007") and [Makinen et al.](/references#ref-bm3d-correlated "Makinen et al., collaborative filtering of correlated noise, IEEE TIP 2020").
+The original BM3D method groups similar 2D patches and performs collaborative transform-domain shrinkage [[11]](/references#ref-11 "Dabov et al., BM3D, IEEE TIP 2007"). The optional correlated-noise path can provide a two-dimensional background-estimated noise PSD to a compatible BM3D 4.x interface; the correlated-noise treatment is motivated by the exact transform-domain noise-variance framework of Mäkinen et al. [[12]](/references#ref-12 "Makinen et al., correlated-noise collaborative filtering, IEEE TIP 2020").
+
+These references establish the denoising algorithms; they do **not** imply that BM3D is universally optimal for TSE or for human-brain data. In particular, reconstruction noise may be spatially varying, and a stationary background PSD is only an approximation to g-factor-dependent noise.
+
+If BM3D is used, preserve the original unfiltered reconstruction and report at least the BM3D profile, colored-noise setting, noise-scale parameter, and the method used to estimate the noise PSD.
 
 ## SANLM and anisotropic 2D TSE
 
@@ -80,9 +88,11 @@ The optional CAT12 SANLM integration is primarily a comparison path. For anisotr
 
 That choice is deliberate: an algorithm validated on nearly isotropic 3D data should not be assumed to behave equivalently on a sparse anisotropic 2D stack. Brain use and other anatomies should be validated separately.
 
+See [[13]](/references#ref-13 "Manjon et al., adaptive non-local means MRI denoising, JMRI 2010") for the MRI SANLM method background.
+
 ## Benchmark metrics
 
-The repository's denoising benchmark reports complementary quantities rather than one universal score. These include:
+The repository's denoising benchmark reports complementary quantities rather than one universal score. These include
 
 - background noise reduction;
 - foreground signal retention;
@@ -91,20 +101,20 @@ The repository's denoising benchmark reports complementary quantities rather tha
 - lag-one residual correlations;
 - PE/RO residual anisotropy;
 - negative-value fraction when relevant;
-- runtime;
+- runtime; and
 - SSIM to the unfiltered reconstruction as a structure-change indicator.
 
 These are **no-reference trade-off diagnostics** unless a clean reference image is explicitly supplied. High apparent smoothness is not evidence of improved fidelity.
 
 ## Practical interpretation
 
-Denoising should be evaluated after the reconstruction itself has been validated. In particular:
+Denoising should be evaluated after the reconstruction itself has been validated. In particular,
 
-1. confirm that phase correction, echo-magnitude correction, PE indexing, and calibration are correct;
-2. inspect residual artifacts before applying denoising;
-3. choose denoising parameters on representative data rather than a single visually favorable slice;
-4. report the method and parameters when images are compared quantitatively;
-5. preserve the original reconstruction for reference.
+1. preserve the original unfiltered reconstruction;
+2. confirm that phase correction, optional echo-magnitude correction, PE indexing, and calibration are understood before interpreting denoised results;
+3. inspect residual artifacts rather than relying only on visual smoothness;
+4. choose denoising parameters on representative data rather than a single favorable slice;
+5. report the denoising method and parameters when filtered images enter a quantitative or qualitative comparison.
 
 ::: warning Information cannot be reconstructed after it is lost
 Image-domain denoising can reduce noise-like variation, but it cannot recover spatial resolution or signal that was not encoded in the acquired data. Do not use denoising to conceal an acquisition, calibration, phase-correction, or reconstruction failure.
@@ -112,6 +122,6 @@ Image-domain denoising can reduce noise-like variation, but it cannot recover sp
 
 ## Optional dependencies and licenses
 
-BM3D and CAT12 SANLM are installed outside the repository under the Git-ignored `third_party_local` location. Their code and binaries must remain subject to their own licenses. TGV2 has no external runtime dependency.
+BM3D and CAT12 SANLM are installed outside the repository under the Git-ignored `third_party_local` location. Their code and binaries remain subject to their own licenses. TGV2 has no external runtime dependency.
 
 For exact installation paths and third-party license notes, see `recon/matlab/denoising/THIRD_PARTY_DENOISERS.md` in the repository.
