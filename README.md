@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/BennyZhang-Codes/tse-pulseq-matlab/actions/workflows/matlab-ci.yml/badge.svg?branch=main)](https://github.com/BennyZhang-Codes/tse-pulseq-matlab/actions/workflows/matlab-ci.yml) [![Documentation](https://github.com/BennyZhang-Codes/tse-pulseq-matlab/actions/workflows/docs.yml/badge.svg?branch=main)](https://bennyzhang-codes.github.io/tse-pulseq-matlab/) [![Coverage](https://codecov.io/github/BennyZhang-Codes/tse-pulseq-matlab/graph/badge.svg?token=JNHD7UK0A3)](https://codecov.io/github/BennyZhang-Codes/tse-pulseq-matlab) [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.22076863.svg)](https://doi.org/10.5281/zenodo.22076863)
 
-MATLAB/Pulseq research software for **Cartesian 2D turbo spin echo (TSE)** sequence development, including conventional multi-slice TSE and gSlider-TSE, together with a transparent offline MATLAB reconstruction workflow for conventional 2D TSE data.
+MATLAB/Pulseq research software for **Cartesian 2D turbo spin echo (TSE)** sequence development, including conventional multi-slice TSE and gSlider-TSE, together with an offline MATLAB reconstruction workflow for conventional 2D TSE data.
 
 The documentation is organized around the needs of an **open-source sequence implementation**: configuration and sequence construction → RF/phase-encoding/acceleration implementation → scanner integration → raw-data reconstruction → optional corrections/post-processing → validation/safety → source and method provenance.
 
@@ -17,10 +17,10 @@ The documentation is organized around the needs of an **open-source sequence imp
 | Design goal | Portable Pulseq development for Cartesian 2D TSE and gSlider-TSE with configurable RF, timing, PE order, PI/CS sampling, slice ordering, and TRAPS-style schedules. |
 | Current sequence implementation | Pulseq-based, with Siemens-specific Terra profiles, PI/LIN mapping, interpreter definitions, and development PNS models still present in shared code. |
 | Validated scanner path | Siemens 7 T systems only at present. |
-| Offline reconstruction | Conventional Cartesian 2D TSE from Siemens Twix: RSS, 1D PE-GRAPPA, ESPIRiT-SENSE, and Cartesian CS, with optional navigator echo-magnitude correction and optional image-domain denoising. |
+| Offline reconstruction | Conventional Cartesian 2D TSE from Siemens Twix: RSS, GRAPPA, SENSE, and CS, with ESPIRiT sensitivity estimation, optional navigator echo-magnitude correction, and optional image-domain denoising. |
 | Not currently implemented | Validated non-Siemens scanner paths, offline gSlider decoding, partial Fourier, SMS, non-Cartesian reconstruction, and oblique sequence orientation. |
 
-The bundled GRAPPA implementation is a **regular Cartesian 1D PE-GRAPPA** path. It supports integer PE acceleration, calibration from a contiguous ACS region, regularized kernel fitting, optional readout-neighbor offsets, and preservation of acquired image/ACS rows. It does **not** implement partial-Fourier GRAPPA, SMS/slice-GRAPPA, non-Cartesian GRAPPA, irregular variable-density masks, or proprietary Siemens ICE kernel/scaling/filtering behavior.
+The current **GRAPPA** implementation uses Cartesian undersampling with acceleration along phase encoding, integer acceleration factors, and contiguous integrated ACS calibration. It preserves acquired image/ACS rows and synthesizes only missing rows. Partial-Fourier GRAPPA, SMS/slice-GRAPPA, non-Cartesian GRAPPA, irregular variable-density masks, and Siemens ICE-specific kernel/scaling/filtering behavior are not implemented.
 
 Adding another scanner platform requires a compatible Pulseq interpreter, correct hardware/safety models, platform metadata integration, and a new staged validation campaign. See [Platform Integration](https://bennyzhang-codes.github.io/tse-pulseq-matlab/platform-integration).
 
@@ -64,10 +64,11 @@ The offline reconstruction does **not** implement gSlider decoding.
 
 ## External methods, tools, and provenance
 
-The repository intentionally records both the scientific method and the concrete code/tool source where relevant. Important examples include:
+The repository records both the scientific method and the concrete code/tool source where relevant. Important examples include:
 
 - **Pulseq** — tracked as the `pulseq/` Git submodule; sequence construction uses the Pulseq MATLAB API.
-- **CS phase-encoding sampling** — `prep/CS/genPDF.m` and `genSampling.m` retain `(c) Michael Lustig 2007`; `genSampling_TSE.m` is the TSE-oriented adaptation. The implemented pattern is one-dimensional polynomial variable-density PE sampling with Monte-Carlo interference minimization, not Poisson-disc sampling.
+- **PNS prediction** — `check_PNS` calls Pulseq `Sequence.calcPNS`, which in the tracked Pulseq version requires the external [`safe_pns_prediction`](https://github.com/filip-szczepankiewicz/safe_pns_prediction) MATLAB package on the path. The calculation uses the SAFE model and scanner-specific Siemens `MP_GPA*.asc` parameters.
+- **CS sampling** — `prep/CS/genPDF.m` and `genSampling.m` retain `(c) Michael Lustig 2007`; `genSampling_TSE.m` is the TSE-oriented adaptation. The current implementation uses one-dimensional polynomial variable-density PE sampling with Monte-Carlo interference minimization.
 - **SLR and gSlider RF banks** — generated offline by `prep/pulse/RF_pulse.ipynb` using `sigpy.mri.rf` and stored as `.mat` pulse banks for MATLAB use.
 - **VERSE** — provided through the `VERSE/` Git submodule, whose repository documents its upstream code lineage.
 - **Twix reading** — current offline reconstruction uses external [`mapVBVD`](https://github.com/pehses/mapVBVD).
@@ -82,6 +83,7 @@ The full file-by-file mapping between feature, implementation source, upstream s
 - MATLAB with standard numerical and plotting functionality.
 - Git submodules: `pulseq/` and `VERSE/`.
 - A compatible Pulseq interpreter and scanner-side validation path for the target MR system.
+- [`safe_pns_prediction`](https://github.com/filip-szczepankiewicz/safe_pns_prediction) on the MATLAB path when running `check_PNS` / Pulseq `calcPNS`.
 
 If necessary:
 
@@ -89,13 +91,15 @@ If necessary:
 git submodule update --init --recursive
 ```
 
+The SAFE PNS package is an external dependency and is **not** included as a submodule in this repository. Its scanner-specific `MP_GPA*.asc` hardware parameters are also not distributed here.
+
 The bundled SLR/gSlider `.mat` RF pulse banks can be used without Python/SigPy at MATLAB runtime. SigPy is required only when regenerating those pulse banks through `prep/pulse/RF_pulse.ipynb`.
 
 ### Current Siemens 7 T implementation and reconstruction path
 
 - `ScannerType='Terra-XJ'` or `'Terra-XR'` in the currently implemented system profiles.
 - A compatible Siemens Pulseq interpreter for scanner execution in the validated environment.
-- A compatible Siemens `.asc` PNS model when running `check_PNS`.
+- `safe_pns_prediction` plus a compatible Siemens `MP_GPA*.asc` SAFE/PNS hardware model when running `check_PNS`.
 - [`mapVBVD`](https://github.com/pehses/mapVBVD) on the MATLAB path for Siemens Twix reconstruction.
 
 ## Documentation
@@ -140,8 +144,8 @@ If you use `TSE_2D_gSlider.m`, also cite:
 
 > Zhang J, Wu Y, Xue R, Zhuo Y, Zhang Z. gSlider-TSE for high-resolution isotropic T2-weighted imaging with high contrast and high SNR. *Proceedings of the 2024 ISMRM and ISMRT Annual Meeting and Exhibition*, Singapore, Program #3256. [Abstract](http://echo.ismrm.org/p/ISMRM2024/3256)
 
-Also cite the scientific methods actually used in the reported acquisition/reconstruction (for example Pulseq, SLR/gSlider, GRAPPA/SENSE/ESPIRiT/CS, optional echo equalization, or denoising) as listed in the documentation.
+Also cite the scientific methods actually used in the reported acquisition/reconstruction (for example Pulseq, SAFE-model PNS prediction, SLR/gSlider, GRAPPA/SENSE/ESPIRiT/CS, optional echo equalization, or denoising) as listed in the documentation.
 
 ## License
 
-This repository is released under the [MIT License](LICENSE). Pulseq and VERSE are Git submodules with their own licenses and attribution notices; optional third-party denoisers remain under their upstream licenses.
+This repository is released under the [MIT License](LICENSE). Pulseq and VERSE are Git submodules with their own licenses and attribution notices; `safe_pns_prediction`, mapVBVD, SigPy, and optional third-party denoisers remain under their upstream licenses.
