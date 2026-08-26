@@ -7,7 +7,7 @@ This section is for users who need exact source locations, external dependencies
 | Entry point | Purpose | Documentation |
 | --- | --- | --- |
 | `TSE_2D.m` | conventional Cartesian 2D TSE | [Sequence Implementation](/sequence-generation) |
-| `TSE_2D_gSlider.m` | gSlider-TSE | [gSlider-TSE](/guide/gslider-traps) |
+| `TSE_2D_gSlider.m` | gSlider-TSE | [gSlider-TSE](/guide/gslider-tse) |
 | `recon_TSE2D(filename, ...)` | conventional 2D TSE reconstruction | [Reconstruction](/reconstruction) |
 
 ## Sequence source reference
