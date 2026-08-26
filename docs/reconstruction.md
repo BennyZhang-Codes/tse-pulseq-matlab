@@ -1,6 +1,6 @@
 # Reconstruction
 
-The repository includes a MATLAB reconstruction for **conventional Cartesian 2D TSE Siemens Twix data**. Its purpose is to make the sequence implementation inspectable and reproducible from raw data through image export.
+The repository includes a MATLAB reconstruction for **conventional Cartesian 2D TSE data supported by the maintained raw-data reader**. Its purpose is to make the sequence implementation inspectable and reproducible from raw data through image export.
 
 The public entry point is
 
@@ -10,31 +10,31 @@ result = recon_TSE2D(filename, Name, Value, ...)
 
 [Source: `recon/matlab/recon_TSE2D.m`](https://github.com/BennyZhang-Codes/tse-pulseq-matlab/blob/vitepress-style/recon/matlab/recon_TSE2D.m)
 
-::: warning Scope
-The current offline path does not decode gSlider, does not provide a non-Siemens raw-data reader, and does not claim pixel-for-pixel equivalence with proprietary Siemens ICE reconstruction.
+::: warning Current raw-data reader
+The maintained reader currently consumes Siemens Twix through `mapVBVD`. Vendor-independent raw-data input is planned but not yet implemented. See [TO DO & implementation checklist](/todo).
 :::
 
 ## Processing pipeline
 
 ```mermaid
 flowchart TD
-    A[Twix raw data] --> B[Read image / phasecor / ACS / noise]
-    B --> C[Noise prewhitening]
+    A[Raw data] --> B[Read image / navigator / ACS / noise]
+    B --> C[Prewhitening]
     C --> D[Navigator phase correction]
-    D --> E[Optional echo-envelope equalization]
-    E --> F[LIN-based Cartesian packing]
+    D --> E[Optional echo magnitude correction]
+    E --> F[Cartesian k-space packing]
     F --> G[Calibration / coil model]
     G --> H[RSS / GRAPPA / SENSE / CS]
     H --> I[Numerical checks]
-    I --> J[Image + NIfTI geometry]
+    I --> J[Image + geometry export]
     J --> K[Optional denoising]
 ```
 
-## 1. Twix data input
+## 1. Raw-data input
 
-`read_TSE2D_twix.m` uses external [mapVBVD](https://github.com/pehses/mapVBVD) to expose image data, `phasecor` navigators, PAT `refscan` data, compatible reference phase-correction information, and receive-noise data.
+`read_TSE2D_twix.m` is the current reader implementation and uses external [mapVBVD](https://github.com/pehses/mapVBVD) to expose image data, phase-correction navigators, PAT reference data, compatible reference phase-correction information, receive-noise data, and the metadata needed for Cartesian packing.
 
-The pipeline tracks `LIN`, `SLC`, and `SEG` so acquisitions can be mapped to PE rows, slices, and TSE echoes. Siemens LIN is zero based on the sequence/platform side, while mapVBVD/MATLAB indices are one based. See [Siemens 7 T LIN & ICE](/phase-encoding-and-ice).
+The reconstruction converts reader-specific counters into the internal PE/slice/echo representation required by the numerical pipeline. Raw-data indexing conventions are reader/platform details, not part of the TSE method definition. See [Platform Integration](/platform-integration).
 
 ## 2. Prewhitening
 
@@ -62,7 +62,7 @@ $$
 \arg z_{s,e,c}(\kappa)\approx\beta_{1,s,e,c}\kappa+\beta_{0,s,e,c}.
 $$
 
-The constant and readout-linear terms are removed from compatible image/reference acquisitions before packing. This is the model implemented by this repository; it is not intended to reproduce proprietary ICE filtering internals.
+The constant and readout-linear terms are removed from compatible image/reference acquisitions before packing. This is the model implemented by this repository; it is not intended to reproduce proprietary vendor reconstruction internals.
 
 ## 4. Optional echo magnitude correction
 
@@ -72,7 +72,7 @@ This is an **optional user-selected preprocessing step** and is disabled by defa
 
 ## 5. K-space packing
 
-`pack_TSE2D_kspace.m` maps acquisitions to Cartesian rows using MDH LIN and averages repeated acquisitions assigned to the same encoded row.
+`pack_TSE2D_kspace.m` maps acquisitions to Cartesian PE rows and averages repeated acquisitions assigned to the same encoded row.
 
 ## 6. Reconstruction methods
 
@@ -112,7 +112,7 @@ Current options:
 
 ### Current implementation limits
 
-The current GRAPPA implementation:
+The current GRAPPA implementation
 
 - accelerates along phase encoding only;
 - requires integer `R >= 2`;
@@ -123,7 +123,7 @@ The current GRAPPA implementation:
 - does not implement SMS/slice-GRAPPA;
 - does not implement non-Cartesian GRAPPA;
 - does not reconstruct irregular variable-density/CS masks; and
-- does not reproduce Siemens ICE-specific kernel selection, scaling, coil processing, or image filtering.
+- does not reproduce proprietary vendor kernel selection, scaling, coil processing, or image filtering.
 
 The method name remains **GRAPPA**; these statements describe the current implementation scope.
 
@@ -174,7 +174,7 @@ These are repository starting values, not universal optimum parameters.
 
 ## 9. Coil compression and ESPIRiT
 
-The SENSE/CS path can use ACS-derived PCA coil compression before sensitivity estimation. The default retains 99% calibration energy with at most 12 virtual coils. This is array compression [[24]](/references#ref-24 "Buehrer M, Pruessmann KP, Boesiger P, Kozerke S. Array compression for MRI with large coil arrays. Magn Reson Med. 2007;57:1131-1139.").
+The SENSE/CS path can use ACS-derived PCA coil compression before sensitivity estimation. The default retains 99% calibration energy with at most 12 virtual coils. This follows array-compression principles [[24]](/references#ref-24 "Buehrer M, Pruessmann KP, Boesiger P, Kozerke S. Array compression for MRI with large coil arrays. Magn Reson Med. 2007;57:1131-1139.").
 
 The default sensitivity estimation method is ESPIRiT [[7]](/references#ref-7 "Uecker M, Lai P, Murphy MJ, et al. ESPIRiT: an eigenvalue approach to autocalibrating parallel MRI. Magn Reson Med. 2014;71:990-1001."). The current implementation returns a single map set; multiple ESPIRiT map sets are not implemented.
 
@@ -182,7 +182,7 @@ The default sensitivity estimation method is ESPIRiT [[7]](/references#ref-7 "Ue
 
 Before SENSE or CS iteration, the forward/adjoint inner-product identity is tested. A relative mismatch greater than `5e-5` stops reconstruction.
 
-GRAPPA stores calibration NMSE and regularized normal-matrix conditioning. These are calibration checks, not proof of equivalence to a vendor reconstruction.
+GRAPPA stores calibration NMSE and regularized normal-matrix conditioning. These are calibration checks, not proof of equivalence to another reconstruction implementation.
 
 ## 11. GPU support
 
@@ -196,30 +196,31 @@ RSS and GRAPPA do not require GPU support.
 
 ## 12. Output and geometry
 
-The NIfTI path derives scanner-patient RAS geometry from Siemens MDH slice centers/quaternions when available and validates reconstructed slice centers before writing.
+The current NIfTI geometry path uses orientation/position information supplied by the maintained raw-data reader and validates reconstructed slice centers before writing.
 
 ## 13. Optional denoising
 
-NLM, BM3D, SANLM and TGV2 are provided as a **separate optional image-domain module**. They are not called automatically by `recon_TSE2D`. See [Optional denoising](/guide/denoising).
+NLM, BM3D, SANLM, and TGV2 are provided as a **separate optional image-domain module**. They are not called automatically by `recon_TSE2D`. See [Optional denoising](/guide/denoising).
 
 ## Current reconstruction limitations
 
-The current MATLAB workflow does **not** implement:
+The current MATLAB workflow does **not** implement
 
 - gSlider decoding;
 - partial Fourier reconstruction;
 - SMS;
 - non-Cartesian reconstruction;
-- multiple ESPIRiT map sets;
-- non-Siemens raw-data readers; or
-- proprietary Siemens ICE scaling, coil combination, GRAPPA kernels, or image filtering.
+- multiple ESPIRiT map sets; or
+- vendor-independent raw-data readers.
+
+These missing capabilities are tracked in [TO DO & implementation checklist](/todo).
 
 ## Source map
 
 | Function | Role |
 | --- | --- |
 | [`recon_TSE2D.m`](https://github.com/BennyZhang-Codes/tse-pulseq-matlab/blob/vitepress-style/recon/matlab/recon_TSE2D.m) | reconstruction pipeline and user-facing options |
-| [`read_TSE2D_twix.m`](https://github.com/BennyZhang-Codes/tse-pulseq-matlab/blob/vitepress-style/recon/matlab/read_TSE2D_twix.m) | Twix reader / metadata extraction |
+| [`read_TSE2D_twix.m`](https://github.com/BennyZhang-Codes/tse-pulseq-matlab/blob/vitepress-style/recon/matlab/read_TSE2D_twix.m) | current raw-data reader / metadata extraction |
 | [`recon_TSE2D_GRAPPA.m`](https://github.com/BennyZhang-Codes/tse-pulseq-matlab/blob/vitepress-style/recon/matlab/recon_TSE2D_GRAPPA.m) | GRAPPA |
 | [`recon_TSE2D_SENSE.m`](https://github.com/BennyZhang-Codes/tse-pulseq-matlab/blob/vitepress-style/recon/matlab/recon_TSE2D_SENSE.m) | SENSE |
 | [`recon_TSE2D_CS.m`](https://github.com/BennyZhang-Codes/tse-pulseq-matlab/blob/vitepress-style/recon/matlab/recon_TSE2D_CS.m) | CS |
@@ -227,4 +228,4 @@ The current MATLAB workflow does **not** implement:
 | [`pack_TSE2D_kspace.m`](https://github.com/BennyZhang-Codes/tse-pulseq-matlab/blob/vitepress-style/recon/matlab/pack_TSE2D_kspace.m) | k-space packing |
 | [`utils/prepare_TSE2D_sense_model.m`](https://github.com/BennyZhang-Codes/tse-pulseq-matlab/blob/vitepress-style/recon/matlab/utils/prepare_TSE2D_sense_model.m) | SENSE/CS calibration and model preparation |
 
-For controlled comparisons, continue with [Reconstruction protocol](/validation/reconstruction-protocol) and [Validation strategy](/validation/scientific-validation).
+For controlled comparisons, continue with [Reconstruction Protocol](/validation/reconstruction-protocol) and [Validation Strategy](/validation/scientific-validation).
