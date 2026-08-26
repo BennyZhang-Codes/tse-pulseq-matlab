@@ -43,24 +43,15 @@ No repository-wide `addpath(genpath(...))` is required before running the mainta
 
 ## 3. Pulseq
 
-Pulseq is bundled as a submodule and provides the portable sequence-description layer used for:
-
-- `mr.Sequence`;
-- RF, gradient, ADC and label objects;
-- timing validation;
-- sequence export;
-- k-space calculation; and
-- PNS calculation when a compatible hardware model is available.
+Pulseq is bundled as a submodule and provides the portable sequence-description layer used for `mr.Sequence`, RF/gradient/ADC/label objects, timing validation, sequence export, k-space calculation, and PNS calculation when a compatible hardware model is available.
 
 The sequence design is intended to remain independent of a single MRI vendor. Executing the exported `.seq` file on a real platform still requires a compatible Pulseq interpreter and platform-specific validation.
 
-For a reproducible experiment, record the Pulseq submodule commit SHA because the exact checked-out commit is more precise than a moving version description.
+## 4. VERSE and generated RF pulse banks
 
-## 4. VERSE
+The `VERSE/` submodule contains VERSE and minimum-SAR RF utilities used by supported RF-design paths. `Setup.VERSE` controls whether the configured sequence path enables VERSE-related behavior where implemented.
 
-The `VERSE/` submodule contains VERSE and minimum-SAR RF utilities used by supported RF-design paths.
-
-`Setup.VERSE` controls whether the configured sequence path enables VERSE-related behavior where implemented. Enabling VERSE does not remove the need to inspect RF peak amplitude, B1, pulse fidelity, SAR and scanner compatibility.
+The bundled SLR and gSlider `.mat` RF pulse banks were generated offline through `prep/pulse/RF_pulse.ipynb` using SigPy RF. Python/SigPy is therefore not required for normal MATLAB sequence generation unless those pulse banks are regenerated. See [Dependencies & method provenance](/reference/provenance).
 
 ## 5. Current Siemens Twix reconstruction path
 
@@ -73,22 +64,29 @@ result = recon_TSE2D(twixFile, ...
     'MapVBVDPath', 'E:\\Tools\\mapVBVD');
 ```
 
-The offline reconstruction reads conventional Cartesian 2D TSE Twix data and does not currently decode gSlider acquisitions.
+Available production reconstruction methods are:
 
-This Twix dependency belongs to the present reconstruction implementation; it does **not** make the Pulseq sequence design Siemens-specific.
+```text
+RSS
+regular Cartesian 1D PE-GRAPPA
+ESPIRiT-SENSE
+Cartesian TV/Haar CS
+```
+
+The GRAPPA path requires regular integer PE acceleration with contiguous integrated ACS. Partial-Fourier GRAPPA, SMS/slice-GRAPPA, non-Cartesian GRAPPA, and irregular variable-density mask reconstruction are not implemented. See [Reconstruction](/reconstruction) for the exact support boundary.
+
+The offline reconstruction does not currently decode gSlider acquisitions.
 
 ## 6. Current Siemens 7 T PNS models
 
 `check_PNS` currently calls the Pulseq PNS calculator using scanner-specific Siemens `.asc` hardware models selected by `ScannerType`.
-
-Current mappings are:
 
 | `ScannerType` | Hard gradient limit | Hard slew limit | `.asc` model expected on MATLAB path |
 | --- | ---: | ---: | --- |
 | `Terra-XJ` | 70 mT/m | 200 T/m/s | `MP_GPA_K2259_2000V_650A_SC72CD_EGA.asc` |
 | `Terra-XR` | 80 mT/m | 200 T/m/s | `MP_GPA_K2298_2250V_793A_SC72CD_EGA.asc` |
 
-The example sequence design uses configurable *soft* limits, commonly 40 mT/m and 150 T/m/s, which are separate from the absolute hardware limits used to initialize the Pulseq system object.
+The example sequence design uses configurable soft limits, commonly 40 mT/m and 150 T/m/s, which are separate from the absolute hardware limits used to initialize the Pulseq system object.
 
 These presets reflect the currently validated Siemens 7 T environment. Porting the sequence to another scanner requires appropriate hardware limits and a corresponding PNS/safety-validation strategy rather than reusing a Terra model.
 
@@ -96,7 +94,7 @@ These presets reflect the currently validated Siemens 7 T environment. Porting t
 
 Scanner execution requires a Pulseq interpreter compatible with the target MR platform.
 
-The repository's current scanner validation has been performed on Siemens 7 T systems. Consequently, several exported definitions and documentation pages also cover the Siemens interpreter/ICE contract, including `TurboFactor`, `PhaseCorrection`, PE matrix size, center LIN, ACS width and slice metadata.
+The repository's current scanner validation has been performed on Siemens 7 T systems. Consequently, several exported definitions and documentation pages cover the Siemens interpreter/ICE contract, including `TurboFactor`, `PhaseCorrection`, PE matrix size, center LIN, ACS width and slice metadata.
 
 For another vendor, the Pulseq event sequence remains the portable layer, while interpreter-facing metadata and online reconstruction integration may need adaptation. Use [Platform Integration](platform-integration.md) as the porting checklist.
 
@@ -108,7 +106,7 @@ Iterative SENSE and CS reconstruction can use a MATLAB-supported GPU:
 'IterativeUseGPU', 'auto'
 ```
 
-`'auto'` uses a GPU when MATLAB reports one as available and otherwise falls back to CPU. GPU support is optional; ordinary RSS and diagnostic GRAPPA do not require it.
+`'auto'` uses a GPU when MATLAB reports one as available and otherwise falls back to CPU. GPU support is optional; RSS and GRAPPA use the standard MATLAB path and do not require it.
 
 ## 9. Verify the installation
 
