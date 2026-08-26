@@ -43,13 +43,13 @@ For reproducible comparisons, prefer an explicit method rather than `auto`.
 
 ```text
 Siemens Twix
-→ receive-noise prewhitening
-→ navigator phase correction
-→ optional navigator-derived echo-envelope equalization
-→ LIN-based Cartesian k-space packing
-→ RSS / 1D PE-GRAPPA / ESPIRiT-SENSE / CS
+→ prewhitening
+→ phase correction
+→ optional echo magnitude correction
+→ k-space packing
+→ RSS / GRAPPA / SENSE / CS
 → image and geometry export
-→ optional image-domain denoising as a separate step
+→ optional image-domain denoising
 ```
 
 ## Reconstruction methods
@@ -60,26 +60,24 @@ Siemens Twix
 
 ### GRAPPA
 
-`recon_TSE2D_GRAPPA.m` implements **regular Cartesian 1D PE-GRAPPA**. It:
+`recon_TSE2D_GRAPPA.m` implements GRAPPA. The current implementation:
 
-- supports integer PE acceleration `R >= 2`;
-- calibrates kernels from a contiguous ACS region;
+- accelerates along phase encoding;
+- supports integer acceleration `R >= 2`;
+- calibrates from integrated contiguous ACS;
 - uses separate kernels for missing PE residue/offset patterns;
 - supports configurable PE source count and optional readout-neighbor offsets;
 - uses relative Tikhonov regularization for kernel fitting;
 - reports calibration NMSE and conditioning; and
 - preserves acquired imaging and ACS rows, filling only missing rows.
 
-Current GRAPPA limitations are explicit:
+Current limitations:
 
-- acceleration is along the PE dimension only;
-- the acquisition is expected to follow a regular Cartesian acceleration lattice;
-- calibration expects integrated contiguous ACS;
 - partial-Fourier GRAPPA is not implemented;
 - SMS/slice-GRAPPA is not implemented;
 - non-Cartesian GRAPPA is not implemented;
 - irregular variable-density/CS masks are not handled by this GRAPPA path; and
-- the implementation is not a reproduction of Siemens ICE GRAPPA kernel selection, scaling, coil processing, or filtering.
+- Siemens ICE-specific kernel selection, scaling, coil processing, and filtering are not reproduced.
 
 Defaults:
 
@@ -89,19 +87,19 @@ Defaults:
 'GrappaRegularization', 1e-4
 ```
 
-### ESPIRiT-SENSE
+### SENSE
 
-`recon_TSE2D_SENSE.m` uses the shared Cartesian multicoil model
+`recon_TSE2D_SENSE.m` uses the multicoil model
 
 ```text
 A x = P F (S x)
 ```
 
-and solves an L2-regularized least-squares problem by conjugate gradients. Sensitivity maps are estimated with the repository-local single-map ESPIRiT implementation unless another supported sensitivity method is selected.
+and solves an L2-regularized least-squares problem by conjugate gradients. The default sensitivity estimation method is ESPIRiT.
 
-### Cartesian CS
+### CS
 
-`recon_TSE2D_CS.m` uses the same Cartesian multicoil data-consistency model with isotropic TV and orthonormal Haar-L1 regularization solved by a Chambolle-Pock iteration.
+`recon_TSE2D_CS.m` uses the same multicoil data-consistency model with isotropic TV and orthonormal Haar-L1 regularization solved by a Chambolle-Pock iteration.
 
 Default regularization values are repository starting points, not universal optima. For matched comparisons, keep sampling, sensitivity estimation, solver settings, regularization, precision, and evaluation region fixed.
 
@@ -113,15 +111,15 @@ Default regularization values are repository starting points, not universal opti
 | `estimate_noise_whitener.m` | Estimate complex receive-noise covariance and regularized inverse square root. |
 | `apply_coil_matrix.m` | Apply the whitening matrix to multichannel streams. |
 | `estimate_TSE_phasecor.m` | Fit per-slice/per-echo/per-coil navigator phase and estimate the measured echo envelope. |
-| `apply_TSE_phasecor.m` | Apply navigator phase correction. |
-| `apply_TSE_echomagcor.m` | Apply optional power-law or Wiener-style echo-envelope equalization. |
+| `apply_TSE_phasecor.m` | Apply phase correction. |
+| `apply_TSE_echomagcor.m` | Apply optional echo magnitude correction. |
 | `pack_TSE2D_kspace.m` | Pack acquisitions by one-based mapVBVD LIN. |
-| `recon_TSE2D_RSS.m` | RSS reconstruction. |
-| `recon_TSE2D_GRAPPA.m` | Regular Cartesian 1D PE-GRAPPA. |
-| `recon_TSE2D_SENSE.m` | ESPIRiT-SENSE with CG. |
-| `recon_TSE2D_CS.m` | SENSE encoding with TV and Haar-L1 regularization. |
+| `recon_TSE2D_RSS.m` | RSS. |
+| `recon_TSE2D_GRAPPA.m` | GRAPPA. |
+| `recon_TSE2D_SENSE.m` | SENSE. |
+| `recon_TSE2D_CS.m` | CS. |
 | `utils/prepare_TSE2D_sense_model.m` | Build coil-compressed k-space, masks, and sensitivity maps for SENSE/CS. |
-| `utils/estimate_TSE2D_espirit.m` | Estimate a single ESPIRiT map set from ACS. |
+| `utils/estimate_TSE2D_espirit.m` | Estimate an ESPIRiT sensitivity-map set from ACS. |
 | `build_TSE2D_nifti_geometry.m` | Build and validate scanner-patient RAS geometry. |
 | `save_TSE2D_results.m` | Save images and reconstruction diagnostics. |
 | `batch_recon_TSE2D.m` | Batch reconstruction entry point. |
@@ -133,7 +131,7 @@ Noise is loaded without image-style readout-oversampling removal because image-d
 
 If no usable noise scan is present, the code warns and uses an identity transform; the fallback is not silent.
 
-## Navigator phase correction
+## Phase correction
 
 For each SLC, SEG, and receive channel, the phase of
 
@@ -141,23 +139,23 @@ For each SLC, SEG, and receive channel, the phase of
 navigatorEcho .* conj(referenceNavigatorEcho)
 ```
 
-is fitted as a weighted linear function of normalized readout k-space. The same correction basis is applied to compatible imaging and PAT-reference data before Cartesian packing.
+is fitted as a weighted linear function of normalized readout k-space. The same correction basis is applied to compatible imaging and PAT-reference data before k-space packing.
 
-## Optional echo-magnitude correction
+## Optional echo magnitude correction
 
-Echo-magnitude equalization is **disabled by default**. When explicitly enabled, the measured navigator envelope can be converted to a power-law or Wiener-style regularized gain before k-space packing.
+Echo magnitude correction is **disabled by default**. When explicitly enabled, the measured navigator envelope can be converted to a power-law or Wiener-style regularized gain before k-space packing.
 
-This is a navigator-derived global echo-envelope equalizer, not a voxelwise quantitative T2 correction. It can alter noise, apparent sharpness, and contrast, so preserve an uncorrected reconstruction when evaluating it.
+This is a navigator-derived global echo-envelope equalization, not a voxelwise quantitative T2 correction. It can alter noise, apparent sharpness, and contrast, so preserve an uncorrected reconstruction when evaluating it.
 
 See:
 
 <https://bennyzhang-codes.github.io/tse-pulseq-matlab/guide/echo-corrections>
 
-## Coil compression and sensitivity estimation
+## Coil compression and ESPIRiT
 
-The iterative SENSE/CS path can use ACS-derived global PCA coil compression. Default settings retain 99% calibration energy with at most 12 virtual coils. The method is global array compression, not geometric coil compression (GCC).
+The SENSE/CS path can use ACS-derived PCA coil compression. Default settings retain 99% calibration energy with at most 12 virtual coils.
 
-The default sensitivity path is a repository-local single-map ESPIRiT estimator.
+The default sensitivity estimation method is ESPIRiT. The current implementation returns one map set; multiple ESPIRiT map sets are not implemented.
 
 ## Optional image-domain denoising
 
@@ -176,7 +174,7 @@ See:
 - MDH `LIN` is phase encoding and `SEG` is echo number.
 - Repeated acquisitions at one LIN are averaged.
 - Integrated contiguous ACS is expected for the maintained PI calibration paths.
-- RSS, 1D PE-GRAPPA, ESPIRiT-SENSE, and Cartesian TV/Haar CS are available.
-- Echo-magnitude equalization is optional and disabled by default.
+- RSS, GRAPPA, SENSE, and CS are available; ESPIRiT is the default sensitivity estimation method for SENSE/CS.
+- Echo magnitude correction is optional and disabled by default.
 - Image-domain denoising is optional and separate from reconstruction.
 - Partial Fourier, SMS, gSlider decoding, non-Cartesian reconstruction, multiple ESPIRiT map sets, and non-Siemens raw-data readers are not implemented in this workflow.
