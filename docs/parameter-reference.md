@@ -54,9 +54,9 @@ The bundled SLR and gSlider RF pulse banks are generated offline with SigPy and 
 
 ## gSlider-TSE
 
-`TSE_2D_gSlider.m` uses the gSlider RF encoding path and dedicated gSlider sequence loops. See [gSlider-TSE](/guide/gslider-traps).
+`TSE_2D_gSlider.m` uses the gSlider RF encoding path and dedicated gSlider sequence loops. See [gSlider-TSE](/guide/gslider-tse).
 
-`Setup.TRAPS` exists only for an **experimental/test variable-refocusing path** based on `utils/fliptraps.m`; it should not be interpreted as a core gSlider-TSE feature.
+`Setup.TRAPS` exists only for an experimental/test variable-refocusing path based on `utils/fliptraps.m`; it is not a core gSlider-TSE feature.
 
 ## Spoilers
 
