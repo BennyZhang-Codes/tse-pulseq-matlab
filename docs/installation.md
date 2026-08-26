@@ -43,32 +43,23 @@ No repository-wide `addpath(genpath(...))` is required before running the mainta
 
 ## 3. Pulseq
 
-Pulseq is bundled as a submodule and provides the portable sequence-description layer used for `mr.Sequence`, RF/gradient/ADC/label objects, timing validation, sequence export, k-space calculation, and PNS calculation interfaces.
+Pulseq is bundled as a submodule and provides the portable sequence-description layer used for `mr.Sequence`, RF/gradient/ADC/label objects, timing validation, sequence export, k-space calculation, and PNS-calculation interfaces.
 
 The sequence design is intended to remain independent of a single MRI vendor. Executing the exported `.seq` file on a real platform still requires a compatible Pulseq interpreter and platform-specific validation.
 
-## 4. SAFE PNS prediction dependency
+## 4. PNS prediction dependency
 
-`check/check_PNS.m` calls Pulseq `Sequence.calcPNS`. In the Pulseq revision tracked by this repository, `calcPNS` explicitly depends on the external MATLAB package [`safe_pns_prediction`](https://github.com/filip-szczepankiewicz/safe_pns_prediction).
+`check/check_PNS.m` calls Pulseq `Sequence.calcPNS`. In the Pulseq revision tracked by this repository, `calcPNS` depends on the external MATLAB package [`safe_pns_prediction`](https://github.com/filip-szczepankiewicz/safe_pns_prediction).
 
-The dependency chain is:
-
-```text
-check_PNS
-→ Pulseq Sequence.calcPNS
-→ safe_pns_prediction
-→ scanner-specific MP_GPA*.asc SAFE parameters
-```
-
-Install the external package separately and add it to the MATLAB path, for example:
+Install the package separately and add it to the MATLAB path when PNS prediction is required, for example:
 
 ```matlab
 addpath(genpath('path-to-safe_pns_prediction'));
 ```
 
-The package implements PNS prediction using the SAFE model [[26]](/references#ref-26 "Hebrank FX, Gebhardt M. SAFE-Model—A new method for predicting peripheral nerve stimulations in MRI. Proc Intl Soc Magn Reson Med. 2000;8. Abstract #2007.") and asks users to consider citing Szczepankiewicz et al. [[27]](/references#ref-27 "Szczepankiewicz F, Westin C-F, Nilsson M. Gradient waveform design for tensor-valued encoding in diffusion MRI. J Neurosci Methods. 2021;348:109007.").
+The calculation uses the SAFE model [[26]](/references#ref-26 "Hebrank FX, Gebhardt M. SAFE-Model—A new method for predicting peripheral nerve stimulations in MRI. Proc Intl Soc Magn Reson Med. 2000;8. Abstract #2007.") and the software repository asks users to consider citing Szczepankiewicz et al. [[27]](/references#ref-27 "Szczepankiewicz F, Westin C-F, Nilsson M. Gradient waveform design for tensor-valued encoding in diffusion MRI. J Neurosci Methods. 2021;348:109007.").
 
-`safe_pns_prediction` is **not** included as a submodule in this repository. Scanner-specific `MP_GPA*.asc` SAFE hardware parameters are also not distributed with that package or this repository and must be supplied for the intended Siemens gradient system.
+A scanner-specific hardware model compatible with the target gradient system is also required by the PNS calculation. Those scanner hardware parameters are **not part of this open-source sequence repository and are not distributed here**.
 
 ::: warning Development check only
 The SAFE-model calculation is useful for sequence development but does not replace scanner-side gradient/PNS supervision or local safety validation.
@@ -104,18 +95,15 @@ ESPIRiT is used for the default SENSE/CS sensitivity-map estimation. The current
 
 The offline reconstruction does not currently decode gSlider acquisitions.
 
-## 7. Current Siemens 7 T PNS hardware models
+## 7. Current scanner profiles
 
-`check_PNS` passes a scanner-specific Siemens `.asc` hardware file to Pulseq `calcPNS`, which then uses `safe_pns_prediction` for the SAFE-model calculation.
+The current sequence implementation includes Siemens 7 T scanner profiles used in the validated development environment. These profiles define the hardware limits and current platform integration expected by the sequence code.
 
-| `ScannerType` | Hard gradient limit | Hard slew limit | `.asc` model expected on MATLAB path |
-| --- | ---: | ---: | --- |
-| `Terra-XJ` | 70 mT/m | 200 T/m/s | `MP_GPA_K2259_2000V_650A_SC72CD_EGA.asc` |
-| `Terra-XR` | 80 mT/m | 200 T/m/s | `MP_GPA_K2298_2250V_793A_SC72CD_EGA.asc` |
+PNS prediction additionally requires the external `safe_pns_prediction` package and a compatible scanner-specific hardware model supplied for the target system. The repository does not distribute scanner-vendor hardware-model files.
 
 The example sequence design uses configurable soft limits, commonly 40 mT/m and 150 T/m/s, which are separate from the absolute hardware limits used to initialize the Pulseq system object.
 
-These presets reflect the currently validated Siemens 7 T environment. Porting the sequence to another scanner requires appropriate hardware limits and a corresponding PNS/safety-validation strategy rather than reusing a Terra model.
+Porting the sequence to another scanner requires appropriate hardware limits, interpreter integration, and a corresponding PNS/safety-validation strategy rather than reusing an unrelated scanner model.
 
 ## 8. Scanner interpreter
 
@@ -137,10 +125,15 @@ SENSE and CS reconstruction can use a MATLAB-supported GPU:
 
 ## 10. Verify the installation
 
-From the repository root, confirm Pulseq and SAFE PNS functions can be resolved when PNS checking is required:
+From the repository root, confirm Pulseq can be resolved:
 
 ```matlab
 which mr.Sequence
+```
+
+When PNS prediction is required, also confirm the SAFE implementation is available:
+
+```matlab
 which safe_gwf_to_pns
 ```
 
