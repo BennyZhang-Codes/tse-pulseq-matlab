@@ -34,7 +34,7 @@ export default defineConfig({
           { text: 'Parameter Reference', link: '/parameter-reference' },
           { text: 'TSE Echo Train', link: '/theory/tse-echo-train' },
           { text: 'Phase Encoding & Acceleration', link: '/theory/phase-encoding' },
-          { text: 'gSlider-TSE & TRAPS', link: '/guide/gslider-traps' },
+          { text: 'gSlider-TSE', link: '/guide/gslider-traps' },
         ],
       },
       {
@@ -81,7 +81,7 @@ export default defineConfig({
           { text: 'Parameter Reference', link: '/parameter-reference' },
           { text: 'TSE Signal & Echo Train', link: '/theory/tse-echo-train' },
           { text: 'Phase Encoding & Acceleration', link: '/theory/phase-encoding' },
-          { text: 'gSlider-TSE & TRAPS', link: '/guide/gslider-traps' },
+          { text: 'gSlider-TSE', link: '/guide/gslider-traps' },
         ],
       },
       {
