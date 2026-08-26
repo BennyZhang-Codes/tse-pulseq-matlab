@@ -1,14 +1,26 @@
 function [kspaceOut, info] = recon_TSE2D_GRAPPA( ...
         kspaceIn, imageMask, refMask, accelerationFactor, varargin)
-%RECON_TSE2D_GRAPPA Diagnostic 1D Cartesian GRAPPA along phase encoding.
+%RECON_TSE2D_GRAPPA Regular Cartesian 1D GRAPPA along phase encoding.
 %
 % [kspaceOut, info] = recon_TSE2D_GRAPPA(kspaceIn, imageMask, refMask, R)
 %
 % The routine supports integer R >= 2. For each missing PE residue class it
-% selects the nearest acquired lattice lines, calibrates from the contiguous
-% ACS region, and fills only non-acquired lines. Acquired ACS samples are
-% retained. It is intended for transparent TSE diagnostics and is not an
-% exact implementation of proprietary Siemens ICE GRAPPA.
+% selects the nearest acquired lattice lines, calibrates from a contiguous
+% ACS region, and fills only non-acquired lines. Acquired image and ACS
+% samples are retained.
+%
+% Supported scope
+%   - Cartesian acceleration along PE only.
+%   - Regular integer acceleration lattice.
+%   - Integrated contiguous ACS calibration.
+%   - Optional readout-neighbor kernel offsets.
+%
+% Not implemented here
+%   - Partial-Fourier GRAPPA.
+%   - SMS / slice-GRAPPA.
+%   - Non-Cartesian GRAPPA.
+%   - Irregular variable-density / CS masks.
+%   - Proprietary Siemens ICE kernel selection, scaling, or filtering.
 %
 % Options
 %   KySourceCount  Acquired PE source lines per target (default 4).
