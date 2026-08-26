@@ -4,8 +4,9 @@ function [seq] = check_PNS(seq, Actual)
 % Pulseq Sequence.calcPNS uses the external safe_pns_prediction MATLAB
 % package (https://github.com/filip-szczepankiewicz/safe_pns_prediction)
 % to evaluate the SAFE model. The package must be installed on the MATLAB
-% path. A scanner-specific Siemens MP_GPA*.asc hardware model is also
-% required for the current Siemens 7 T implementation.
+% path. A scanner-specific SAFE/PNS hardware model is also required for the
+% current scanner integration; those hardware parameters are not distributed
+% by this repository.
 
     if exist('safe_gwf_to_pns', 'file') ~= 2
         error('check_PNS:MissingSafePNSPrediction', [ ...
@@ -19,7 +20,7 @@ function [seq] = check_PNS(seq, Actual)
     if isempty(asc_file) || exist(asc_file, 'file') ~= 2
         error('check_PNS:MissingHardwareModel', [ ...
             'The scanner-specific SAFE/PNS hardware model was not found: %s. ' ...
-            'Provide the appropriate Siemens MP_GPA*.asc file for the target gradient system.'], ...
+            'Provide the appropriate hardware model for the target gradient system.'], ...
             char(string(asc_file)));
     end
 
