@@ -23,6 +23,25 @@ const diagramEl = ref(null)
 const error = ref('')
 const source = computed(() => decodeURIComponent(props.code))
 
+function keepDiagramReadable(container) {
+  const svg = container?.querySelector('svg')
+  if (!svg) return
+
+  // Mermaid diagrams with only a few nodes can have a very small natural
+  // viewBox and otherwise render like thumbnails. Enlarge only those small
+  // diagrams; wide diagrams retain their natural size and remain horizontally
+  // scrollable in the figure container.
+  const viewBox = svg.viewBox?.baseVal
+  const naturalWidth = viewBox?.width || 0
+  if (naturalWidth > 0 && naturalWidth < 620) {
+    svg.style.setProperty('width', '620px', 'important')
+  } else {
+    svg.style.setProperty('width', 'auto', 'important')
+  }
+  svg.style.setProperty('max-width', 'none', 'important')
+  svg.style.setProperty('height', 'auto', 'important')
+}
+
 async function renderDiagram() {
   if (!diagramEl.value) return
 
@@ -69,19 +88,19 @@ async function renderDiagram() {
       .nodeLabel, .edgeLabel {
         font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
       }
-      .nodeLabel { font-size: 14px; line-height: 1.28; }
-      .nodeLabel p { margin: 0 !important; line-height: 1.28 !important; }
-      .edgeLabel { font-size: 13px; }
-      .edgePath path { stroke-width: 1.35px; }
+      .nodeLabel { font-size: 15px; line-height: 1.3; }
+      .nodeLabel p { margin: 0 !important; line-height: 1.3 !important; }
+      .edgeLabel { font-size: 14px; }
+      .edgePath path { stroke-width: 1.4px; }
       .flowchart-link { stroke-linecap: round; stroke-linejoin: round; }
     `,
     flowchart: {
       curve: 'basis',
       htmlLabels: true,
-      nodeSpacing: 40,
-      rankSpacing: 46,
-      padding: 14,
-      wrappingWidth: 190,
+      nodeSpacing: 46,
+      rankSpacing: 54,
+      padding: 16,
+      wrappingWidth: 210,
     },
   })
 
@@ -92,6 +111,7 @@ async function renderDiagram() {
     if (!diagramEl.value) return
     diagramEl.value.innerHTML = svg
     bindFunctions?.(diagramEl.value)
+    keepDiagramReadable(diagramEl.value)
   } catch (cause) {
     error.value = cause instanceof Error ? cause.message : String(cause)
   }
@@ -104,8 +124,9 @@ watch([source, isDark], renderDiagram)
 <style scoped>
 .tse-mermaid {
   margin: 1.5rem 0 2rem;
-  padding: .6rem 0;
+  padding: .75rem 0;
   overflow-x: auto;
+  overscroll-behavior-inline: contain;
   border: 0;
   background: transparent;
 }
@@ -123,7 +144,7 @@ watch([source, isDark], renderDiagram)
   display: block;
   width: auto !important;
   max-width: none !important;
-  height: auto;
+  height: auto !important;
   overflow: visible;
   background: transparent !important;
 }
@@ -136,7 +157,7 @@ watch([source, isDark], renderDiagram)
 }
 
 @media (max-width: 700px) {
-  .tse-mermaid { padding: .45rem 0; }
+  .tse-mermaid { padding: .55rem 0; }
   .tse-mermaid__canvas { justify-content: flex-start; }
 }
 </style>
