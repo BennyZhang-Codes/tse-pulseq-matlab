@@ -1,72 +1,150 @@
-# TSE Pulseq architecture
+# Repository architecture
 
-`tse-pulseq-matlab` separates the reusable TSE acquisition model from scanner-specific execution and raw-data handling. This distinction is central to both the code and the documentation: **Pulseq is the portability layer; scanner integration and validation remain explicit platform responsibilities.**
+`tse-pulseq-matlab` is organized around an acquisition lifecycle rather than around an abstract reconstruction API. The code starts from a protocol configuration, produces a Pulseq sequence, couples that sequence to a scanner adapter, and provides a transparent raw-data reconstruction for the currently validated Siemens workflow.
 
 ```mermaid
-flowchart TD
-    A["Setup / SetupRF / SetupSpoiling"] --> B["Resolve Actual configuration"]
-    B --> C["RF + gradient + ADC + logical PE + slice preparation"]
-    C --> D["TSE / gSlider sequence loop"]
-    D --> E["Pulseq timing + label checks"]
-    E --> F[".seq + Setup/Actual archive"]
-
-    F --> G["Platform integration"]
-    G --> H["Scanner acquisition"]
-    H --> I["Vendor raw data"]
-
-    I --> J["Noise prewhitening"]
-    J --> K["Navigator phase + echo-magnitude correction"]
-    K --> L["Cartesian k-space packing"]
-    L --> M["RSS / GRAPPA / SENSE / CS"]
-    M --> N["Optional image-domain denoising"]
-    N --> O["NIfTI / MAT / diagnostics"]
-
-    E --> V["Development validation"]
-    G --> V2["Scanner-specific validation"]
-    V --> V2
+flowchart LR
+    A[User configuration] --> B[Sequence preparation]
+    B --> C[Pulseq SEQ]
+    C --> D[Scanner adapter]
+    D --> E[Acquisition]
+    E --> F[Raw data]
+    F --> G[MATLAB reconstruction]
+    G --> H[Optional post-processing]
 ```
 
-## Core layers
+Pulseq is the sequence-description portability layer [[2]](/references#ref-2 "Layton KJ, Kroboth S, Jia F, et al. Pulseq: a rapid and hardware-independent pulse sequence prototyping framework. Magn Reson Med. 2017;77:1544-1552."). Platform integration and validation remain explicit responsibilities of each target scanner.
 
-### Acquisition design
+## 1. User configuration
 
-The maintained sequence entry points are `TSE_2D.m` and `TSE_2D_gSlider.m`. User intent is expressed through `Setup`, `SetupRF`, and `SetupSpoiling`; preparation functions resolve those requests into the `Actual` structure, Pulseq events, logical phase encoding, slice order, timing, and exported definitions.
+The sequence entry points are
 
-The acquisition layer should describe TSE physics and sampling without depending on a vendor raw-data format. The most important reusable concepts are echo-train timing, effective-TE placement, RF/refocusing schedules, gradient moments, phase-encoding order, acceleration pattern, and slice acquisition order.
+```text
+TSE_2D.m
+TSE_2D_gSlider.m
+```
 
-### Platform integration
+User intent is expressed through `Setup`, `SetupRF` and `SetupSpoiling`. The code copies the requested configuration into `Actual` and progressively adds resolved timing, RF, gradient, PE, slice and platform metadata.
 
-A `.seq` file still has to be executed by a real scanner. Platform integration provides hardware limits, raster/dead-time assumptions, interpreter behavior, logical-to-physical axis mapping, safety/PNS models, and any metadata required by the scanner's online reconstruction.
+This distinction is important:
 
-The current repository is **not fully vendor-decoupled**. The implemented system profiles are Siemens Terra variants, accelerated PI currently contains Siemens LIN mapping, PNS development checks use Siemens `.asc` models, and several sequence definitions participate in the current Siemens interpreter/ICE contract. These boundaries are documented in [Platform Integration](/platform-integration).
+- `Setup` = requested protocol;
+- `Actual` = resolved implementation after rasterization and platform preparation.
 
-### Reconstruction and correction
+## 2. Sequence preparation
 
-The bundled MATLAB reconstruction currently targets conventional Cartesian 2D TSE Siemens Twix data through `mapVBVD`. Its processing order is intentionally explicit: noise prewhitening precedes navigator estimation; phase and echo-magnitude corrections are applied consistently to imaging and calibration streams; encoded rows are packed from MDH labels; reconstruction then selects RSS, diagnostic PE-GRAPPA, ESPIRiT-SENSE, or Cartesian CS.
+The `prep/` directory converts the requested protocol into Pulseq objects. Major responsibilities include
 
-The reconstruction model is separate from the raw-data reader. A future vendor-specific reader should map its native data and metadata into the same reconstruction abstractions instead of leaking raw-data assumptions back into the sequence design.
+- system limits;
+- slice positions and ordering;
+- phase-encoding/acceleration pattern;
+- RF pulse preparation;
+- readout, crushers and spoilers;
+- labels and delays;
+- optional noise scan;
+- conventional/gSlider sequence loops; and
+- exported sequence definitions.
 
-### Validation
+The sequence is a RARE/TSE-family acquisition [[1]](/references#ref-1 "Hennig J, Nauerth A, Friedburg H. RARE imaging: a fast imaging method for clinical MR. Magn Reson Med. 1986;3:823-833.") implemented with explicit echo-to-$k_y$ ordering.
 
-Validation evidence is hierarchical. Pulseq timing and label checks establish software consistency; internal forward/adjoint and calibration checks establish reconstruction consistency; phantom studies test geometry and image behavior; scanner-side RF/SAR, gradient/PNS, interpreter, watchdog, and protocol checks determine whether a specific platform is acceptable for acquisition.
+See [Sequence Implementation](/sequence-generation).
 
-A successful Siemens 7 T test therefore does not automatically validate another scanner model or vendor.
+## 3. External method components inside sequence generation
 
-## Current implementation status
+Some sequence-generation features rely on established external methods or upstream code and are tracked explicitly rather than hidden behind generic names:
+
+- Pulseq sequence construction [[2]](/references#ref-2 "Layton KJ, Kroboth S, Jia F, et al. Pulseq. Magn Reson Med. 2017;77:1544-1552.");
+- Lustig-derived variable-density CS PE sampling [[8]](/references#ref-8 "Lustig M, Donoho D, Pauly JM. Sparse MRI: the application of compressed sensing for rapid MR imaging. Magn Reson Med. 2007;58:1182-1195.");
+- SLR RF pulse design [[20]](/references#ref-20 "Pauly JM, Le Roux P, Nishimura DG, Macovski A. Parameter relations for the Shinnar-Le Roux selective excitation pulse design algorithm. IEEE Trans Med Imaging. 1991;10:53-65.");
+- gSlider RF encoding [[21]](/references#ref-21 "Setsompop K, Fan Q, Stockmann J, et al. High-resolution in vivo diffusion imaging of the human brain with generalized slice dithered enhanced resolution: simultaneous multislice (gSlider-SMS). Magn Reson Med. 2018;79:141-151.");
+- TRAPS-style variable refocusing [[22]](/references#ref-22 "Hennig J, Weigel M, Scheffler K. Multiecho sequences with variable refocusing flip angles: optimization of signal behavior using smooth transitions between pseudo steady states (TRAPS). Magn Reson Med. 2003;49:527-535."); and
+- VERSE processing through the tracked external submodule [[23]](/references#ref-23 "Lee D, Lustig M, Grissom WA, Pauly JM. Time-optimal design for multidimensional and parallel transmit variable-rate selective excitation. Magn Reson Med. 2009;61:1471-1479.").
+
+See [Dependencies & Method Provenance](/reference/provenance) for the distinction between paper, software source and repository adaptation.
+
+## 4. Scanner integration
+
+A `.seq` file still needs a target-system execution layer. The current repository contains Siemens-specific integration in places such as
+
+- `Terra-XJ` / `Terra-XR` system profiles;
+- zero-based PI LIN mapping;
+- interpreter/ICE definitions; and
+- Siemens `.asc` PNS development models.
+
+These are **current implementation details**, not definitions of the TSE sequence itself. A new platform should implement its own limits, safety strategy, coordinate/index mapping and interpreter contract rather than copying Siemens semantics.
+
+See [Platform Integration](/platform-integration) and [Siemens 7 T LIN & ICE](/phase-encoding-and-ice).
+
+## 5. Acquisition validation
+
+Sequence-side checks under `check/` verify software-level conditions such as timing and label consistency and provide the currently available PNS development calculation. They do not certify human-scan safety.
+
+The validation hierarchy is:
+
+```mermaid
+flowchart LR
+    A[Software checks] --> B[Phantom validation]
+    B --> C[Platform safety checks]
+    C --> D[Approved study use]
+```
+
+See [Validation Strategy](/validation/scientific-validation) and [Scanner Validation & Safety](/validation-and-safety).
+
+## 6. Raw-data reconstruction
+
+The current companion reconstruction targets conventional Cartesian 2D TSE Siemens Twix data and uses external mapVBVD for file reading. The pipeline then provides
+
+- receive-noise prewhitening;
+- navigator phase correction;
+- optional echo-envelope equalization;
+- Cartesian LIN-based packing;
+- RSS / PE-GRAPPA / ESPIRiT-SENSE / CS;
+- numerical consistency diagnostics; and
+- NIfTI geometry/output.
+
+The reconstruction is intentionally transparent so acquisition behavior can be inspected from raw data rather than relying only on a proprietary scanner image.
+
+All reconstruction functions, equations and main options are documented together under [Reconstruction](/reconstruction).
+
+## 7. Optional processing
+
+Two kinds of optional processing are intentionally separated from the core sequence/reconstruction definition:
+
+- **echo magnitude correction** — optional preprocessing of measured k-space before packing/reconstruction;
+- **NLM/BM3D/SANLM/TGV2** — optional image-domain post-processing after reconstruction.
+
+Neither category is automatically selected as the universal correct output. See [Optional Echo Correction](/guide/echo-corrections) and [Optional Denoising](/guide/denoising).
+
+## 8. Current implementation boundary
 
 | Layer | Current status |
 | --- | --- |
-| Acquisition goal | Vendor-neutral Cartesian 2D TSE and gSlider-TSE design in Pulseq |
-| Sequence implementation | MATLAB + Pulseq, with some Siemens-specific integration still in shared preparation code |
-| Scanner presets | `Terra-XJ`, `Terra-XR` |
+| Acquisition format | Pulseq Cartesian 2D TSE / gSlider-TSE |
+| Sequence code | MATLAB + Pulseq |
+| Scanner presets | Siemens 7 T Terra variants |
+| PI/CS | regular PI + Lustig-derived 1D variable-density CS PE sampling |
+| RF assets | sinc + SigPy-generated SLR/gSlider pulse banks; optional VERSE path |
 | Scanner validation | Siemens 7 T |
-| Online integration | Siemens interpreter / LIN / iPAT / ICE metadata path |
-| Offline raw-data reader | Siemens Twix through `mapVBVD` |
-| Offline reconstruction | RSS, diagnostic PE-GRAPPA, ESPIRiT-SENSE, Cartesian CS |
-| Echo corrections | Navigator-based constant + readout-linear phase; optional echo-magnitude equalization |
-| Post-processing | Optional NLM, BM3D, SANLM, and TGV2 benchmarking workflow |
-| gSlider decoding | Not currently implemented in the bundled offline reconstruction |
+| Raw-data reader | Siemens Twix via mapVBVD |
+| Reconstruction | RSS, PE-GRAPPA, ESPIRiT-SENSE, Cartesian TV/Haar-L1 CS |
+| gSlider decoding | not implemented in bundled reconstruction |
+| Post-processing | optional only |
 
-## Where to go next
+## 9. Repository directories
 
-For the mathematical abstraction, read [Symbols & notation](/theory/symbols), [TSE echo-train model](/theory/tse-echo-train), and [Phase encoding & effective TE](/theory/phase-encoding). For implementation, continue with [Sequence Generation](/sequence-generation). For scanner coupling, use [Platform Integration](/platform-integration) and [Siemens 7 T LIN & ICE](/phase-encoding-and-ice). For data processing, continue with [Reconstruction](/reconstruction) and [Echo Corrections](/guide/echo-corrections).
+```text
+TSE_2D.m / TSE_2D_gSlider.m   sequence entry points
+prep/                          sequence preparation and sampling/RF assets
+check/                         timing, label, PNS development checks
+plot/                          sequence / k-space visualization
+utils/                         shared sequence utilities
+pulseq/                        Pulseq Git submodule
+VERSE/                         VERSE Git submodule
+recon/matlab/                  current conventional TSE reconstruction
+recon/julia/                   retained Julia reconstruction work
+seq/                           generated outputs
+references/                    local research/reference material where applicable
+docs/                          VitePress source
+```
+
+Continue with [Sequence Implementation](/sequence-generation) for the acquisition code, [Reconstruction](/reconstruction) for raw-data processing, or [Dependencies & Method Provenance](/reference/provenance) when reviewing attribution.
