@@ -39,20 +39,20 @@ The numbered list is kept as one continuous HTML `<ol>` so that the `ref-n` anch
 The papers above document scientific methods. Software/code provenance is tracked separately because some dependencies are tools rather than publications.
 
 - **Pulseq** — `pulseq/` is a Git submodule of <https://github.com/pulseq/pulseq>. The sequence description and MATLAB `mr.*` building blocks use Pulseq; cite reference [2].
-- **SAFE PNS prediction** — Pulseq MATLAB `Sequence.calcPNS` in the currently tracked Pulseq revision explicitly calls the external `safe_pns_prediction` MATLAB package by Filip Szczepankiewicz and Thomas Witzel: <https://github.com/filip-szczepankiewicz/safe_pns_prediction>. The package must be downloaded and placed on the MATLAB path for `check_PNS` / `seq.calcPNS(...)` to run. The PNS model is the SAFE model [26]; the `safe_pns_prediction` repository asks users to consider citing [27]. Scanner-specific `MP_GPA*.asc` SAFE parameters are not distributed by that repository and must be supplied separately for the target Siemens gradient system.
+- **SAFE PNS prediction** — Pulseq MATLAB `Sequence.calcPNS` in the currently tracked Pulseq revision calls the external `safe_pns_prediction` MATLAB package by Filip Szczepankiewicz and Thomas Witzel: <https://github.com/filip-szczepankiewicz/safe_pns_prediction>. The PNS model is the SAFE model [26]; the `safe_pns_prediction` repository asks users to consider citing [27]. A compatible target-system hardware model is a separate platform input and is not distributed by this repository. Making this path an explicit optional dependency is tracked in [TO DO](/todo).
 - **SparseMRI sampling utilities** — `prep/CS/genPDF.m` and `prep/CS/genSampling.m` retain the header `(c) Michael Lustig 2007`; `genSampling_TSE.m` is the repository's TSE-oriented adaptation. Their algorithmic basis is the polynomial variable-density / Monte-Carlo interference-minimization sampling distributed with SparseMRI and associated with reference [8]. The historical SparseMRI software page is <http://web.stanford.edu/~mlustig/SparseMRI.html>.
 - **SigPy RF** — `prep/pulse/RF_pulse.ipynb` uses `sigpy.mri.rf.slr.dzrf` to generate the bundled SLR refocusing/inversion pulse banks and `sigpy.mri.rf.slr.dz_gslider_rf` to generate the bundled gSlider excitation bank. SigPy source: <https://github.com/mikgroup/sigpy>. The underlying SLR and gSlider methods are references [20] and [21]. SigPy is a pulse-generation/provenance dependency, not a MATLAB runtime requirement for using the already generated `.mat` pulse banks.
 - **VERSE-RF-Pulse** — `VERSE/` is a Git submodule of <https://github.com/BennyZhang-Codes/VERSE-RF-Pulse>. That repository records its lineage to `mriphysics/verse-mb`, `mriphysics/reVERSE-GIRF`, Shaihan Malik's VERSE implementation, and Michael Lustig's `minTimeGradient` framework. Its time-optimal VERSE method basis is reference [23].
-- **mapVBVD** — the current Siemens offline reconstruction reads Twix raw data with <https://github.com/pehses/mapVBVD>. It is an external software dependency of the Siemens reconstruction path, not part of the vendor-neutral Pulseq sequence description.
+- **mapVBVD** — the maintained raw-data reader currently uses <https://github.com/pehses/mapVBVD> to read Siemens Twix. This is an external dependency of the current reader, not part of the Pulseq sequence definition.
 - **BM3D 4.x** and **CAT12 SANLM** — optional third-party denoisers installed outside this repository. Their code is intentionally not vendored; their scientific methods are references [11]–[13].
 - **MATLAB `imnlmfilt`** — the NLM comparison path uses MATLAB Image Processing Toolbox; the underlying non-local means method is reference [25].
 
-For a file-by-file mapping between package functionality, implementation source and the appropriate scientific/software attribution, see [Dependencies & method provenance](/reference/provenance).
+For a file-by-file mapping between package functionality, implementation source and the appropriate scientific/software attribution, see [Dependencies & Method Provenance](/reference/provenance).
 
 ## Software citation
 
 For this repository, use the metadata in `CITATION.cff`. A reproducible report should also record the exact repository commit and submodule SHAs used to generate the sequence/reconstruction. See [Reproducibility & Citation](/reproducibility).
 
-## Vendor documentation
+## Platform documentation
 
-The Siemens-specific integration notes rely in part on the applicable ICE/IDEA developer documentation for the validated environment. These vendor materials are not substituted for public scientific references and are not redistributed by this documentation site.
+Scanner-vendor implementation details used during local development/validation are not substituted for public scientific references and are not redistributed by this documentation site.
