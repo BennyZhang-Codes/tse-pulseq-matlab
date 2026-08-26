@@ -1,16 +1,16 @@
-# Phase encoding and effective TE
+# Phase encoding & acceleration
 
-The phase-encoding design is expressed first in **logical $k_y$ coordinates**. Scanner-specific line numbering is applied only after the acquisition order has been defined.
+This page documents the **implemented phase-encoding pipeline**: how logical $k_y$ locations are selected, how they are assigned to the TSE echo train, and when platform-specific line metadata are introduced.
 
 ## Logical echo-to-$k_y$ mapping
 
-For an echo train of length $N_E$, let $e(k_y)$ denote the echo used to acquire a phase-encoding location. The TSE modulation sampled across phase encoding is then
+For an echo train of length $N_E$, let $e(k_y)$ denote the echo used for a phase-encoding position. The TSE echo envelope therefore appears across phase encoding as
 
 $$
 w(k_y)=E_{e(k_y)}.
 $$
 
-The maintained `PEMode` choices are:
+The maintained ordering modes are
 
 ```text
 Linear
@@ -18,78 +18,114 @@ CentricFull
 CentricHalf
 ```
 
-The requested effective echo selects the desired center echo
+The requested effective echo is approximately
 
 $$
 e_0
 =
-\max\!\left(
-\operatorname{round}\!\left(\frac{T_{E,\mathrm{eff}}}{T_{E,1}}\right),
-1
-\right),
+\max\!\left[
+\operatorname{round}\!\left(\frac{T_{E,\mathrm{eff}}}{T_{E,1}}\right),1
+\right],
 $$
 
-and the order is shifted so that
+and the ordering logic shifts the train so that
 
 $$
 e(k_y=0)\approx e_0.
 $$
 
-The equality can be constrained by the discrete echo train, matrix size, acceleration pattern, and ordering mode.
+This is a discrete implementation constraint: matrix size, acceleration and ETL can prevent an arbitrary continuous `TEeff` from mapping exactly to a realizable echo.
 
-## Sampling pattern versus metadata
-
-The logical phase-encoding pattern answers physical acquisition questions:
-
-- which $k_y$ locations are acquired;
-- in which echo they are acquired;
-- which lines are imaging lines;
-- which lines belong to ACS/reference calibration;
-- which lines are omitted for acceleration.
-
-A platform-specific metadata layer then maps those logical lines into whatever index convention the target interpreter or online reconstruction requires.
+## Acquisition-order pipeline
 
 ```mermaid
 flowchart LR
-    A["Logical signed ky"] --> B["Echo ordering"]
-    B --> C["PI / CS sampling + ACS intent"]
-    C --> D["Pulseq acquisition labels"]
-    D --> E["Platform-specific line metadata"]
-    E --> F["Scanner / online reconstruction"]
+    A[Logical signed ky] --> B[Sampling mask]
+    B --> C[Echo ordering]
+    C --> D[Image / ACS intent]
+    D --> E[Pulseq labels]
+    E --> F[Platform metadata]
 ```
 
-This order of operations is important. Siemens LIN is **not** the definition of the acquisition; it is one current platform mapping of the logical acquisition.
+The ordering matters conceptually. **Siemens LIN is not the acquisition model**; it is one currently implemented metadata mapping of an already defined logical acquisition.
 
-## Parallel imaging
+## Parallel imaging path
 
-For `AccelerationMode='PI'`, the sequence uses a regular accelerated imaging lattice together with a contiguous ACS/reference region. The design must preserve:
+For `AccelerationMode='PI'`, the repository constructs a regular undersampled PE lattice and a contiguous ACS region. The implementation tracks separately:
 
-- full encoded PE matrix size;
-- physical k-space center;
+- encoded matrix size and physical $k_y=0$;
 - acceleration factor $R$;
-- regular imaging lattice;
-- ACS location and width;
-- distinction between imaging, reference-only, and image-plus-reference lines.
+- acquired imaging lines;
+- reference-only lines;
+- image-plus-reference ACS lines;
+- echo assignment for every acquired PE position.
 
-The current Siemens 7 T integration subsequently converts this into its zero-based LIN convention. That mapping is documented separately in [Siemens 7 T LIN & ICE](/phase-encoding-and-ice).
+The sequence-side sampling contract is compatible with conventional parallel-imaging reconstruction such as GRAPPA [[5]](/references#ref-5 "Griswold MA, Jakob PM, Heidemann RM, et al. Generalized autocalibrating partially parallel acquisitions (GRAPPA). Magn Reson Med. 2002;47:1202-1210.") and SENSE [[6]](/references#ref-6 "Pruessmann KP, Weiger M, Scheidegger MB, Boesiger P. SENSE: sensitivity encoding for fast MRI. Magn Reson Med. 1999;42:952-962."). The current Siemens adapter subsequently maps the logical rows into its zero-based LIN convention; see [Siemens 7 T LIN & ICE](/phase-encoding-and-ice).
 
-## Compressed sensing
+## Compressed-sensing acquisition path
 
-For `AccelerationMode='CS'`, the sampling order is intended for offline iterative reconstruction and is kept separate from the PI/ICE path.
+The CS sampling code is derived from Michael Lustig's SparseMRI sampling utilities associated with Sparse MRI [[8]](/references#ref-8 "Lustig M, Donoho D, Pauly JM. Sparse MRI: the application of compressed sensing for rapid MR imaging. Magn Reson Med. 2007;58:1182-1195."). `prep/CS/genPDF.m` and `genSampling.m` retain `(c) Michael Lustig 2007` in their source headers; `genSampling_TSE.m` is the repository-specific TSE adaptation.
 
-Do not silently apply Siemens PI LIN assumptions to a CS acquisition. The CS pattern can contain its own ordering/sentinel behavior and should be interpreted by the offline reconstruction model rather than by an online GRAPPA contract unless a future platform adapter explicitly defines such behavior.
+::: info Sampling type
+The implemented CS pattern is **one-dimensional polynomial variable-density sampling along phase encoding**. It is not a two-dimensional Poisson-disc mask.
+:::
 
-## Effective TE and central k-space
+### 1. ETL-compatible acquired-line count
 
-Central k-space carries strong image-energy and contrast weighting. For TSE, placing a chosen echo at $k_y=0$ therefore couples `TEeff` to image contrast.
+`prep_PE3DOrder_CS.m` chooses
 
-However, effective TE is not a complete tissue model. The signal at the center echo depends on refocusing flip angles, T1/T2, stimulated echoes, B1, slice profile, crushers, and other sequence details. Use `TEeff` as a **k-space placement parameter** and interpret tissue contrast through the actual echo train.
+$$
+N_{\mathrm{acq}}
+=
+\operatorname{round}\!\left(\frac{N_{\mathrm{PE}}}{R N_E}\right)N_E,
+$$
 
-## Siemens LIN versus mapVBVD indexing
+so that the acquired PE count is an integer multiple of the echo-train length.
 
-In the currently validated Siemens PI path, exported LIN metadata are zero-based. After Twix data are loaded through MATLAB/mapVBVD, line indices are one-based.
+### 2. Polynomial variable-density PDF
 
-Therefore, for the same physical row,
+The code calls
+
+```matlab
+[pdf,~] = genPDF(nPE,p,Nacq/nPE,2,r,1);
+```
+
+where `p = Setup.p` controls the polynomial falloff and `r = Setup.r` specifies the fully sampled central-radius parameter used by the Lustig-style PDF generator.
+
+### 3. Monte-Carlo interference minimization
+
+`genSampling_TSE(pdf,500,0.3,nAcq)` draws random masks according to the PDF. For each candidate it evaluates the off-center interference of
+
+$$
+\mathcal F^{-1}\!\left\{\frac{M(k_y)}{p(k_y)}\right\},
+$$
+
+and retains the candidate with the lowest peak off-center magnitude. The TSE adaptation additionally targets the explicit `nAcq` count needed by the echo-train grouping.
+
+```mermaid
+flowchart TD
+    A[Polynomial PDF] --> B[Random mask candidate]
+    B --> C[Match Nacq]
+    C --> D[Compute inverse-FT interference]
+    D --> E{Lower peak interference?}
+    E -->|yes| F[Keep candidate]
+    E -->|no| G[Discard]
+    F --> H[Repeat 500 trials]
+    G --> H
+    H --> I[Final PE mask]
+```
+
+The selected mask is then converted back to logical signed $k_y$ positions and passed into the same echo-ordering framework used by the rest of the sequence.
+
+## Effective TE and k-space center
+
+Central k-space strongly influences image contrast. In TSE, mapping a selected echo to $k_y=0$ therefore makes `TEeff` an implementation parameter connecting timing to the PE order. The RARE/TSE signal itself remains echo-dependent [[1]](/references#ref-1 "Hennig J, Nauerth A, Friedburg H. RARE imaging: a fast imaging method for clinical MR. Magn Reson Med. 1986;3:823-833.").
+
+`TEeff` should not be interpreted as a complete tissue model. Refocusing angle, $T_1/T_2$, stimulated echoes, B1 and slice profile can all alter the echo envelope. See [TSE signal & echo train](/theory/tse-echo-train).
+
+## Platform metadata and indexing
+
+For the currently validated Siemens PI path,
 
 $$
 \mathrm{LIN}_{\mathrm{Siemens}}
@@ -97,15 +133,18 @@ $$
 \mathrm{Lin}_{\mathrm{mapVBVD}}-1.
 $$
 
-This one-sample difference is purely an index-base convention. It is a common source of apparent center-line or ACS mismatches when comparing sequence definitions directly with MATLAB counters.
+The left side is zero-based scanner metadata; the right side is MATLAB/mapVBVD one-based indexing. This difference is an index convention only and must not be confused with a one-line physical k-space shift.
 
-## What to inspect after changing PE settings
+CS acquisitions should not inherit Siemens PI/online-GRAPPA assumptions unless a specific platform adapter defines that behavior.
 
-After modifying `PEMode`, `TEeff`, `nEcho`, `R`, or ACS width:
+## Source map
 
-1. verify that physical $k_y=0$ is associated with the intended echo;
-2. inspect the logical sampling pattern before platform conversion;
-3. confirm that PI imaging lines form the intended regular lattice;
-4. confirm ACS continuity and width;
-5. verify exported platform metadata independently of the logical order;
-6. compare reconstructed blur, ringing, and phase-direction artifacts on matched phantom data.
+| Role | Source |
+| --- | --- |
+| overall PE dispatch/order | [`prep_PE3DOrder.m`](https://github.com/BennyZhang-Codes/tse-pulseq-matlab/blob/vitepress-style/prep/prep_PE3DOrder.m) |
+| CS order | [`prep_PE3DOrder_CS.m`](https://github.com/BennyZhang-Codes/tse-pulseq-matlab/blob/vitepress-style/prep/prep_PE3DOrder_CS.m) |
+| variable-density PDF | [`prep/CS/genPDF.m`](https://github.com/BennyZhang-Codes/tse-pulseq-matlab/blob/vitepress-style/prep/CS/genPDF.m) |
+| Monte-Carlo sampling | [`prep/CS/genSampling.m`](https://github.com/BennyZhang-Codes/tse-pulseq-matlab/blob/vitepress-style/prep/CS/genSampling.m) |
+| TSE-adapted sampling | [`prep/CS/genSampling_TSE.m`](https://github.com/BennyZhang-Codes/tse-pulseq-matlab/blob/vitepress-style/prep/CS/genSampling_TSE.m) |
+
+For code-level attribution, see [Dependencies & method provenance](/reference/provenance).
