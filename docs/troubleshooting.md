@@ -1,152 +1,113 @@
 # Troubleshooting
 
-This page groups common failures by layer. Diagnose the **acquisition, platform integration, reconstruction, and post-processing** stages separately rather than changing several parts of the pipeline at once.
-
 ## Pulseq or VERSE functions are missing
 
-Check that the repository was cloned with submodules:
+Make sure the repository was cloned with submodules:
 
 ```bash
-git submodule status
 git submodule update --init --recursive
 ```
 
-From MATLAB, confirm that Pulseq resolves:
+Then confirm Pulseq is visible in MATLAB:
 
 ```matlab
 which mr.Sequence
 ```
 
-The maintained sequence scripts add the repository modules to the MATLAB path themselves when run from the repository root.
+Run the maintained sequence scripts from the repository root.
 
 ## `check_Timing` fails
 
-A timing failure usually means the requested TE/TR is incompatible with the rasterized RF, readout, crusher, spoiler, or delay requirements.
+The requested TE/TR may be incompatible with the rasterized RF, readout, crusher/spoiler, or gradient limits.
 
 Check recent changes to:
 
-- RF duration or TBP;
 - `TE1`, `TEeff`, or `TR`;
+- RF duration / TBP;
 - readout duration;
-- crusher/spoiler cycles or fixed spoiler duration;
-- inversion-recovery timing;
+- crusher/spoiler settings;
+- inversion timing; and
 - gradient amplitude/slew limits.
 
-Do not bypass `check_Timing`. Resolve the actual event duration or requested protocol instead.
+Resolve the event timing rather than bypassing `check_Timing`.
 
-## Gradient design reports infeasibility
+## `check_PNS` cannot run
 
-The custom gradient utilities validate exact area, rasterized duration, endpoints, gradient amplitude, and slew rate. A continuous-time solution can become infeasible after rasterization.
+The current PNS path requires external `safe_pns_prediction` and a hardware model compatible with the target gradient system. The hardware model is not distributed with this repository.
 
-If a waveform fails:
+See [Installation](/installation) and [Validation & Safety](/validation-and-safety).
 
-1. verify units and target area;
-2. inspect endpoint amplitudes inherited from neighboring blocks;
-3. allow a longer duration or lower target area;
-4. confirm that `MaxGrad_soft` and `MaxSlew_soft` are appropriate for the target system;
-5. avoid replacing the raster-aware solver with simple analytical rounding.
+## PI / GRAPPA reconstruction fails
 
-## PNS model is missing or `check_PNS` cannot run
+Check that acquisition and reconstruction agree on:
 
-The current development PNS path expects the Siemens `.asc` model associated with the selected Terra scanner profile. Ensure the required model is available on the MATLAB path.
+- acceleration factor `R`;
+- full `nPE`;
+- regular accelerated PE lattice;
+- contiguous ACS/reference lines; and
+- logical PE indices / raw-data line mapping.
 
-For another scanner model or vendor, do **not** reuse a Terra model as a placeholder. Add the appropriate platform-specific PNS/safety strategy and repeat scanner validation.
-
-## RF peak or SAR concerns
-
-A successful Pulseq timing check does not establish RF safety. High-TBP gSlider excitation and long/refocused TSE trains can be demanding at 7 T.
-
-Review peak B1, RF duration, refocusing schedule, predicted/ scanner-reported SAR, and the target scanner's RF supervision. If the scanner rejects the sequence, do not defeat the safety limit in software.
-
-## Wrong phase-encoding center or accelerated reconstruction failure
-
-For accelerated PI, verify the complete contract rather than only `R`:
-
-- logical $k_y$ center and echo assignment;
-- full encoded `nPE`;
-- regular accelerated imaging lattice;
-- ACS start and width;
-- exported Siemens LIN mapping for the current 7 T path;
-- Siemens iPAT acceleration and reference-line settings;
-- mapVBVD one-based versus exported zero-based line indices.
-
-See [Phase encoding & effective TE](/theory/phase-encoding) and [Siemens 7 T LIN & ICE](/phase-encoding-and-ice).
+The current GRAPPA implementation does not handle irregular CS masks. See [Phase Encoding & Acceleration](/theory/phase-encoding) and [Reconstruction](/reconstruction).
 
 ## Phase correction appears ineffective
 
-Confirm that phase-correction navigators are actually present and that `SEG`, `SLC`, and related counters identify echoes and slices as expected.
+Confirm that phase-correction navigators are present in the raw data and identified with the expected slice/echo counters.
 
-The offline phase model estimates a constant and readout-linear term. Artifacts outside that model may remain. Also remember that enabling `PhaseCorrection` in sequence metadata is not by itself sufficient for Siemens online ICE correction; the compatible interpreter and scanner protocol must consume the relevant metadata.
+The current offline model fits constant and readout-linear phase terms. Artifacts outside that model may remain. See [Reconstruction](/reconstruction).
 
-## Echo-magnitude correction makes the image noisy
+## Echo magnitude correction amplifies noise
 
-Inverse equalization necessarily amplifies noise when late echoes have weak magnitude. Inspect the estimated $A_e$, selected regularization, and gain curve.
+Echo-envelope equalization can increase noise when later echoes have low signal. Inspect the estimated echo envelope and gain curve, and compare the corrected result with the uncorrected reconstruction.
 
-Prefer the regularized Wiener-style mode for routine experiments when full inverse-envelope weighting is unstable, and evaluate corrected images against uncorrected data with matched windowing. See [Echo Corrections](/guide/echo-corrections).
+The correction is optional and disabled by default. See [Optional Echo Correction](/guide/echo-corrections).
 
-## No usable noise stream is available
+## No usable noise scan is available
 
-The reconstruction warns and uses an identity coil transform when receive-noise data cannot be used. This means prewhitening did not occur.
+If no usable receive-noise stream is found, the reconstruction warns and falls back to an identity coil transform, so prewhitening is not applied.
 
-Do not suppress the warning if quantitative comparisons depend on a consistent noise basis. Check whether the raw acquisition contains the expected noise data and whether the reader identifies that stream correctly.
+Check that the acquisition contains the expected noise stream and that the reader identifies it correctly.
 
-## ESPIRiT/SENSE/CS stops before reconstruction
+## ESPIRiT / SENSE / CS stops before reconstruction
 
-Common causes are:
+Common causes include:
 
-- insufficient contiguous ACS data;
-- an invalid calibration region;
+- insufficient ACS data;
+- invalid calibration region;
 - inconsistent k-space/sensitivity dimensions;
-- failed forward/adjoint inner-product test;
-- an unsupported or empty sampling mask.
+- failed forward/adjoint consistency check; or
+- an empty/unsupported sampling mask.
 
-The forward/adjoint mismatch threshold is a safeguard. Do not disable it to make a dataset run; first determine whether the operator definitions or data geometry are inconsistent.
+See the method-specific options and limits in [Reconstruction](/reconstruction).
 
 ## CS looks over-smoothed or unstable
 
-The example TV and Haar weights are starting values, not universal parameters. Retune them when resolution, contrast, acceleration, coil configuration, sampling mask, or calibration changes.
+The example TV/Haar regularization values are starting points, not universal settings. Adjust them for the acquisition, sampling pattern, and desired image characteristics while keeping the underlying data and encoding model fixed during comparisons.
 
-Keep the encoding model fixed while sweeping regularization. Compare data residual, image structure, and a reference acquisition when available.
-
-## gSlider raw data do not reconstruct correctly
+## gSlider raw data do not decode
 
 The bundled MATLAB reconstruction does **not** currently implement gSlider decoding. `recon_TSE2D` is for conventional Cartesian 2D TSE.
 
-Use [gSlider-TSE & TRAPS](/guide/gslider-traps) for the current sequence scope and do not interpret a conventional reconstruction as a decoded gSlider volume.
+See [gSlider-TSE](/guide/gslider-traps).
 
-## Slice order or image orientation is wrong
+## Slice order or orientation is wrong
 
-The maintained sequence is non-oblique and relies on logical axis mapping, `SignCorr`, slice acquisition order, exported physical slice metadata, interpreter behavior, and reconstruction geometry.
+Check:
 
-Use an asymmetric phantom and verify:
+- `AxisRO`, `AxisPE`, and `Axis3D`;
+- `SignCorr`;
+- physical slice positions/order;
+- interpreter mapping; and
+- NIfTI geometry for offline output.
 
-- RO/PE polarity;
-- physical slice direction;
-- acquisition order versus anatomical order;
-- interpreter remapping of `SLC` ordinals;
-- NIfTI affine orientation for offline output.
-
-Do not infer anatomy from variable names alone.
+The maintained sequence path is currently non-oblique.
 
 ## Documentation build fails
 
-Install the pinned documentation dependencies from the repository root:
+From the repository root:
 
 ```bash
 npm install
 npm run docs:build
 ```
 
-The site uses VitePress, MathJax, and Mermaid. If a formula or diagram fails, first isolate the affected Markdown page and check its math delimiters or Mermaid syntax rather than disabling the global renderer.
-
-## Still unsure which layer is failing?
-
-Start from the smallest validated baseline:
-
-1. generate a fully sampled conventional `R=1` TSE sequence;
-2. confirm timing, labels, and appropriate development hardware checks;
-3. validate geometry/orientation on a phantom;
-4. reconstruct without optional echo-magnitude correction or denoising;
-5. add PI, phase correction, iterative reconstruction, gSlider, or post-processing one feature at a time.
-
-This keeps acquisition, metadata, reconstruction, and post-processing failures distinguishable.
+If one formula or Mermaid diagram fails, check the affected Markdown page and diagram/math syntax first.
