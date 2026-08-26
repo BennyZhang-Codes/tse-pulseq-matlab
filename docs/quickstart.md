@@ -129,7 +129,7 @@ Then run:
 run(fullfile('recon','matlab','examples','run_recon_TSE2D.m'))
 ```
 
-For a quick one-slice diagnostic:
+For a quick one-slice reconstruction:
 
 ```matlab
 slices = 3;
@@ -147,6 +147,8 @@ grappa
 sense
 cs
 ```
+
+The `grappa` path is regular Cartesian **1D PE-GRAPPA** calibrated from contiguous ACS. Its current support boundary is documented explicitly in [Reconstruction](/reconstruction): no partial-Fourier GRAPPA, SMS/slice-GRAPPA, non-Cartesian GRAPPA, or irregular variable-density mask reconstruction.
 
 Example ESPIRiT-SENSE:
 
@@ -171,7 +173,7 @@ result = recon_TSE2D(twixFile, ...
     'IterativeUseGPU', 'auto');
 ```
 
-The [Reconstruction](/reconstruction) chapter now contains the calling interface, equations, defaults, calibration choices and source functions in one place. The numeric defaults above are starting values, not universal optimum parameters.
+The [Reconstruction](/reconstruction) chapter contains the calling interface, equations, defaults, calibration choices and source functions in one place. The numeric defaults above are starting values, not universal optimum parameters.
 
 ## 7. Optional processing stays optional
 
