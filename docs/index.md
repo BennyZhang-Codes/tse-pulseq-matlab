@@ -4,147 +4,102 @@ layout: home
 title: TSE Pulseq for MATLAB
 titleTemplate: false
 
-description: Engineering documentation for an open-source Cartesian 2D TSE and gSlider-TSE Pulseq implementation, including sequence construction, reconstruction, validation and method provenance.
+description: Open-source Cartesian 2D TSE and gSlider-TSE sequence implementation in MATLAB/Pulseq with companion offline reconstruction.
 
 hero:
   name: TSE Pulseq
-  text: Open-source 2D TSE sequence engineering with Pulseq
-  tagline: Implementation-focused documentation for Cartesian TSE and gSlider-TSE sequence generation, RF and phase-encoding design, reconstruction, validation, and traceable method/code provenance.
+  text: Open-source 2D TSE sequences with Pulseq
+  tagline: Generate conventional Cartesian 2D TSE and gSlider-TSE sequences, configure RF and phase encoding, and reconstruct conventional 2D TSE raw data with the companion MATLAB pipeline.
   actions:
     - theme: brand
       text: Quick Start
       link: /quickstart
     - theme: alt
-      text: Sequence Implementation
+      text: Sequence
       link: /sequence-generation
     - theme: alt
-      text: TO DO
-      link: /todo
+      text: Reconstruction
+      link: /reconstruction
 
 features:
-  - title: Sequence implementation first
-    details: Follow the entry scripts through system setup, RF, PE sampling, gradients, labels, TSE loops, checks and Pulseq export.
+  - title: TSE sequence generation
+    details: Conventional multi-slice Cartesian 2D TSE with configurable timing, RF, slice ordering and phase encoding.
     link: /sequence-generation
-  - title: Traceable methods and code
-    details: Distinguish papers, upstream software, inherited/adapted code and repository-local implementations for sampling, RF design and reconstruction.
-    link: /reference/provenance
-  - title: Reconstruction companion
-    details: Read the raw-data workflow, equations, parameter defaults and source functions together in one reconstruction chapter.
+  - title: gSlider-TSE
+    details: gSlider excitation with optional TRAPS variable-refocusing schedules.
+    link: /guide/gslider-traps
+  - title: PI and CS sampling
+    details: Parallel-imaging PE patterns and variable-density compressed-sensing PE sampling.
+    link: /theory/phase-encoding
+  - title: MATLAB reconstruction
+    details: Prewhitening, navigator phase correction, RSS, GRAPPA, SENSE and CS with ESPIRiT sensitivity estimation.
     link: /reconstruction
-  - title: Public implementation status
-    details: See known limitations, portability work and planned features in the project checklist.
-    link: /todo
 ---
 
-::: warning Research sequence software
-This repository is for research sequence development. A valid Pulseq file, successful timing/label checks, optional PNS prediction, or a successful offline reconstruction does **not** establish human-scan safety. Target-scanner RF/SAR, gradient/PNS, interpreter/watchdog behavior, protocol review and local institutional requirements remain mandatory.
+## What is this package?
+
+`tse-pulseq-matlab` is an open-source MATLAB/Pulseq implementation of **Cartesian 2D turbo spin echo (TSE)** acquisition. It provides two sequence entry points:
+
+```text
+TSE_2D.m          conventional multi-slice 2D TSE
+TSE_2D_gSlider.m  gSlider-TSE
+```
+
+The repository also includes a companion MATLAB reconstruction for conventional Cartesian 2D TSE data.
+
+## Supported features
+
+| Area | Available functionality |
+| --- | --- |
+| Sequence | conventional 2D TSE, gSlider-TSE, inversion recovery, multi-slice acquisition |
+| Phase encoding | Linear, CentricFull, CentricHalf; PI and CS sampling |
+| RF | sinc, SLR pulse banks, gSlider pulse banks, optional VERSE |
+| Refocusing | fixed flip angles and TRAPS-style variable refocusing |
+| Sequence checks | Pulseq timing, labels, sequence/k-space plots; PNS prediction path when its external inputs are available |
+| Reconstruction | RSS, GRAPPA, SENSE, CS; ESPIRiT sensitivity estimation; coil compression |
+| Preprocessing | noise prewhitening and navigator phase correction |
+| Optional processing | navigator-derived echo magnitude correction; NLM, BM3D, SANLM and TGV2 denoising |
+| Output | reconstructed images and NIfTI export in the maintained MATLAB workflow |
+
+Detailed implementation and scientific/code provenance are documented in [Sequence Implementation](/sequence-generation), [Reconstruction](/reconstruction), and [Dependencies & Method Provenance](/reference/provenance).
+
+## Start using it
+
+Clone the repository with its submodules:
+
+```bash
+git clone --recurse-submodules https://github.com/BennyZhang-Codes/tse-pulseq-matlab.git
+cd tse-pulseq-matlab
+```
+
+Generate a conventional sequence:
+
+```matlab
+run('TSE_2D.m')
+```
+
+Generate gSlider-TSE:
+
+```matlab
+run('TSE_2D_gSlider.m')
+```
+
+See [Quick Start](/quickstart) for the main configuration and reconstruction example.
+
+## Current notes
+
+- Scanner development/testing to date has used Siemens 7 T systems. The sequence itself is described with Pulseq; scanner execution requires a compatible interpreter and target-system validation.
+- The maintained offline raw-data reader currently uses Siemens Twix through `mapVBVD`.
+- Offline gSlider decoding is not yet implemented.
+- The current PNS-check path requires external `safe_pns_prediction` and a target-system hardware model; making this check cleanly optional is listed in [TO DO](/todo).
+
+::: warning Research use
+A generated `.seq` file is not by itself evidence of scanner safety. Use the target scanner's RF/SAR, gradient/PNS, interpreter/watchdog and local safety procedures before in-vivo scanning. See [Validation & Safety](/validation-and-safety).
 :::
 
-## What this repository contains
+## Documentation
 
-`tse-pulseq-matlab` combines three engineering layers:
-
-```mermaid
-flowchart LR
-    A[Sequence design] --> B[Pulseq SEQ]
-    B --> C[Platform integration]
-    C --> D[Raw data]
-    D --> E[MATLAB reconstruction]
-    E --> F[Optional post-processing]
-```
-
-- **Sequence generation** — conventional Cartesian 2D TSE and gSlider-TSE built with Pulseq [[2]](/references#ref-2 "Layton KJ, Kroboth S, Jia F, et al. Pulseq: a rapid and hardware-independent pulse sequence prototyping framework. Magn Reson Med. 2017;77:1544-1552.").
-- **Platform integration** — target-system hardware limits, interpreter behavior, metadata mapping, safety/PNS inputs, and scanner validation.
-- **Offline reconstruction** — current raw-data reader, prewhitening, navigator correction, RSS/GRAPPA/SENSE/CS, geometry export and optional post-processing.
-
-The package implements RARE/TSE-family acquisitions [[1]](/references#ref-1 "Hennig J, Nauerth A, Friedburg H. RARE imaging: a fast imaging method for clinical MR. Magn Reson Med. 1986;3:823-833.") but the documentation is organized around **source-code behavior and engineering implementation** rather than as a standalone MRI textbook.
-
-## Current testing boundary
-
-The sequence concept is intended to be portable through Pulseq. Scanner development/testing to date has used Siemens 7 T systems, and the maintained offline reader currently consumes Siemens Twix through `mapVBVD`.
-
-These facts are documented as the **current implementation/testing boundary**, not as the central identity of the package. Remaining vendor-specific assumptions that should move out of the reusable sequence core are tracked in [TO DO & implementation checklist](/todo).
-
-## Engineering reading order
-
-```text
-install / configure
-→ sequence entry point
-→ RF + PE + echo-train implementation
-→ generated .seq
-→ platform integration
-→ acquired raw data
-→ reconstruction functions + equations
-→ optional corrections / denoising
-→ validation / safety
-→ provenance / references
-→ TO DO / missing features
-```
-
-Physical or mathematical theory is kept next to the implementation that uses it. Echo-to-$k_y$ behavior is documented with the sequence; the $PFS$ model is explained with SENSE/CS reconstruction.
-
-## Sequence-side implementation map
-
-The maintained entry points are
-
-```text
-TSE_2D.m
-TSE_2D_gSlider.m
-```
-
-They resolve `Setup`, `SetupRF` and `SetupSpoiling`, assemble the TSE loop, run development checks, and export `.seq` plus the resolved MATLAB configuration. See [Sequence Implementation](/sequence-generation).
-
-External/adapted method components are documented explicitly, including Pulseq, SparseMRI-derived CS sampling, SigPy-generated SLR/gSlider RF banks, TRAPS, VERSE, SAFE-model PNS prediction, and reconstruction/denoising methods. See [Dependencies & Method Provenance](/reference/provenance).
-
-## Reconstruction is a companion to the sequence
-
-The bundled reconstruction is not presented as a separate general-purpose MRI reconstruction framework. It exists to make the implemented acquisition inspectable from raw data through image output.
-
-The [Reconstruction](/reconstruction) chapter keeps together
-
-- calling interface;
-- preprocessing order;
-- equations;
-- GRAPPA/SENSE/ESPIRiT/CS implementation;
-- coil compression;
-- option defaults;
-- numerical checks;
-- source links; and
-- current limitations.
-
-Echo magnitude correction is optional k-space preprocessing. BM3D/NLM/SANLM/TGV2 are optional image-domain post-processing. The package exposes these choices without defining them as universally required.
-
-## Scope and portability boundary
-
-| Layer | Project goal | Current state |
-| --- | --- | --- |
-| TSE sequence | portable Cartesian Pulseq acquisition | conventional 2D TSE + gSlider-TSE implemented |
-| RF assets | reproducible generated waveforms | SLR/gSlider banks generated with SigPy RF |
-| PI / CS sampling | explicit logical PE patterns | PI + Lustig-derived variable-density CS path |
-| platform integration | replaceable adapter | not yet fully separated from the current development environment |
-| PNS prediction | optional platform-dependent check | current code path still needs refactoring to become truly optional |
-| raw-data reconstruction | transparent acquisition companion | current reader uses Siemens Twix/mapVBVD |
-| gSlider reconstruction | planned | acquisition implemented; decoding not implemented |
-| optional filtering | user-selected | echo correction and denoisers remain optional |
-
-## Documentation map
-
-| Section | What it answers |
-| --- | --- |
-| **Getting Started** | How do I install and generate the sequence? |
-| **Sequence** | How are timing, RF, gradients, PE sampling and echo ordering implemented? |
-| **Reconstruction** | What does the MATLAB pipeline do, and which methods/options are implemented? |
-| **Validation & Safety** | What do software checks establish, and what remains scanner/site responsibility? |
-| **TO DO** | Which portability, sequence and reconstruction issues are still open? |
-| **Reference & Provenance** | Which functions, external tools, algorithms and papers correspond to each feature? |
-
-## Start here
-
-- First use: **[Quick Start](/quickstart)**.
-- Modify the acquisition: **[Sequence Implementation](/sequence-generation)**.
-- Understand PE/CS acquisition: **[Phase Encoding & Acceleration](/theory/phase-encoding)**.
-- Work on gSlider/TRAPS: **[gSlider-TSE & TRAPS](/guide/gslider-traps)**.
-- Reconstruct raw data: **[Reconstruction](/reconstruction)**.
-- Check known gaps: **[TO DO & implementation checklist](/todo)**.
-- Check algorithm/tool origin: **[Dependencies & Method Provenance](/reference/provenance)**.
-- Review scanner-use boundaries: **[Validation & Safety](/validation-and-safety)**.
+- **Use the package:** [Quick Start](/quickstart) · [Installation](/installation) · [Parameter Reference](/parameter-reference)
+- **Understand the sequence:** [Sequence Implementation](/sequence-generation) · [TSE Echo Train](/theory/tse-echo-train) · [Phase Encoding & Acceleration](/theory/phase-encoding) · [gSlider-TSE & TRAPS](/guide/gslider-traps)
+- **Reconstruct data:** [Reconstruction](/reconstruction) · [Optional Echo Correction](/guide/echo-corrections) · [Optional Denoising](/guide/denoising)
+- **Source and citations:** [Dependencies & Method Provenance](/reference/provenance) · [References](/references)
