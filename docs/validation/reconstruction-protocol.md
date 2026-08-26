@@ -1,9 +1,9 @@
 # Reconstruction protocol
 
-A reconstruction comparison is only interpretable when the acquisition model, preprocessing, calibration, solver, and evaluation rules are frozen in advance. This page defines a reproducible protocol for comparing RSS, diagnostic PE-GRAPPA, ESPIRiT-SENSE, Cartesian CS, and optional echo-correction variants in this repository.
+A reconstruction comparison is only interpretable when the acquisition model, preprocessing, calibration, solver, and evaluation rules are frozen in advance. This page defines a reproducible protocol for comparing RSS, regular Cartesian 1D PE-GRAPPA, ESPIRiT-SENSE, Cartesian CS, and optional echo-correction variants in this repository.
 
 ::: info Why this page exists
-The protocol is deliberately separate from [Reconstruction](/reconstruction). The workflow page explains how the pipeline works; this page specifies what must remain fixed when methods are compared or results are reported.
+The protocol is deliberately separate from [Reconstruction](/reconstruction). The reconstruction chapter explains how the pipeline works; this page specifies what must remain fixed when methods are compared or results are reported.
 :::
 
 ## 1. Freeze the data definition
@@ -88,7 +88,9 @@ Typical starting configuration:
 'MaximumVirtualCoils', 12
 ```
 
-If coil compression is enabled, use the same compressed coil basis for all methods intended to share that basis. If RSS is retained as an uncompressed diagnostic reference, state that explicitly rather than calling the methods identical except for the solver.
+If coil compression is enabled, use the same compressed coil basis for all iterative methods intended to share that basis. If RSS is retained as an uncompressed baseline, state that explicitly rather than calling the methods identical except for the solver.
+
+GRAPPA currently operates on the packed multichannel k-space supplied to `recon_TSE2D_GRAPPA` and is not routed through the SENSE/CS PCA/ESPIRiT preparation step. Therefore a comparison between GRAPPA and compressed SENSE/CS must report that difference explicitly rather than implying identical coil preprocessing.
 
 ## 6. Freeze the forward model
 
@@ -102,7 +104,9 @@ with the same sampling mask $P$, centered unitary Fourier operator $F$, and sens
 
 Before iterative reconstruction, the forward/adjoint identity check must pass under the same numerical tolerance. A failed adjoint check invalidates the benchmark; it should not be bypassed to obtain runtime numbers.
 
-## 7. Freeze solver and regularization settings
+GRAPPA is a k-space interpolation method and therefore does not use this $PFS$ iterative operator. Its comparison conditions are frozen separately below.
+
+## 7. Freeze solver and reconstruction settings
 
 ### SENSE
 
@@ -127,17 +131,28 @@ Record at least:
 
 If regularization is tuned separately for each dataset, specify the tuning rule. Do not describe a parameter as “fixed” if it was selected after inspecting the target result.
 
-### GRAPPA
+### Regular Cartesian 1D PE-GRAPPA
 
-Record:
+Record at least:
 
-- PE source-line count;
-- readout kernel offsets;
-- calibration region;
-- regularization; and
-- whether only missing lines are synthesized.
+```matlab
+'GrappaKySourceCount', 4
+'GrappaKxKernel', 0
+'GrappaRegularization', 1e-4
+```
 
-The repository's PE-GRAPPA implementation is a transparent diagnostic baseline, not a Siemens ICE-equivalence target.
+Also record:
+
+- PE acceleration factor $R$;
+- exact acquired imaging lattice;
+- contiguous ACS location and width;
+- source-line offsets used by each fitted kernel when relevant;
+- calibration NMSE and conditioning returned by the implementation; and
+- confirmation that acquired image/ACS rows are preserved and only missing rows are synthesized.
+
+The current implementation supports regular integer Cartesian acceleration along PE. It does not implement partial-Fourier GRAPPA, SMS/slice-GRAPPA, non-Cartesian GRAPPA, irregular variable-density/CS masks, or proprietary Siemens ICE kernel/scaling/filtering behavior. See [Reconstruction](/reconstruction#current-grappa-limitations).
+
+These are support boundaries of the implemented method, not reasons to treat it as a separate “diagnostic” form of GRAPPA.
 
 ## 8. Freeze precision and hardware
 
@@ -159,8 +174,9 @@ A fair comparison requires a predefined failure policy.
 
 Examples:
 
-- adjoint mismatch above the configured threshold → reconstruction invalid;
-- insufficient ACS for ESPIRiT → iterative method not run;
+- adjoint mismatch above the configured threshold → iterative reconstruction invalid;
+- insufficient ACS for ESPIRiT → SENSE/CS not run;
+- insufficient or underdetermined ACS calibration for GRAPPA → GRAPPA not run;
 - non-finite output → invalid;
 - maximum iteration reached → report as such rather than silently extending one method;
 - failed geometry validation → do not export/report NIfTI as spatially valid.
@@ -182,6 +198,8 @@ plus magnitude NRMSE and SSIM as secondary image-domain measures.
 
 For echo correction, additionally report navigator residual phase, normalized echo envelope, maximum gain, and a noise-amplification measure. For geometry-sensitive experiments, report slice-center/orientation consistency separately from image intensity metrics.
 
+For GRAPPA, kernel calibration NMSE is a useful calibration-quality measure but is **not** a substitute for image-domain fidelity against a frozen reference.
+
 ## 11. Reproducible reporting template
 
 A compact methods table should include:
@@ -191,8 +209,8 @@ A compact methods table should include:
 | Acquisition | FOV, matrix, slices, TE1, TEeff, ETL, TR, PE mode, acceleration, ACS |
 | Sequence | repository SHA, Pulseq SHA, scanner profile, interpreter/platform |
 | Preprocessing | oversampling removal, whitening, phase correction, echo magnitude correction |
-| Coil model | sensitivity method, ESPIRiT settings, coil compression |
-| Solver | method, iteration count, tolerance, regularization |
+| Coil model | sensitivity method, ESPIRiT settings, coil compression; state if GRAPPA uses the original coil basis |
+| Reconstruction | method, GRAPPA kernel settings or iterative solver settings, regularization |
 | Numerics | precision, CPU/GPU, MATLAB release |
 | Evaluation | reference definition, ROI/crop rule, metrics |
 | Runtime | warm-up rule, number of repetitions, timing scope |
@@ -205,13 +223,14 @@ For a new dataset, use the following progression:
 R=1 / acquired-line baseline
 → validate packing and geometry
 → validate phase correction
-→ validate sensitivity maps
+→ validate PI sampling + ACS
+→ run GRAPPA and/or validate sensitivity maps
 → run SENSE
-→ run CS or GRAPPA comparison
+→ run CS when required
 → freeze metrics
 → benchmark runtime and memory
 ```
 
-This avoids optimizing a fast reconstruction around a pipeline whose data layout or physical interpretation has not yet been validated.
+This avoids optimizing a reconstruction around a pipeline whose data layout or physical interpretation has not yet been validated.
 
 See [Scientific validation strategy](/validation/scientific-validation) for the evidence hierarchy and [Performance & benchmarking](/validation/performance-benchmarking) for runtime/memory reporting.
