@@ -1,73 +1,74 @@
-# API reference
+# Reference & provenance
 
-The reference section answers **how to call the current MATLAB implementation**. Scientific rationale and derivations remain in [Theory](/theory/tse-echo-train), while end-to-end processing remains in [Reconstruction](/reconstruction).
+This section answers two engineering questions:
 
-::: info Scope
-The repository is primarily a research sequence-development codebase rather than a packaged MATLAB toolbox with a formally versioned public API. The pages below document the maintained entry points and the core functions that define the current production workflow.
-:::
+1. **Where is the implementation?** — sequence entry points, preparation functions and source links.
+2. **Where did the method/tool come from?** — scientific citation, upstream software/code source and repository-specific adaptation.
+
+The repository is a research sequence codebase rather than a formally versioned MATLAB toolbox API. The checked-out source revision remains authoritative for exact low-level behavior.
 
 ## Main entry points
 
-| Entry point | Purpose | Documentation | Source |
+| Entry point | Purpose | Engineering documentation | Source |
 | --- | --- | --- | --- |
-| `TSE_2D.m` | Generate conventional Cartesian 2D TSE | [Quick Start](/quickstart) | [source](https://github.com/BennyZhang-Codes/tse-pulseq-matlab/blob/vitepress-style/TSE_2D.m) |
-| `TSE_2D_gSlider.m` | Generate gSlider-TSE with optional TRAPS schedule | [gSlider & TRAPS](/guide/gslider-traps) | [source](https://github.com/BennyZhang-Codes/tse-pulseq-matlab/blob/vitepress-style/TSE_2D_gSlider.m) |
-| `recon_TSE2D(filename, ...)` | Offline conventional 2D TSE Siemens-Twix reconstruction | [Reconstruction](/reconstruction) | [source](https://github.com/BennyZhang-Codes/tse-pulseq-matlab/blob/vitepress-style/recon/matlab/recon_TSE2D.m) |
+| `TSE_2D.m` | conventional Cartesian 2D TSE generation | [Sequence Implementation](/sequence-generation) | [source](https://github.com/BennyZhang-Codes/tse-pulseq-matlab/blob/vitepress-style/TSE_2D.m) |
+| `TSE_2D_gSlider.m` | gSlider-TSE + optional TRAPS-style schedule | [gSlider-TSE & TRAPS](/guide/gslider-traps) | [source](https://github.com/BennyZhang-Codes/tse-pulseq-matlab/blob/vitepress-style/TSE_2D_gSlider.m) |
+| `recon_TSE2D(filename, ...)` | conventional 2D TSE Siemens-Twix reconstruction | [Reconstruction](/reconstruction) | [source](https://github.com/BennyZhang-Codes/tse-pulseq-matlab/blob/vitepress-style/recon/matlab/recon_TSE2D.m) |
 
-## Reference groups
+## Sequence source reference
 
-### Sequence generation
+[Sequence API](/reference/sequence-api) provides a source-oriented index of the preparation/check/export functions used by the sequence entry scripts. [Parameter Reference](/parameter-reference) documents the user-facing `Setup`, `SetupRF` and `SetupSpoiling` configuration.
 
-[Sequence API](/reference/sequence-api) lists the maintained preparation stages used by the two sequence entry scripts:
+The engineering explanation of how these functions compose is in [Sequence Implementation](/sequence-generation), not duplicated as a second theory/API narrative here.
 
-```text
-system / geometry
-→ PE ordering
-→ RF
-→ gradients
-→ labels / delays
-→ noise scan
-→ sequence loop
-→ checks / definitions / export
-```
+## Reconstruction reference
 
-Use the [Parameter Reference](/parameter-reference) for user-facing `Setup`, `SetupRF`, and `SetupSpoiling` fields.
+Function behavior, mathematical model, option defaults and source links are intentionally consolidated in [Reconstruction](/reconstruction). The old `/reference/reconstruction-api` URL is retained as a compatibility redirect page, but reconstruction is no longer split into separate “workflow” and “API” documentation.
 
-### Reconstruction
+## Method/code provenance
 
-[Reconstruction API](/reference/reconstruction-api) documents `recon_TSE2D`, its option groups, correction helpers, k-space packing, sensitivity/calibration utilities, and output behavior.
+[Dependencies & Method Provenance](/reference/provenance) is the canonical mapping for components such as
 
-### Validation and checks
+- Pulseq;
+- Lustig-derived SparseMRI CS sampling;
+- SigPy-generated SLR/gSlider RF banks;
+- TRAPS-style refocusing;
+- VERSE upstream lineage;
+- mapVBVD;
+- GRAPPA/SENSE/ESPIRiT/CS;
+- coil compression; and
+- optional denoising packages.
 
-The maintained sequence scripts call
-
-```matlab
-check_Timing(seq)
-check_Label(seq)
-check_PNS(seq, Actual)
-```
-
-These are development checks and do not constitute scanner safety certification. Their interpretation is documented in [Validation & safety](/validation-and-safety).
-
-### Denoising
-
-Optional post-reconstruction filtering is documented in [Image-domain denoising](/guide/denoising). The denoising routines are intentionally separated from the core reconstruction API because filtering occurs after image reconstruction and changes the output statistics.
-
-## API documentation convention
-
-Each core API page follows the same order:
+For each applicable feature it distinguishes
 
 ```text
-Name / signature
-Short description
-Arguments / options
-Returns
-Example / notes
-Source
+scientific method
++ upstream software/code source
++ repository adaptation
 ```
 
-Long derivations are not duplicated here. For example, navigator correction equations live in [Echo phase & magnitude correction](/guide/echo-corrections), and the SENSE/CS signal model lives in [Reconstruction](/reconstruction) and [TSE echo-train model](/theory/tse-echo-train).
+## Literature references
 
-## Source-of-truth policy
+[References](/references) uses MRM-style numbered entries. In-text citations follow the HighOrderMRI interaction pattern, for example:
 
-When documentation and code disagree, the checked-out source revision is the implementation source of truth. For a reproducible scan or reconstruction, record the repository commit together with the `.seq`/Twix data and relevant submodule revisions.
+```md
+[[8]](/references#ref-8 "Lustig M, Donoho D, Pauly JM. Sparse MRI: the application of compressed sensing for rapid MR imaging. Magn Reson Med. 2007;58:1182-1195.")
+```
+
+Clicking the number jumps to the reference entry; hovering shows the citation tooltip. DOI identifiers in the bibliography are hyperlinks.
+
+## Reproducibility
+
+[Reproducibility & Citation](/reproducibility) defines what should be archived with a sequence or reconstruction:
+
+- repository revision;
+- Pulseq/VERSE submodule revisions;
+- generated RF asset provenance when regenerated;
+- `Setup`, `Actual` and `.seq`;
+- scanner/interpreter information;
+- reconstruction configuration; and
+- optional correction/post-processing settings.
+
+## Source-of-truth rule
+
+When code and documentation disagree, treat the checked-out code revision as the implementation source of truth and fix the documentation. When a new external method/tool is introduced, update the source, [Provenance](/reference/provenance) and [References](/references) together.
