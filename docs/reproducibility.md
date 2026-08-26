@@ -1,158 +1,172 @@
-# Reproducibility and citation
+# Reproducibility & citation
 
-This page describes how to make a sequence-generation or reconstruction result reproducible across software revisions and scanner platforms.
+A reproducible result from this repository requires more than a `.seq` file. Because the project combines sequence code, generated RF assets, Git submodules, platform integration, raw-data reconstruction and optional processing, archive enough information to reconstruct the **implementation chain**.
 
-Vendor-neutral deployment is the project goal, but the current implementation and validation path is Siemens 7 T. Always record the actual scanner vendor/model and interpreter used; do not treat validation on one platform as evidence for another. See [Platform Integration](platform-integration.md) for the current coupling points.
+Vendor-neutral deployment is a project goal, but the current validated scanner/reconstruction path is Siemens 7 T. Record the actual platform rather than generalizing one scanner's validation.
 
-## 1. Prefer a fixed release for published work
+## 1. Identify the exact source revision
 
-For papers, abstracts, shared datasets or long-lived protocols, prefer a tagged GitHub Release over an unpinned `main` checkout.
+For papers, abstracts, public datasets and long-lived protocols, prefer a fixed release/tag. Always record
 
-A reproducible record should include:
-
-- repository release/tag;
+- repository release/tag when available;
 - repository commit SHA;
 - Pulseq submodule SHA;
-- VERSE submodule SHA when relevant;
-- MATLAB version;
-- scanner vendor and model;
-- Pulseq interpreter version/configuration;
-- saved `Setup` and resolved `Actual` structures;
-- exported `.seq` file;
-- scanner protocol settings that are not encoded in the `.seq` file;
-- reconstruction code revision and reconstruction options.
+- VERSE submodule SHA when used; and
+- local modifications if the work was performed from a dirty checkout.
 
-If no formal release exists for the exact experiment, record the full commit SHA instead of referring only to `main`.
-
-## 2. Record submodule revisions
-
-The repository tracks Pulseq and VERSE as git submodules. A parent-repository commit points to exact submodule commits, so keep the repository clone intact when archiving an experiment.
-
-Useful commands are:
+Useful commands:
 
 ```bash
 git rev-parse HEAD
 git submodule status
+git status --short
 ```
 
-For a clean reproducible checkout:
+If no formal release matches the experiment, use the full commit SHA rather than `main`.
 
-```bash
-git clone --recurse-submodules https://github.com/BennyZhang-Codes/tse-pulseq-matlab.git
-cd tse-pulseq-matlab
-git checkout <release-or-commit>
-git submodule update --init --recursive
-```
+## 2. Archive the generated acquisition
 
-## 3. Archive `Setup`, `Actual` and `.seq` together
+Keep together
 
-The sequence scripts save the original `Setup` and resolved `Actual` structures alongside the exported `.seq` file.
+- requested `Setup`, `SetupRF`, `SetupSpoiling`;
+- resolved `Actual`;
+- exported `.seq`;
+- repository/submodule revision information; and
+- scanner protocol information that is not encoded in the `.seq`.
 
-These serve different purposes:
+`Setup` records user intent while `Actual` records the resolved raster/system/PE implementation. Both are useful when reproducing or debugging an acquisition.
 
-- `Setup` records the user-requested configuration;
-- `Actual` contains derived scanner, timing, PE, slice and export information after preparation;
-- `.seq` is the Pulseq sequence description used by the target interpreter.
+## 3. Record generated RF asset provenance
 
-For reproducible studies, archive all three rather than only the `.seq` file.
+The bundled SLR and gSlider RF pulse banks are generated offline with SigPy RF and then stored as `.mat` assets. If the bundled files are used unchanged, the repository revision identifies them. If they are regenerated or replaced, additionally record
 
-## 4. Record platform-specific scanner settings
+- generating notebook/script revision;
+- SigPy version/commit if relevant;
+- RF design method and parameters;
+- output pulse filename/hash; and
+- any post-generation scaling/VERSE processing.
 
-Some scanner/interpreter behavior is not guaranteed by the `.seq` file alone. Record the target platform's interpreter revision, patient position/orientation assumptions, accelerated-imaging calibration settings, online phase-correction behavior, and any scanner-side RF/SAR or reconstruction settings that materially affect the result.
+The SLR design basis is Pauly et al. [[20]](/references#ref-20 "Pauly JM, Le Roux P, Nishimura DG, Macovski A. Parameter relations for the Shinnar-Le Roux selective excitation pulse design algorithm. IEEE Trans Med Imaging. 1991;10:53-65."), while the gSlider RF-encoding basis is Setsompop et al. [[21]](/references#ref-21 "Setsompop K, Fan Q, Stockmann J, et al. High-resolution in vivo diffusion imaging of the human brain with generalized slice dithered enhanced resolution: simultaneous multislice (gSlider-SMS). Magn Reson Med. 2018;79:141-151.").
 
-For the repository's current Siemens 7 T validation path, record at least:
+## 4. Record the sampling implementation
 
-- Siemens Pulseq interpreter build/revision;
-- patient position and intended orientation;
-- iPAT acceleration and ACS/reference-line settings;
-- online TSE phase-correction configuration;
-- any scanner-side RF/SAR or reconstruction settings that materially affect the result.
+Do not report only “CS undersampling.” For a CS sequence generated by the current repository, record at least
 
-This is particularly important because exported `nRefLine` does not by itself set the Siemens iPAT card.
+- `AccelerationMode='CS'`;
+- `R`;
+- `nPE` and `nEcho`;
+- polynomial PDF parameter `p`;
+- central-radius parameter `r`;
+- the exact generated sampling mask / resolved PE order; and
+- randomization state if reproducibility of mask generation is required.
 
-For another vendor, record the equivalent interpreter and acquisition/reconstruction contract for that platform rather than assuming Siemens metadata semantics transfer directly.
+The current pattern is based on the Michael Lustig SparseMRI sampling utilities [[8]](/references#ref-8 "Lustig M, Donoho D, Pauly JM. Sparse MRI: the application of compressed sensing for rapid MR imaging. Magn Reson Med. 2007;58:1182-1195.") and is documented in [Phase Encoding & Acceleration](/theory/phase-encoding). Archive the resolved PE order rather than assuming the same nominal parameters will always regenerate an identical random mask.
 
-## 5. Record offline reconstruction options
+## 5. Record the target scanner and interpreter
 
-The bundled offline reconstruction currently targets Siemens Twix data and exposes explicit options for:
+A `.seq` file does not fully describe platform execution. Record
 
-- prewhitening;
-- noise covariance regularization;
-- phase correction;
-- echo-magnitude correction;
-- GRAPPA;
-- SENSE/CS;
-- ESPIRiT;
-- coil compression;
-- GPU use;
-- output format.
+- scanner vendor/model/field strength;
+- Pulseq interpreter implementation/revision;
+- patient position/orientation assumptions;
+- scanner-side RF/SAR configuration relevant to the protocol;
+- accelerated-imaging / ACS settings;
+- platform-specific phase-correction/reconstruction configuration; and
+- any platform adapter modifications.
 
-Save the runner script or a MAT/text record of the options used for every dataset that will be compared quantitatively.
+For the current Siemens 7 T path, this includes the Siemens LIN/iPAT/ICE contract documented under [Platform Integration](/platform-integration).
 
-Do not describe a result simply as "CS reconstruction" without reporting the regularization and calibration configuration.
+## 6. Record raw-data reconstruction configuration
 
-## 6. Software citation
+The bundled offline reconstruction currently uses Siemens Twix through external mapVBVD. Save the runner script or an exact option structure containing, as relevant,
 
-The repository contains `CITATION.cff` with software citation metadata and the Zenodo DOI:
+- readout oversampling removal;
+- prewhitening and covariance regularization;
+- navigator phase correction;
+- optional echo magnitude correction;
+- reconstruction method (`rss`, `grappa`, `sense`, `cs`);
+- GRAPPA kernel/regularization;
+- SENSE iteration/tolerance/Tikhonov settings;
+- ESPIRiT calibration settings;
+- coil-compression energy / maximum virtual coils;
+- CS TV/Haar weights and iteration count;
+- CPU/GPU choice and precision-sensitive environment details; and
+- output/geometry settings.
+
+All of these are consolidated in [Reconstruction](/reconstruction).
+
+## 7. Optional processing must be reported explicitly
+
+### Echo magnitude correction
+
+The feature is disabled by default. If used, report method, alpha, lambda selection, maximum-gain setting, reference echo and relevant envelope/gain diagnostics. Its use should not be hidden under the generic phrase “standard reconstruction.”
+
+### Image-domain denoising
+
+NLM, BM3D, SANLM and TGV2 are separate post-processing. If used, report the method, package/version when external, noise-estimation method and all relevant strength/profile parameters. Preserve the unfiltered reconstruction.
+
+See [Optional Echo Correction](/guide/echo-corrections) and [Optional Denoising](/guide/denoising).
+
+## 8. Record scientific method and code provenance
+
+A publication using this package can require several citations depending on which features were actually used. Do not cite only the repository if the reported method relies on established external algorithms.
+
+Examples include
+
+- Pulseq [[2]](/references#ref-2 "Layton KJ, Kroboth S, Jia F, et al. Pulseq: a rapid and hardware-independent pulse sequence prototyping framework. Magn Reson Med. 2017;77:1544-1552.");
+- RARE/TSE [[1]](/references#ref-1 "Hennig J, Nauerth A, Friedburg H. RARE imaging: a fast imaging method for clinical MR. Magn Reson Med. 1986;3:823-833.");
+- gSlider / TRAPS when used [[21]](/references#ref-21 "Setsompop K, Fan Q, Stockmann J, et al. gSlider-SMS. Magn Reson Med. 2018;79:141-151.") [[22]](/references#ref-22 "Hennig J, Weigel M, Scheffler K. TRAPS. Magn Reson Med. 2003;49:527-535.");
+- GRAPPA/SENSE/ESPIRiT [[5]](/references#ref-5 "Griswold MA, Jakob PM, Heidemann RM, et al. GRAPPA. Magn Reson Med. 2002;47:1202-1210.") [[6]](/references#ref-6 "Pruessmann KP, Weiger M, Scheidegger MB, Boesiger P. SENSE. Magn Reson Med. 1999;42:952-962.") [[7]](/references#ref-7 "Uecker M, Lai P, Murphy MJ, et al. ESPIRiT. Magn Reson Med. 2014;71:990-1001.");
+- Sparse MRI / CS [[8]](/references#ref-8 "Lustig M, Donoho D, Pauly JM. Sparse MRI. Magn Reson Med. 2007;58:1182-1195."); and
+- optional correction/denoising methods when used.
+
+The file-by-file attribution map is [Dependencies & Method Provenance](/reference/provenance), and DOI-linked bibliography entries are in [References](/references).
+
+## 9. Software citation
+
+The repository contains `CITATION.cff` and a Zenodo DOI:
 
 ```text
 Title: TSE Pulseq for MATLAB
 Author: Jinyuan Zhang
-Type: software
 License: MIT
 DOI: 10.5281/zenodo.22076863
 Repository: https://github.com/BennyZhang-Codes/tse-pulseq-matlab
 ```
 
-Use the repository DOI when citing the software unless a version-specific DOI is provided for the exact release used in your study.
+Use the repository DOI unless a version-specific DOI is available for the exact tagged release used in the study.
 
-GitHub's **Cite this repository** interface can use `CITATION.cff` to format the available citation metadata.
+## 10. gSlider-TSE citation
 
-## 7. Release and Zenodo workflow
+If `TSE_2D_gSlider.m` is used, cite the repository's associated gSlider-TSE work [[14]](/references#ref-14 "Zhang J, Wu Y, Xue R, Zhuo Y, Zhang Z. gSlider-TSE for high-resolution isotropic T2-weighted imaging with high contrast and high SNR. Proc Intl Soc Magn Reson Med. 2024; Program #3256.") in addition to the general gSlider RF-encoding reference when appropriate.
 
-For archival releases:
+## 11. Minimum methods record
 
-1. create a GitHub Release with a stable semantic version/tag;
-2. archive that release with Zenodo;
-3. record the version-specific DOI when Zenodo assigns one;
-4. update `CITATION.cff` with `version`, `date-released`, and the appropriate DOI when a release is finalized;
-5. use the version-specific DOI when citing the exact software release used for a publication, while retaining the concept/repository DOI when appropriate.
-
-## 8. gSlider-TSE citation
-
-If you use `TSE_2D_gSlider.m`, cite the associated work:
-
-> Zhang J, Wu Y, Xue R, Zhuo Y, Zhang Z. gSlider-TSE for high-resolution isotropic T2-weighted imaging with high contrast and high SNR. In: *Proceedings of the 2024 ISMRM and ISMRT Annual Meeting and Exhibition*, Singapore, Singapore. Program #3256.
-
-When appropriate, also cite Pulseq and the reconstruction methods actually used (for example GRAPPA, ESPIRiT or compressed sensing).
-
-## 9. Recommended release checklist
-
-Before creating a release intended for citation:
-
-- verify the maintained sequence examples run as expected;
-- record the Pulseq and VERSE submodule SHAs;
-- update `CITATION.cff` with `version` and `date-released`;
-- update documentation for known limitations and platform compatibility;
-- confirm example reconstruction defaults;
-- create a release tag;
-- archive the release with Zenodo;
-- record the version-specific DOI after it exists;
-- keep release notes focused on user-visible behavior and compatibility.
-
-## 10. Minimum methods reporting template
-
-For a reproducible methods section, report at least:
+A compact reproducibility record can contain
 
 ```text
-Software: TSE Pulseq for MATLAB, release/tag or commit SHA
-Pulseq submodule: commit SHA
-Scanner: vendor + model + field strength
-Pulseq interpreter: implementation + revision
-Acquisition: matrix, FOV, slices, TR, TE1, TEeff, turbo factor, PE order, R, ACS
-RF: excitation/refocusing type and relevant flip-angle schedule
-Validation: timing/PNS/scanner-side checks performed
-Reconstruction: raw-data format + method + phase/magnitude correction + calibration + regularization
+Software: TSE Pulseq for MATLAB, release/tag/commit
+Submodules: Pulseq SHA; VERSE SHA if used
+Scanner: vendor / model / field strength
+Interpreter: implementation + revision
+Acquisition: matrix, FOV, slices, TR, TE1, TEeff, ETL, PE mode, R, ACS or CS-mask parameters
+RF: excitation/refocusing source, TBP/duration, flip-angle schedule; regenerated RF provenance if applicable
+Platform integration: relevant LIN/metadata/PNS/safety configuration
+Reconstruction: raw-data reader, prewhitening, correction options, method, calibration, regularization, GPU/precision
+Post-processing: optional denoiser and settings, or explicitly none
 ```
 
-The exact level of detail can be shortened in a manuscript when the software release and archived configuration files are publicly available, but the release/commit identity and scanner platform should remain explicit.
+## 12. Release checklist
+
+Before a citation-oriented release:
+
+- run maintained sequence/tests;
+- record Pulseq/VERSE submodule revisions;
+- verify generated RF assets and provenance documentation;
+- check References and DOI links;
+- update Dependencies & Method Provenance;
+- update platform limitations and validation statements;
+- confirm reconstruction/optional defaults;
+- update `CITATION.cff` release metadata;
+- create a fixed tag/release; and
+- archive the release through Zenodo when appropriate.
