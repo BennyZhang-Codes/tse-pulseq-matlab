@@ -1,55 +1,50 @@
-# Sequence generation
+# Sequence implementation
 
-The maintained entry points are `TSE_2D.m` and `TSE_2D_gSlider.m`. Both build a Cartesian 2D TSE acquisition through the same modular preparation pipeline and differ mainly in excitation/refocusing behavior and the gSlider-specific sequence loop.
+`tse-pulseq-matlab` is first and foremost an **open-source Pulseq sequence implementation**. The two maintained entry points are [`TSE_2D.m`](https://github.com/BennyZhang-Codes/tse-pulseq-matlab/blob/vitepress-style/TSE_2D.m) and [`TSE_2D_gSlider.m`](https://github.com/BennyZhang-Codes/tse-pulseq-matlab/blob/vitepress-style/TSE_2D_gSlider.m). Both construct Cartesian 2D RARE/TSE echo trains [[1]](/references#ref-1 "Hennig J, Nauerth A, Friedburg H. RARE imaging: a fast imaging method for clinical MR. Magn Reson Med. 1986;3:823-833.") through Pulseq [[2]](/references#ref-2 "Layton KJ, Kroboth S, Jia F, et al. Pulseq: a rapid and hardware-independent pulse sequence prototyping framework. Magn Reson Med. 2017;77:1544-1552.").
 
-This page focuses on the **sequence core**: geometry, timing, RF, phase encoding, acceleration and slice ordering. Scanner presets, hardware limits and interpreter metadata are integration details and are kept near the end of the page; see [Platform Integration](platform-integration.md) for the full portability boundary.
+This page explains **what the sequence code does and where each implementation comes from**. Signal-model details are linked only where they help interpret an implementation choice.
 
-## Configuration structures
+## Entry points and build pipeline
 
-The entry scripts expose three user-facing structures:
+The entry scripts expose three user-facing configuration structures:
 
-- `Setup` — system profile selection, geometry, timing, acceleration, slice ordering and sequence behavior;
-- `SetupRF` — excitation/refocusing/inversion RF type, duration, TBP and phase;
-- `SetupSpoiling` — crusher/spoiler dephasing cycles, reference length and selected waveform constraints.
+- `Setup` — scanner profile, geometry, timing, acceleration, ordering and sequence behavior;
+- `SetupRF` — RF pulse family, duration, time-bandwidth product and phase;
+- `SetupSpoiling` — crusher/spoiler cycles, reference length and waveform constraints.
 
-`Setup` is copied to `Actual` before preparation. Derived system, timing, slice, PE, RF and export metadata are then added to `Actual`. For reproducibility, save the resolved `Actual` structure together with the generated `.seq` file.
+`Setup` is copied into `Actual`. Preparation functions then resolve the requested protocol into raster-compatible Pulseq RF, gradient, ADC, delay and label objects.
 
-## Preparation pipeline
-
-```text
-Setup / SetupRF / SetupSpoiling
-          |
-          v
-        Actual
-          |
-          +--> prep_System
-          +--> prep_SlicePositions
-          +--> prep_PE3DOrder
-          +--> prep_Excitation / prep_Refocusing / prep_Inversion
-          +--> prep_SpoilingArea
-          +--> prep_Gradient_GR / prep_Gradient_Block
-          +--> prep_Label
-          +--> prep_Delay
-          +--> prep_NoiseScan
-          |
-          v
-   prep_Seqloop* / prep_Seqloop_IR*
-          |
-          v
- check_Timing / check_Label / available check_PNS
-          |
-          v
-     prep_Definition
-          |
-          v
- .seq + saved Setup/Actual + plots
+```mermaid
+flowchart TD
+    A[Setup / SetupRF / SetupSpoiling] --> B[Actual]
+    B --> C[System + slice geometry]
+    C --> D[PE pattern + echo order]
+    D --> E[RF + gradients]
+    E --> F[Labels + delays + noise scan]
+    F --> G[TSE sequence loop]
+    G --> H[Timing / labels / PNS checks]
+    H --> I[Definitions + export]
+    I --> J[SEQ + MAT + plots]
 ```
 
-The preparation functions resolve user intent into raster-compatible RF, gradient, ADC, timing and metadata objects before the final sequence loop is assembled.
+The main source mapping is:
 
-## Geometry
+| Stage | Main implementation |
+| --- | --- |
+| system limits | `prep/prep_System.m` |
+| slice positions | `prep/prep_SlicePositions.m` |
+| PE / acceleration order | `prep/prep_PE3DOrder.m` and mode-specific helpers |
+| excitation / refocusing / inversion | `prep/prep_Excitation.m`, `prep/prep_Refocusing.m`, `prep/prep_Inversion.m` |
+| spoilers / readout gradients | `prep/prep_SpoilingArea.m`, `prep/prep_Gradient_GR.m`, `prep/prep_Gradient_Block.m` |
+| acquisition labels | `prep/prep_Label.m` |
+| conventional TSE loop | `prep/prep_Seqloop.m`, `prep/prep_Seqloop_IR.m` |
+| gSlider loop | `prep/prep_Seqloop_gSlider.m`, `prep/prep_Seqloop_IR_gSlider.m` |
+| validation | `check/check_Timing.m`, `check/check_Label.m`, `check/check_PNS.m` |
+| exported definitions | `prep/prep_Definition.m` |
 
-Typical geometry fields are:
+## Geometry and orientation
+
+Core geometry is controlled by
 
 ```matlab
 Setup.fovRO
@@ -61,11 +56,21 @@ Setup.SliceThickness
 Setup.SliceGap
 ```
 
-The nominal in-plane voxel dimensions are `fovRO/nRO` and `fovPE/nPE`. Geometry also affects readout/phase-encoding gradient areas, slice selection and spoiler reference lengths.
+The nominal in-plane voxel sizes are `fovRO/nRO` and `fovPE/nPE`. These settings also propagate into readout/PE gradient areas, slice selection and spoiler reference lengths.
 
-## TSE timing
+The current maintained examples are non-oblique and explicitly map logical RO/PE/slice axes to physical gradient axes:
 
-Core timing controls include:
+```matlab
+Setup.AxisRO = 'x';
+Setup.AxisPE = 'y';
+Setup.Axis3D = 'z';
+```
+
+`Setup.SignCorr` controls gradient polarity. This mapping is an implementation choice of the current examples, not a Pulseq requirement.
+
+## Echo train and timing
+
+The principal TSE timing parameters are
 
 ```matlab
 Setup.nEcho
@@ -75,156 +80,106 @@ Setup.TR
 Setup.roDuration
 ```
 
-The scripts rasterize RF-, ADC- and gradient-related timing before building the echo train. `TEeff` is used together with PE ordering to align the selected echo with physical `ky = 0`.
+The implementation rasterizes RF, ADC and gradient timing before assembling the echo train. `TEeff` is used by the PE-order generator to place the desired echo at physical $k_y=0$ when the discrete acquisition permits it. The consequence of this echo-to-$k_y$ mapping is described in [TSE signal and echo train](/theory/tse-echo-train) and [Phase encoding & acceleration](/theory/phase-encoding).
 
-Changing RF duration, readout duration, echo spacing, turbo factor, inversion timing, crusher strength or spoiler duration can make the requested TE/TR infeasible. Re-run timing validation after every material protocol change.
+Changing RF duration, readout duration, ETL, crushers or inversion timing can make the requested TE/TR infeasible. Timing must therefore be rechecked after protocol changes; passing a timing check does **not** establish RF safety or image quality.
 
-## Phase-encoding order
+## RF implementation and pulse provenance
 
-Supported `PEMode` values include:
+The current conventional TSE example uses a sinc excitation generated by Pulseq and an SLR refocusing pulse. The SLR refocusing and inversion pulse banks are not opaque hand-tuned arrays: they are generated offline by [`prep/pulse/RF_pulse.ipynb`](https://github.com/BennyZhang-Codes/tse-pulseq-matlab/blob/vitepress-style/prep/pulse/RF_pulse.ipynb) with SigPy RF's `slr.dzrf`, following the Shinnar-Le Roux design framework [[20]](/references#ref-20 "Pauly JM, Le Roux P, Nishimura DG, Macovski A. Parameter relations for the Shinnar-Le Roux selective excitation pulse design algorithm. IEEE Trans Med Imaging. 1991;10:53-65."). The generated `.mat` pulse banks are loaded by the MATLAB sequence code, so SigPy is a **pulse-generation/provenance dependency**, not a runtime dependency when using the bundled pulse files.
 
-```text
-CentricFull
-CentricHalf
-Linear
-```
+The gSlider excitation bank is generated by the same notebook with SigPy RF's `dz_gslider_rf`, based on the gSlider RF-encoding method [[21]](/references#ref-21 "Setsompop K, Fan Q, Stockmann J, et al. High-resolution in vivo diffusion imaging of the human brain with generalized slice dithered enhanced resolution: simultaneous multislice (gSlider-SMS). Magn Reson Med. 2018;79:141-151."). The repository's gSlider-TSE implementation is documented separately [[14]](/references#ref-14 "Zhang J, Wu Y, Xue R, Zhuo Y, Zhang Z. gSlider-TSE for high-resolution isotropic T2-weighted imaging with high contrast and high SNR. Proc Intl Soc Magn Reson Med. 2024; Program #3256.").
 
-The echo associated with physical `ky = 0` is shifted so that the requested effective TE is aligned with k-space center when possible.
+Optional VERSE processing is provided through the `VERSE/` Git submodule. That submodule records its upstream code lineage and uses the time-optimal VERSE framework of Lee et al. [[23]](/references#ref-23 "Lee D, Lustig M, Grissom WA, Pauly JM. Time-optimal design for multidimensional and parallel transmit variable-rate selective excitation. Magn Reson Med. 2009;61:1471-1479."). See [Dependencies & method provenance](/reference/provenance) for the exact attribution chain.
 
-PE ordering changes more than acquisition order: in TSE it controls how the echo envelope is mapped across k-space and therefore affects contrast modulation, PSF, ringing, motion sensitivity and phase sensitivity.
+## Phase encoding, PI and CS
 
-The **logical `ky` order is part of the vendor-neutral acquisition design**. Platform-specific line numbering such as Siemens LIN is applied later by the current integration layer; see [Siemens 7 T encoding and ICE integration](phase-encoding-and-ice.md).
-
-## Parallel imaging and compressed sensing
-
-Acceleration is selected with:
+Acceleration is selected with
 
 ```matlab
 Setup.AccelerationMode = 'PI';  % or 'CS'
 Setup.R = 2;
 ```
 
-PI and CS are intentionally treated as different acquisition modes:
+The two paths are intentionally different:
 
-- **PI** uses a regular accelerated imaging lattice plus an ACS region;
-- **CS** uses its own sampling/order representation and is intended for offline iterative reconstruction.
+- **PI** uses a regular undersampled PE lattice plus contiguous ACS/reference lines suitable for GRAPPA/SENSE-style reconstruction;
+- **CS** uses a variable-density random PE pattern intended for offline iterative reconstruction.
 
-The sampling pattern and ACS intent belong to the sequence design. A scanner adapter may additionally need to translate them into platform-specific line indices or online-reconstruction metadata.
+### CS sampling implementation
 
-For the current Siemens 7 T path, accelerated PI is mapped to Siemens-compatible zero-based LIN metadata. Do not apply that mapping to CS acquisitions or to another scanner platform unless its interpreter explicitly requires the same convention.
+The CS pattern is **one-dimensional variable-density phase-encoding sampling**, not Poisson-disc sampling. The implementation is derived from Michael Lustig's SparseMRI sampling utilities associated with Sparse MRI [[8]](/references#ref-8 "Lustig M, Donoho D, Pauly JM. Sparse MRI: the application of compressed sensing for rapid MR imaging. Magn Reson Med. 2007;58:1182-1195."). The source files `prep/CS/genPDF.m` and `genSampling.m` retain the header `(c) Michael Lustig 2007`; `genSampling_TSE.m` is the repository's TSE-specific adaptation.
 
-## Multi-slice ordering
-
-Two independent concepts are configured:
-
-```matlab
-Setup.MultiSliceMode = 'Interleaved'; % or 'Sequential'
-Setup.MultiSliceDir  = 'Descending';  % or 'Ascending'
+```mermaid
+flowchart LR
+    A[nPE / R / ETL] --> B[ETL-compatible Nacq]
+    B --> C[genPDF]
+    C --> D[Polynomial variable-density PDF]
+    D --> E[genSampling_TSE]
+    E --> F[500 Monte-Carlo masks]
+    F --> G[Minimum interference mask]
+    G --> H[Logical ky + echo ordering]
 ```
 
-`MultiSliceMode` controls acquisition order. `MultiSliceDir` controls the physical direction assigned to slice positions.
+`prep_PE3DOrder_CS.m` first forces the acquired line count to an integer multiple of the echo-train length,
 
-Pulseq `SLC` labels remain acquisition ordinals. Physical slice labels/positions are exported separately for interpreter-side remapping. Anatomical interpretation must be confirmed on the target scanner because it also depends on patient position, axis mapping, gradient polarity and interpreter behavior.
+$$
+N_{\mathrm{acq}}
+=
+\operatorname{round}\!\left(\frac{N_{\mathrm{PE}}}{R N_E}\right)N_E,
+$$
 
-## Axis mapping and orientation
-
-The current maintained examples are non-oblique:
-
-```matlab
-Setup.AxisRO = 'x';
-Setup.AxisPE = 'y';
-Setup.Axis3D = 'z';
-```
-
-Physical gradient polarity is controlled through:
-
-```matlab
-Setup.SignCorr.x
-Setup.SignCorr.y
-Setup.SignCorr.z
-```
-
-The exported rotation matrix is currently identity. The logical sequence description can remain portable, but every scanner integration must verify how these axes and signs map into the platform's physical/display coordinate conventions.
-
-## RF configuration
-
-`SetupRF` selects pulse type, duration, time-bandwidth product and phase. Conventional TSE currently uses a sinc excitation and SLR refocusing pulse, while gSlider uses a gSlider excitation with a larger excitation TBP.
-
-The sequence generator can validate timing and waveform constraints, but it cannot establish scanner RF safety. Review peak B1, pulse fidelity and SAR separately on the target platform.
+then calls `genPDF` with the configured polynomial power `Setup.p` and fully sampled center-radius parameter `Setup.r`. `genSampling_TSE` generates Monte-Carlo candidates and selects the pattern with the lowest maximum off-center interference metric. See [Phase encoding & acceleration](/theory/phase-encoding) for the exact mapping into PE/echo order.
 
 ## gSlider and TRAPS
 
-`TSE_2D_gSlider.m` supports:
+`TSE_2D_gSlider.m` supports gSlider excitation and an optional TRAPS-style refocusing schedule:
 
 ```matlab
 Setup.TRAPS = 'on';
 SetupRF.typeEx = 'gSlider';
 ```
 
-When TRAPS is enabled, a variable refocusing flip-angle schedule is generated relative to the echo aligned with k-space center.
+`utils/fliptraps.m` implements the variable-refocusing schedule used by this repository. It is documented as a **repository implementation of the TRAPS concept**, not as original code distributed by the TRAPS authors. The method basis is Hennig et al. [[22]](/references#ref-22 "Hennig J, Weigel M, Scheffler K. Multiecho sequences with variable refocusing flip angles: optimization of signal behavior using smooth transitions between pseudo steady states (TRAPS). Magn Reson Med. 2003;49:527-535.").
 
-The repository currently supports gSlider sequence generation but not offline gSlider decoding.
+See [gSlider-TSE & TRAPS](/guide/gslider-traps) for the concrete encoding/repetition behavior and current reconstruction limitation.
 
 ## Crushers and spoilers
 
-Crusher/spoiler strength is specified as dephasing cycles divided by a physical reference length rather than as a hard-coded gradient area. Supported references include:
-
-```text
-Slice
-RO
-PE
-3D
-Slab
-```
-
-For example:
+Spoiler strength is parameterized as dephasing cycles over a physical reference length rather than a fixed gradient area. For example:
 
 ```matlab
 SetupSpoiling.RefocusingCrusher.Cycles = 4;
 SetupSpoiling.RefocusingCrusher.Reference = 'Slice';
 ```
 
-The resulting area is:
+with
 
-```text
-area = Cycles / referenceLength
-```
+$$
+A_{\mathrm{spoil}}
+=
+\frac{N_{\mathrm{cycles}}}{L_{\mathrm{reference}}}.
+$$
 
-This makes spoiler strength scale naturally when resolution or slice/slab thickness changes.
+This lets spoiler area scale with slice/slab thickness or resolution. The generated waveform is still checked against the integer gradient raster, amplitude, slew and endpoint constraints.
 
-The custom gradient solvers treat continuous analytical solutions as seeds only; accepted waveforms are solved and validated on the integer gradient raster against area, duration, endpoints, gradient amplitude and slew limits.
+## Platform-specific integration
 
-## Target-system profile
+The logical Pulseq acquisition is designed separately from scanner-specific metadata. The currently implemented system profiles are Siemens 7 T `Terra-XJ` and `Terra-XR`; Siemens LIN metadata, ICE definitions and `.asc` PNS models belong to the **current adapter**, not to the TSE method itself.
 
-The sequence must ultimately be resolved against the hardware limits of a real scanner. The shipped `Setup.ScannerType` presets currently include:
-
-```matlab
-'Terra-XJ'
-'Terra-XR'
-```
-
-These are **currently implemented Siemens 7 T profiles**, not the vendor scope of the sequence design. `prep_System` uses the selected profile to provide absolute gradient/slew limits and the available PNS development model.
-
-User-configurable soft limits such as:
-
-```matlab
-Setup.MaxGrad_soft = 40;
-Setup.MaxSlew_soft = 150;
-```
-
-can be kept below the scanner maximum to provide design margin.
-
-A new scanner platform requires its own correct system limits, safety/PNS strategy and interpreter integration. Do not reuse a Terra profile as a generic placeholder. See [Platform Integration](platform-integration.md).
+For this boundary, see [Platform integration](/platform-integration) and [Siemens 7 T LIN & ICE](/phase-encoding-and-ice).
 
 ## Exported outputs
 
-After validation, `prep_Definition` writes sequence definitions and constructs a descriptive sequence name. The script saves:
+After checks and `prep_Definition`, the sequence entry scripts write
 
 ```text
 seq/<sequence-name>.seq
 seq/<sequence-name>.mat
 ```
 
-The MAT file contains both `Setup` and `Actual`.
+The MAT file stores both the requested `Setup` and resolved `Actual` structures. Keep the `.seq`, MAT file, repository revision and submodule revisions together for reproducibility.
 
-Keep these files together for reproducibility. The `.seq` file alone does not preserve all context about the software revision, submodule SHAs, target scanner, interpreter, protocol or reconstruction settings.
+## Implementation provenance
+
+All external method/code relationships used on this page are centralized in [Dependencies & method provenance](/reference/provenance). That page should be updated whenever a new sampling routine, RF generator, toolbox, reconstruction method or third-party code path is introduced.
