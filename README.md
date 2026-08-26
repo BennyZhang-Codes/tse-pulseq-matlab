@@ -17,8 +17,10 @@ The documentation is organized around the needs of an **open-source sequence imp
 | Design goal | Portable Pulseq development for Cartesian 2D TSE and gSlider-TSE with configurable RF, timing, PE order, PI/CS sampling, slice ordering, and TRAPS-style schedules. |
 | Current sequence implementation | Pulseq-based, with Siemens-specific Terra profiles, PI/LIN mapping, interpreter definitions, and development PNS models still present in shared code. |
 | Validated scanner path | Siemens 7 T systems only at present. |
-| Offline reconstruction | Conventional Cartesian 2D TSE from Siemens Twix: RSS, diagnostic GRAPPA, ESPIRiT-SENSE, and Cartesian CS, with optional navigator echo-magnitude correction and optional image-domain denoising. |
+| Offline reconstruction | Conventional Cartesian 2D TSE from Siemens Twix: RSS, 1D PE-GRAPPA, ESPIRiT-SENSE, and Cartesian CS, with optional navigator echo-magnitude correction and optional image-domain denoising. |
 | Not currently implemented | Validated non-Siemens scanner paths, offline gSlider decoding, partial Fourier, SMS, non-Cartesian reconstruction, and oblique sequence orientation. |
+
+The bundled GRAPPA implementation is a **regular Cartesian 1D PE-GRAPPA** path. It supports integer PE acceleration, calibration from a contiguous ACS region, regularized kernel fitting, optional readout-neighbor offsets, and preservation of acquired image/ACS rows. It does **not** implement partial-Fourier GRAPPA, SMS/slice-GRAPPA, non-Cartesian GRAPPA, irregular variable-density masks, or proprietary Siemens ICE kernel/scaling/filtering behavior.
 
 Adding another scanner platform requires a compatible Pulseq interpreter, correct hardware/safety models, platform metadata integration, and a new staged validation campaign. See [Platform Integration](https://bennyzhang-codes.github.io/tse-pulseq-matlab/platform-integration).
 
