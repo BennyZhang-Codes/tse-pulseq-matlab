@@ -1,100 +1,104 @@
 ---
 layout: home
 
+title: TSE Pulseq for MATLAB
+titleTemplate: false
+
+description: Open-source Cartesian 2D TSE and gSlider-TSE sequence implementation in MATLAB/Pulseq with companion offline reconstruction.
+
 hero:
   name: TSE Pulseq
-  text: 2D TSE development toward vendor-neutral deployment
-  tagline: MATLAB development of Cartesian TSE and gSlider-TSE with Pulseq. The current implementation and scanner validation are on Siemens 7 T; bundled raw-data reconstruction currently targets Siemens Twix.
+  text: Open-source 2D TSE sequences with Pulseq
+  tagline: Generate conventional Cartesian 2D TSE and gSlider-TSE sequences, configure RF and phase encoding, and reconstruct conventional 2D TSE raw data with the companion MATLAB pipeline.
   actions:
     - theme: brand
       text: Quick Start
       link: /quickstart
     - theme: alt
-      text: Sequence Design
+      text: Sequence
       link: /sequence-generation
+    - theme: alt
+      text: Reconstruction
+      link: /reconstruction
 
 features:
-  - title: Sequence design
-    details: Pulseq-based 2D TSE and gSlider-TSE with configurable RF, timing, echo train, slice ordering, PI/CS sampling, and TRAPS schedules.
+  - title: TSE sequence generation
+    details: Conventional multi-slice Cartesian 2D TSE with configurable timing, RF, slice ordering and phase encoding.
     link: /sequence-generation
-  - title: Platform integration
-    details: Separate reusable acquisition concepts from scanner-specific hardware limits, interpreter metadata, safety models, and validation as the project expands beyond Siemens 7 T.
-    link: /platform-integration
-  - title: Reconstruction
-    details: Transparent RSS, diagnostic PE-GRAPPA, ESPIRiT-SENSE, and Cartesian CS for the current conventional 2D TSE Siemens Twix workflow.
+  - title: gSlider-TSE
+    details: gSlider RF-encoded TSE acquisition with bundled RF pulse banks.
+    link: /guide/gslider-tse
+  - title: PI and CS sampling
+    details: Parallel-imaging PE patterns and variable-density compressed-sensing PE sampling.
+    link: /theory/phase-encoding
+  - title: MATLAB reconstruction
+    details: Prewhitening, navigator phase correction, RSS, GRAPPA, SENSE and CS with ESPIRiT sensitivity estimation.
     link: /reconstruction
-  - title: Validation
-    details: Timing and label checks, current Siemens PNS development checks, staged phantom validation, and explicit scanner-side safety boundaries.
-    link: /validation-and-safety
 ---
 
-<section class="home-section home-workflow">
-  <div class="section-kicker">HOW TO USE</div>
-  <h2>A clear path from sequence design to scanner data</h2>
-  <p class="section-lead">The documentation separates reusable acquisition concepts from scanner-specific implementation. Start with the sequence, then integrate and validate the target platform before relying on scanner or raw-data behavior.</p>
+## What is this package?
 
-  <div class="flow-grid">
-    <a class="flow-card" href="./quickstart">
-      <span class="flow-step">01</span>
-      <strong>Run a known example</strong>
-      <span>Install the project and generate a conventional 2D TSE `.seq` file with the current tested setup.</span>
-    </a>
-    <a class="flow-card" href="./sequence-generation">
-      <span class="flow-step">02</span>
-      <strong>Design the acquisition</strong>
-      <span>Configure RF, timing, echo train, geometry, ordering, PI, CS, and gSlider options.</span>
-    </a>
-    <a class="flow-card" href="./platform-integration">
-      <span class="flow-step">03</span>
-      <strong>Integrate the scanner</strong>
-      <span>Adapt system limits, interpreter metadata, orientation, safety models, and reconstruction contracts.</span>
-    </a>
-    <a class="flow-card" href="./validation-and-safety">
-      <span class="flow-step">04</span>
-      <strong>Validate, then acquire</strong>
-      <span>Complete software checks, staged phantom validation, and scanner-side RF/SAR/PNS review before in-vivo use.</span>
-    </a>
-  </div>
-</section>
+`tse-pulseq-matlab` is an open-source MATLAB/Pulseq implementation of **Cartesian 2D turbo spin echo (TSE)** acquisition. It provides two sequence entry points:
 
-<section class="home-section">
-  <div class="section-kicker">PLATFORM STATUS</div>
-  <h2>Vendor-neutral goal, currently Siemens-coupled implementation</h2>
+```text
+TSE_2D.m          conventional multi-slice 2D TSE
+TSE_2D_gSlider.m  gSlider-TSE
+```
 
-  <div class="scope-strip">
-    <div class="scope-item">
-      <span class="scope-label">Design goal</span>
-      <strong>Vendor-neutral Pulseq TSE</strong>
-      <span>The acquisition concepts are intended to remain portable at the Pulseq level as support expands to additional scanner platforms.</span>
-    </div>
-    <div class="scope-item">
-      <span class="scope-label">Current implementation</span>
-      <strong>Siemens 7 T path</strong>
-      <span>Shared prep code currently includes Terra hardware presets, Siemens PI/LIN mapping, interpreter definitions, and `.asc` PNS models.</span>
-    </div>
-    <div class="scope-item">
-      <span class="scope-label">Raw-data reconstruction</span>
-      <strong>Siemens Twix</strong>
-      <span>The bundled MATLAB reader and reconstruction currently target conventional Cartesian 2D TSE Twix data through `mapVBVD`.</span>
-    </div>
-  </div>
-</section>
+The repository also includes a companion MATLAB reconstruction for conventional Cartesian 2D TSE data.
 
-::: info Porting to another vendor
-The project is intended to support vendor-neutral sequence development, but the current code path still contains Siemens-specific integration. See [Platform Integration](platform-integration.md) for the exact coupling points and the work required to add another scanner platform.
+## Supported features
+
+| Area | Available functionality |
+| --- | --- |
+| Sequence | conventional 2D TSE, gSlider-TSE, inversion recovery, multi-slice acquisition |
+| Phase encoding | Linear, CentricFull, CentricHalf; PI and CS sampling |
+| RF | sinc, SLR pulse banks, gSlider pulse banks, optional VERSE |
+| Sequence checks | Pulseq timing, labels, sequence/k-space plots; PNS prediction path when its external inputs are available |
+| Reconstruction | RSS, GRAPPA, SENSE, CS; ESPIRiT sensitivity estimation; coil compression |
+| Preprocessing | noise prewhitening and navigator phase correction |
+| Optional processing | navigator-derived echo magnitude correction; NLM, BM3D, SANLM and TGV2 denoising |
+| Output | reconstructed images and NIfTI export in the maintained MATLAB workflow |
+
+Detailed implementation and scientific/code provenance are documented in [Sequence Implementation](/sequence-generation), [Reconstruction](/reconstruction), and [Dependencies & Method Provenance](/reference/provenance).
+
+## Start using it
+
+Clone the repository with its submodules:
+
+```bash
+git clone --recurse-submodules https://github.com/BennyZhang-Codes/tse-pulseq-matlab.git
+cd tse-pulseq-matlab
+```
+
+Generate a conventional sequence:
+
+```matlab
+run('TSE_2D.m')
+```
+
+Generate gSlider-TSE:
+
+```matlab
+run('TSE_2D_gSlider.m')
+```
+
+See [Quick Start](/quickstart) for the main configuration and reconstruction example.
+
+## Current notes
+
+- Scanner development/testing to date has used Siemens 7 T systems. The sequence itself is described with Pulseq; scanner execution requires a compatible interpreter and target-system validation.
+- The maintained offline raw-data reader currently uses Siemens Twix through `mapVBVD`.
+- Offline gSlider decoding is not yet implemented.
+- The current PNS-check path requires external `safe_pns_prediction` and a target-system hardware model; making this check cleanly optional is listed in [TO DO](/todo).
+
+::: warning Research use
+A generated `.seq` file is not by itself evidence of scanner safety. Use the target scanner's RF/SAR, gradient/PNS, interpreter/watchdog and local safety procedures before in-vivo scanning. See [Validation & Safety](/validation-and-safety).
 :::
 
-::: warning Research use only
-Pulseq timing checks, PNS prediction, and software-side validation do **not** replace scanner-side safety checks, RF/SAR review, protocol validation, gradient-watchdog checks, local approvals, or staged phantom testing before volunteer or patient imaging.
-:::
+## Documentation
 
-<section class="home-section home-links">
-  <div class="section-kicker">REFERENCE</div>
-  <h2>Detailed references when you need them</h2>
-  <div class="reference-grid">
-    <a href="./parameter-reference"><strong>Parameter Reference</strong><span>Sequence controls, timing, geometry, acceleration, RF, and spoiling parameters.</span></a>
-    <a href="./platform-integration"><strong>Platform Integration</strong><span>Current Siemens coupling, target architecture, and a practical checklist for adding another scanner platform.</span></a>
-    <a href="./phase-encoding-and-ice"><strong>Siemens 7 T Encoding & ICE</strong><span>Current LIN, ACS, phase-correction, interpreter, and ICE metadata contract.</span></a>
-    <a href="./reproducibility"><strong>Reproducibility & Citation</strong><span>Pin software, submodules, platform details, protocol settings, and reconstruction options for published work.</span></a>
-  </div>
-</section>
+- **Use the package:** [Quick Start](/quickstart) · [Installation](/installation) · [Parameter Reference](/parameter-reference)
+- **Understand the sequence:** [Sequence Implementation](/sequence-generation) · [TSE Echo Train](/theory/tse-echo-train) · [Phase Encoding & Acceleration](/theory/phase-encoding) · [gSlider-TSE](/guide/gslider-tse)
+- **Reconstruct data:** [Reconstruction](/reconstruction) · [Optional Echo Correction](/guide/echo-corrections) · [Optional Denoising](/guide/denoising)
+- **Source and citations:** [Dependencies & Method Provenance](/reference/provenance) · [References](/references)

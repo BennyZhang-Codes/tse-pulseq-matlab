@@ -1,115 +1,133 @@
 import { defineConfig } from 'vitepress'
+import { mermaidPlugin } from './plugins/vitepress-mermaid/index.js'
 
 export default defineConfig({
   title: 'TSE Pulseq for MATLAB',
-  titleTemplate: ':title · TSE Pulseq',
-  description: 'Pulseq-based Cartesian 2D TSE sequence development toward vendor-neutral deployment, with current implementation and validation on Siemens 7 T.',
+  description: 'Documentation for an open-source Cartesian 2D TSE and gSlider-TSE Pulseq implementation with companion MATLAB reconstruction.',
   base: '/tse-pulseq-matlab/',
   cleanUrls: true,
   lastUpdated: true,
   head: [
-    ['meta', { name: 'theme-color', content: '#a63b34' }]
+    ['meta', { name: 'theme-color', content: '#6366f1' }],
   ],
+  markdown: {
+    math: true,
+    config(md) {
+      md.use(mermaidPlugin)
+    },
+  },
   themeConfig: {
     siteTitle: 'TSE Pulseq',
     nav: [
       {
-        text: 'Guide',
-        link: '/quickstart',
-        activeMatch: '^/(installation|quickstart)'
+        text: 'Getting Started',
+        items: [
+          { text: 'Overview', link: '/' },
+          { text: 'Quick Start', link: '/quickstart' },
+          { text: 'Installation', link: '/installation' },
+        ],
       },
       {
         text: 'Sequence',
-        link: '/sequence-generation',
-        activeMatch: '^/(sequence-generation|parameter-reference)'
-      },
-      {
-        text: 'Platforms',
-        link: '/platform-integration',
-        activeMatch: '^/(platform-integration|phase-encoding-and-ice)'
-      },
-      { text: 'Reconstruction', link: '/reconstruction' },
-      {
-        text: 'Validation',
-        link: '/validation-and-safety',
-        activeMatch: '^/(validation-and-safety|staged-phantom-validation)'
-      }
-    ],
-    sidebar: [
-      {
-        text: 'Start here',
         items: [
-          { text: 'Overview', link: '/' },
-          { text: 'Installation', link: '/installation' },
-          { text: 'Quick Start', link: '/quickstart' }
-        ]
-      },
-      {
-        text: 'Sequence design',
-        items: [
-          { text: 'Sequence Workflow', link: '/sequence-generation' },
-          { text: 'Parameter Reference', link: '/parameter-reference' }
-        ]
-      },
-      {
-        text: 'Platform integration',
-        items: [
-          { text: 'Platform Overview', link: '/platform-integration' },
-          { text: 'Siemens 7 T Encoding & ICE', link: '/phase-encoding-and-ice' }
-        ]
+          { text: 'Sequence Implementation', link: '/sequence-generation' },
+          { text: 'Parameter Reference', link: '/parameter-reference' },
+          { text: 'TSE Echo Train', link: '/theory/tse-echo-train' },
+          { text: 'Phase Encoding & Acceleration', link: '/theory/phase-encoding' },
+          { text: 'gSlider-TSE', link: '/guide/gslider-tse' },
+        ],
       },
       {
         text: 'Reconstruction',
         items: [
-          { text: 'Siemens Twix Reconstruction', link: '/reconstruction' }
-        ]
+          { text: 'Reconstruction', link: '/reconstruction' },
+          { text: 'Optional Echo Correction', link: '/guide/echo-corrections' },
+          { text: 'Optional Denoising', link: '/guide/denoising' },
+        ],
       },
       {
-        text: 'Validation',
+        text: 'Reference',
+        items: [
+          { text: 'Sequence API', link: '/reference/sequence-api' },
+          { text: 'Dependencies & Method Provenance', link: '/reference/provenance' },
+          { text: 'Reproducibility & Citation', link: '/reproducibility' },
+          { text: 'Literature References', link: '/references' },
+          { text: 'TO DO', link: '/todo' },
+        ],
+      },
+      {
+        text: 'Support',
         items: [
           { text: 'Validation & Safety', link: '/validation-and-safety' },
-          { text: 'Siemens 7 T Phantom SOP', link: '/staged-phantom-validation' }
-        ]
+          { text: 'Troubleshooting', link: '/troubleshooting' },
+          { text: 'Developer Guide', link: '/developer-guide' },
+          { text: 'GitHub Repository', link: 'https://github.com/BennyZhang-Codes/tse-pulseq-matlab' },
+        ],
+      },
+    ],
+    sidebar: [
+      {
+        text: 'Getting Started',
+        items: [
+          { text: 'Overview', link: '/' },
+          { text: 'Quick Start', link: '/quickstart' },
+          { text: 'Installation', link: '/installation' },
+        ],
       },
       {
-        text: 'Project',
+        text: 'Sequence',
+        items: [
+          { text: 'Sequence Implementation', link: '/sequence-generation' },
+          { text: 'Parameter Reference', link: '/parameter-reference' },
+          { text: 'TSE Signal & Echo Train', link: '/theory/tse-echo-train' },
+          { text: 'Phase Encoding & Acceleration', link: '/theory/phase-encoding' },
+          { text: 'gSlider-TSE', link: '/guide/gslider-tse' },
+        ],
+      },
+      {
+        text: 'Reconstruction',
+        collapsed: false,
+        items: [
+          { text: 'Reconstruction', link: '/reconstruction' },
+          { text: 'Optional Echo Correction', link: '/guide/echo-corrections' },
+          { text: 'Optional Denoising', link: '/guide/denoising' },
+        ],
+      },
+      {
+        text: 'Reference',
+        collapsed: false,
+        items: [
+          { text: 'Sequence API', link: '/reference/sequence-api' },
+          { text: 'Dependencies & Method Provenance', link: '/reference/provenance' },
+          { text: 'Symbols & Notation', link: '/theory/symbols' },
+          { text: 'Reproducibility & Citation', link: '/reproducibility' },
+          { text: 'Literature References', link: '/references' },
+          { text: 'TO DO', link: '/todo' },
+        ],
+      },
+      {
+        text: 'Support',
         collapsed: true,
         items: [
-          { text: 'Reproducibility & Citation', link: '/reproducibility' },
-          { text: 'Developer Guide', link: '/developer-guide' }
-        ]
-      }
+          { text: 'Validation & Safety', link: '/validation-and-safety' },
+          { text: 'Troubleshooting', link: '/troubleshooting' },
+          { text: 'Developer Guide', link: '/developer-guide' },
+        ],
+      },
     ],
     socialLinks: [
-      { icon: 'github', link: 'https://github.com/BennyZhang-Codes/tse-pulseq-matlab' }
+      { icon: 'github', link: 'https://github.com/BennyZhang-Codes/tse-pulseq-matlab' },
     ],
-    search: {
-      provider: 'local'
-    },
-    outline: {
-      level: [2, 3],
-      label: 'On this page'
-    },
-    docFooter: {
-      prev: 'Previous',
-      next: 'Next'
-    },
-    lastUpdated: {
-      text: 'Updated'
-    },
-    returnToTopLabel: 'Back to top',
-    sidebarMenuLabel: 'Menu',
-    darkModeSwitchLabel: 'Theme',
-    lightModeSwitchTitle: 'Switch to light theme',
-    darkModeSwitchTitle: 'Switch to dark theme',
-    externalLinkIcon: true,
-    footer: {
-      message: 'Vendor-neutral design goal · Current implementation and scanner validation: Siemens 7 T.',
-      copyright: 'MIT License'
-    },
+    search: { provider: 'local' },
+    outline: { level: [2, 3], label: 'On this page' },
     editLink: {
-      pattern: 'https://github.com/BennyZhang-Codes/tse-pulseq-matlab/edit/main/docs/:path',
-      text: 'Edit this page on GitHub'
-    }
-  }
+      pattern: 'https://github.com/BennyZhang-Codes/tse-pulseq-matlab/edit/vitepress-style/docs/:path',
+      text: 'Edit this page on GitHub',
+    },
+    docFooter: { prev: 'Previous page', next: 'Next page' },
+    footer: {
+      message: 'Open-source Pulseq TSE sequence implementation with companion MATLAB reconstruction.',
+      copyright: 'TSE Pulseq contributors',
+    },
+  },
 })

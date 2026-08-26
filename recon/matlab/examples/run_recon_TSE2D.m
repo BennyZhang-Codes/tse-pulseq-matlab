@@ -15,11 +15,16 @@ mapVBVDPath = "E:\Tools\mapVBVD";
 
 applyPrewhitening = true;
 applyPhaseCorrection = true;
-applyEchoMagnitudeCorrection = true;
+
+% Optional navigator-derived echo-envelope equalization. Keep disabled for
+% an unmodified reconstruction; enable only when its effect has been
+% evaluated for the target acquisition and reporting purpose.
+applyEchoMagnitudeCorrection = false;
 echoMagnitudeMethod = "wiener"; % "power" retains the legacy gain model.
 echoMagnitudeAlpha = 0;         % 0 targets full equalization; 1 retains the envelope.
 echoMagnitudeLambda = "auto";  % "auto" or a non-negative scalar.
 echoMagnitudeMaxGain = 2;       % Smooth auto-Wiener gain limit, not a hard clip.
+
 runGrappa = true;
 comparePhaseCorrection = true;
 slices = [];                    % [] reconstructs every acquired SLC.
@@ -37,7 +42,7 @@ result = recon_TSE2D(twixFile, ...
     'EchoMagnitudeMaxGain',echoMagnitudeMaxGain, ...
     'GRAPPA',runGrappa, ...
     'GrappaKySourceCount',4, ...
-    'GrappaKxKernel',0, ...      % Fast and robust 1D PE-only diagnostic kernel.
+    'GrappaKxKernel',0, ...      % Default GRAPPA kernel uses no readout-neighbor offsets.
     'GrappaRegularization',1e-4, ...
     'ComparePhaseCorrection',comparePhaseCorrection, ...
     'Slices',slices, ...

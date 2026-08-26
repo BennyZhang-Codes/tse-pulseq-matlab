@@ -1,63 +1,76 @@
 # Parameter reference
 
-This page is a development reference for the maintained Cartesian 2D TSE entry points. Values are nominal; after generation, use the saved `Actual` structure as the record of the resolved protocol.
-
-The acquisition parameters describe the Pulseq sequence itself. Scanner hardware limits, interpreter metadata, Siemens LIN/ICE behavior, and raw-data reconstruction belong to the **platform integration layer** and should not be assumed to transfer unchanged to another vendor. See [Platform Integration](platform-integration.md).
+This page summarizes the main user-facing parameters for the maintained Cartesian 2D TSE entry points. After generation, use the saved `Actual` structure as the record of the resolved protocol.
 
 ## Geometry and readout
 
-| Field | Unit | Primary effect | Check when changing |
-| --- | --- | --- | --- |
-| `fovRO`, `fovPE` | m | Field of view and aliasing margin | Voxel size, gradient area |
-| `nRO`, `nPE` | samples | In-plane resolution and scan time | ADC, PE coverage, reconstruction matrix |
-| `roDuration` | s | Readout bandwidth and distortion/noise trade-off | ADC dwell, TE feasibility |
-| `SliceThickness`, `SliceGap` | m | Through-plane resolution and cross-talk | Slice selection, spoiler reference |
-| `nSlice` | count | Coverage and TR duty cycle | Slice order, RF/SAR duty cycle |
+| Field | Unit | Primary effect |
+| --- | --- | --- |
+| `fovRO`, `fovPE` | m | field of view |
+| `nRO`, `nPE` | samples | in-plane matrix / resolution |
+| `roDuration` | s | readout duration and bandwidth |
+| `SliceThickness`, `SliceGap` | m | through-plane geometry |
+| `nSlice` | count | slice coverage |
 
 Nominal in-plane resolution is `fovRO/nRO` by `fovPE/nPE`.
 
-## TSE timing and contrast
+## TSE timing
 
-| Field | Unit | Primary effect | Important coupling |
-| --- | --- | --- | --- |
-| `nEcho` | count | Turbo factor / echo-train length | Echo modulation, blurring, SAR |
-| `TE1` | s | First echo time | RF duration, readout, crusher timing |
-| `TEeff` | s | Echo intended for physical `ky=0` | PE ordering and contrast |
-| `TR` | s | Recovery and scan time | Slice count, IR, SAR duty cycle |
-| `rflip` / TRAPS | degree | Refocusing pathway and SAR | Echo envelope, image contrast |
-
-For TSE, `TEeff` does not independently set contrast: PE ordering determines which echo samples central k-space. Verify the resulting order after changing `PEMode`, `nEcho`, `TE1`, or `TEeff`.
-
-## Acceleration and platform metadata
-
-| Field | Meaning | Required validation |
+| Field | Unit | Primary effect |
 | --- | --- | --- |
-| `AccelerationMode='PI'` | Regular undersampling plus ACS | Validate the target interpreter's acceleration/calibration mapping; on the current Siemens path, match iPAT R and reference lines |
-| `R` | PI/CS acceleration factor | Test sampling lattice and ACS width; on Siemens, also verify LIN mapping |
-| `RefLinesRatio` | Fraction of PE lines reserved for PI reference | Confirm ACS intent, exported metadata and image coverage |
-| `AccelerationMode='CS'` | Offline irregular sampling | Do not apply PI/ICE LIN assumptions |
-| `PEMode` | `CentricFull`, `CentricHalf`, or `Linear` | Inspect echo-to-`ky` mapping and PSF |
+| `nEcho` | count | echo-train length / turbo factor |
+| `TE1` | s | first echo time |
+| `TEeff` | s | echo intended for physical `ky=0` |
+| `TR` | s | repetition time |
+| `rflip` | degree | refocusing flip angle |
 
-The logical `ky` order is part of the acquisition design. The currently validated Siemens 7 T PI path additionally maps that order to zero-based Siemens LIN with `ky=0 → LIN=floor(nPE/2)`; for even `nPE=300`, that is LIN 150. Another interpreter may require a different metadata mapping. See [Siemens 7 T encoding and ICE integration](phase-encoding-and-ice.md).
+For TSE, `TEeff` is coupled to the PE ordering because the echo assigned to central k-space determines the effective contrast weighting. See [TSE Echo Train](/theory/tse-echo-train).
 
-## RF, VERSE, and spoilers
+## Phase encoding and acceleration
 
-| Field | Meaning | Required validation |
-| --- | --- | --- |
-| `SetupRF.tEx/tRef/tInv` | RF durations | TE/TR feasibility and peak B1 |
-| `SetupRF.tbpEx/tbpRef/tbpInv` | Time-bandwidth products | Slice profile and peak B1 |
-| `VERSE` | Variable-rate RF/gradient path | RF profile, B1, SAR, gradient fidelity |
-| Spoiler `Cycles` | Dephasing cycles | Residual coherence versus TE/TR burden |
-| Spoiler `Reference` | `Slice`, `RO`, `PE`, `3D`, `Slab` | Area scaling after geometry changes |
+| Field | Meaning |
+| --- | --- |
+| `PEMode` | `CentricFull`, `CentricHalf`, or `Linear` |
+| `AccelerationMode='PI'` | regular PE undersampling with ACS/reference lines |
+| `AccelerationMode='CS'` | variable-density PE sampling for offline CS reconstruction |
+| `R` | acceleration factor |
+| `RefLinesRatio` | PI reference/ACS fraction |
+| `p`, `r` | current CS variable-density sampling parameters |
 
-Spoiler area is `Cycles/referenceLength`. The selected waveform must still satisfy gradient amplitude and slew limits on the discrete raster.
+See [Phase Encoding & Acceleration](/theory/phase-encoding) for the implemented PE patterns.
 
-## Minimum change checklist
+## RF
 
-After changing any protocol parameter:
+| Field | Meaning |
+| --- | --- |
+| `SetupRF.typeEx` | excitation family, including sinc / gSlider paths |
+| `SetupRF.typeRef` | refocusing RF family |
+| `SetupRF.typeInv` | inversion RF family |
+| `SetupRF.tEx/tRef/tInv` | RF durations |
+| `SetupRF.tbpEx/tbpRef/tbpInv` | time-bandwidth products |
+| `VERSE` | optional VERSE RF/gradient path |
 
-1. regenerate the sequence and retain `Setup`, `Actual`, `.seq`, and the Git commit/submodule SHAs;
-2. inspect `check_Timing`, labels, and the gradient/trajectory plots;
-3. inspect `seq.testReport` during development, especially maximum gradient and slew;
-4. repeat staged phantom validation for changes affecting RF, gradients, PE ordering, acceleration, interpreter integration, or reconstruction;
-5. obtain target-scanner RF/SAR/PNS and interpreter checks before in-vivo use.
+The bundled SLR and gSlider RF pulse banks are generated offline with SigPy and stored as `.mat` files. See [Dependencies & Method Provenance](/reference/provenance).
+
+## gSlider-TSE
+
+`TSE_2D_gSlider.m` uses the gSlider RF encoding path and dedicated gSlider sequence loops. See [gSlider-TSE](/guide/gslider-tse).
+
+`Setup.TRAPS` exists only for an experimental/test variable-refocusing path based on `utils/fliptraps.m`; it is not a core gSlider-TSE feature.
+
+## Spoilers
+
+| Field | Meaning |
+| --- | --- |
+| spoiler `Cycles` | desired dephasing cycles |
+| spoiler `Reference` | reference dimension such as `Slice`, `RO`, `PE`, `3D`, or `Slab` |
+
+Spoiler area scales as `Cycles/referenceLength`, after which the waveform must satisfy the configured gradient amplitude and slew limits.
+
+## Platform-dependent settings
+
+The current source still contains scanner/profile and metadata settings from the Siemens 7 T development environment. These are implementation details rather than universal TSE parameters. See [Platform Integration](/platform-integration) and [TO DO](/todo).
+
+## After changing parameters
+
+Regenerate the sequence, inspect the resolved `Actual` values and sequence/k-space plots, and confirm timing/labels. Scanner-side RF/SAR, gradient/PNS, interpreter, and phantom checks remain required before in-vivo use.

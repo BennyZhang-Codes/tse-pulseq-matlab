@@ -1,171 +1,82 @@
-# Offline reconstruction — Siemens Twix
+# Reconstruction
 
-The bundled offline MATLAB reconstruction currently targets **conventional Cartesian 2D TSE Siemens Twix data**. This is the repository's present raw-data/reconstruction implementation, not a restriction of the vendor-neutral Pulseq sequence core.
+The repository includes a MATLAB reconstruction for **conventional Cartesian 2D TSE data supported by the maintained raw-data reader**. Its purpose is to make the sequence implementation inspectable and reproducible from raw data through image export.
 
-For the distinction between sequence portability and raw-data/platform integration, see [Platform Integration](platform-integration.md).
+The public entry point is
 
-Main entry points:
-
-```text
-recon/matlab/examples/run_recon_TSE2D.m
-recon/matlab/examples/run_recon_TSE2D_iterative.m
-recon/matlab/recon_TSE2D.m
+```matlab
+result = recon_TSE2D(filename, Name, Value, ...)
 ```
 
-::: warning Scope
-The offline reconstruction does **not** currently decode gSlider acquisitions, does not include raw-data readers for other MRI vendors, and does not claim pixel-for-pixel equivalence with Siemens ICE.
+[Source: `recon/matlab/recon_TSE2D.m`](https://github.com/BennyZhang-Codes/tse-pulseq-matlab/blob/vitepress-style/recon/matlab/recon_TSE2D.m)
+
+::: warning Current raw-data reader
+The maintained reader currently consumes Siemens Twix through `mapVBVD`. Vendor-independent raw-data input is planned but not yet implemented. See [TO DO & implementation checklist](/todo).
 :::
 
-## 1. Processing chain
+## Processing pipeline
 
-The main reconstruction performs:
-
-```text
-Twix read
-  |
-  v
-noise prewhitening
-  |
-  v
-navigator phase estimation/correction
-  |
-  v
-optional echo-magnitude equalization
-  |
-  v
-LIN-based Cartesian k-space packing
-  |
-  +--> RSS
-  +--> PE-GRAPPA
-  +--> ESPIRiT-SENSE
-  +--> ESPIRiT-SENSE + TV/Haar CS
-  |
-  v
-NIfTI / MAT / PNG / CSV / diagnostics
+```mermaid
+flowchart TD
+    A[Raw data] --> B[Read image / navigator / ACS / noise]
+    B --> C[Prewhitening]
+    C --> D[Navigator phase correction]
+    D --> E[Optional echo magnitude correction]
+    E --> F[Cartesian k-space packing]
+    F --> G[Calibration / coil model]
+    G --> H[RSS / GRAPPA / SENSE / CS]
+    H --> I[Numerical checks]
+    I --> J[Image + geometry export]
+    J --> K[Optional denoising]
 ```
 
-The order matters. Image, navigator and PAT-reference data are kept in a consistent coil basis, and phase/magnitude corrections are applied before k-space packing and calibration-based reconstruction.
+## 1. Raw-data input
 
-## 2. Twix streams and MDH counters
+`read_TSE2D_twix.m` is the current reader implementation and uses external [mapVBVD](https://github.com/pehses/mapVBVD) to expose image data, phase-correction navigators, PAT reference data, compatible reference phase-correction information, receive-noise data, and the metadata needed for Cartesian packing.
 
-`read_TSE2D_twix.m` reads, when available:
+The reconstruction converts reader-specific counters into the internal PE/slice/echo representation required by the numerical pipeline. Raw-data indexing conventions are reader/platform details, not part of the TSE method definition. See [Platform Integration](/platform-integration).
 
-- image data;
-- `phasecor` navigators;
-- PAT `refscan` data;
-- `refscanPC` metadata/view;
-- receive-noise data.
+## 2. Prewhitening
 
-The reconstruction retains the counters needed to interpret the acquisition:
+Let $\Psi$ be the complex receive-noise covariance. The implementation constructs a regularized inverse Hermitian square root $W_N$ such that
 
-- `LIN` — phase-encoding line;
-- `SLC` — slice;
-- `SEG` — TSE echo index.
+$$
+W_N\Psi W_N^H\approx I.
+$$
 
-Within MATLAB/mapVBVD these indices are one-based.
+The same transform is applied to image, navigator, and compatible calibration streams. This follows standard phased-array/noise normalization principles [[3]](/references#ref-3 "Roemer PB, Edelstein WA, Hayes CE, Souza SP, Mueller OM. The NMR phased array. Magn Reson Med. 1990;16:192-225.") [[4]](/references#ref-4 "Kellman P, McVeigh ER. Image reconstruction in SNR units: a general method for SNR measurement. Magn Reson Med. 2005;54:1439-1447.").
 
-## 3. Readout oversampling
+If no usable noise scan is available, the code warns and falls back rather than silently claiming successful prewhitening.
 
-By default, readout oversampling is removed from image, navigator and reference streams.
+## 3. Phase correction
 
-Noise is intentionally loaded without readout-oversampling removal. Image-domain cropping can correlate adjacent noise samples and bias the receive-noise covariance.
+For slice $s$, echo $e$, coil $c$, and normalized readout coordinate $\kappa$,
 
-## 4. Receive-noise prewhitening
+$$
+z_{s,e,c}(\kappa)=n_{s,e,c}(\kappa)n^*_{s,e_{\mathrm{ref}},c}(\kappa),
+$$
 
-Prewhitening is enabled by default:
+and the implementation fits
 
-```matlab
-'Prewhiten', true
-'NoiseShrinkage', 0.02
-```
+$$
+\arg z_{s,e,c}(\kappa)\approx\beta_{1,s,e,c}\kappa+\beta_{0,s,e,c}.
+$$
 
-For a mean-removed sample-by-coil noise matrix `N`, the covariance is estimated and shrunk toward its diagonal before applying a Hermitian inverse square root.
+The constant and readout-linear terms are removed from compatible image/reference acquisitions before packing. This is the model implemented by this repository; it is not intended to reproduce proprietary vendor reconstruction internals.
 
-The same coil transform is applied to:
+## 4. Optional echo magnitude correction
 
-- image data;
-- phase-correction data;
-- PAT reference data.
+The navigator train can also estimate a normalized echo envelope $A_{s,e}$. If explicitly enabled, the package can apply power-law or normalized Wiener-style regularized equalization before Cartesian packing.
 
-If no usable noise stream is available, the code warns and uses an identity transform rather than silently pretending prewhitening succeeded.
+This is an **optional user-selected preprocessing step** and is disabled by default. See [Echo phase & magnitude correction](/guide/echo-corrections).
 
-## 5. Navigator phase correction
+## 5. K-space packing
 
-The default reference echo is echo 1.
+`pack_TSE2D_kspace.m` maps acquisitions to Cartesian PE rows and averages repeated acquisitions assigned to the same encoded row.
 
-For each slice, echo and receive channel, the reconstruction compares the current navigator with the reference navigator and fits the phase of:
+## 6. Reconstruction methods
 
-```text
-currentEcho .* conj(referenceEcho)
-```
-
-with a weighted linear model over normalized readout k-space:
-
-```text
-phase(kx) = linearSlope * normalizedKx + constantPhase
-```
-
-The model captures:
-
-- constant echo-to-echo phase offset;
-- readout-linear phase.
-
-The same fitted correction is applied to image and PAT-reference acquisitions according to their `SLC` and `SEG` counters.
-
-## 6. Echo-magnitude correction
-
-The core API keeps echo-magnitude correction disabled by default for backward compatibility:
-
-```matlab
-'EchoMagnitudeCorrection', false
-'EchoMagnitudeMethod', 'power'
-'EchoMagnitudeAlpha', 1
-```
-
-The routine-use example deliberately opts into a noise-stable Wiener configuration:
-
-```matlab
-'EchoMagnitudeCorrection', true
-'EchoMagnitudeMethod', 'wiener'
-'EchoMagnitudeAlpha', 0
-'EchoMagnitudeLambda', 'auto'
-'EchoMagnitudeMaxGain', 2
-```
-
-These are different by design: API defaults preserve compatibility, while the example demonstrates the current preferred experimental equalization workflow.
-
-The normalized navigator magnitude is denoted `A_e`.
-
-Legacy power-law gain:
-
-```text
-g_e = A_e^(alpha - 1)
-```
-
-Normalized Wiener-style gain:
-
-```text
-g_e = (1 + lambda) * A_e^(alpha + 1) / (A_e^2 + lambda)
-```
-
-At `alpha = 0`, the unregularized model targets full envelope equalization. At `alpha = 1`, the unregularized power model preserves the measured envelope.
-
-For Wiener mode, `lambda='auto'` selects a separate value for each slice from the larger of:
-
-- a prewhitened navigator noise-to-signal term; and
-- the regularization required to respect the configured smooth maximum-gain target.
-
-The gain target is not implemented as a hard post-hoc clip.
-
-## 7. Cartesian k-space packing
-
-Acquisitions are placed into k-space according to MDH LIN. Repeated acquisitions of the same encoded row are averaged.
-
-When image and reference views identify the same physical line, the workflow avoids intentionally counting the same physical acquisition twice.
-
-## 8. Reconstruction methods
-
-`ReconstructionMethod` accepts:
+`ReconstructionMethod` accepts
 
 ```text
 auto
@@ -175,136 +86,146 @@ sense
 cs
 ```
 
-### `auto`
+| Method | Implementation in this package | Method basis |
+| --- | --- | --- |
+| `rss` | centered coil-wise IFFT + root-sum-of-squares | phased-array combination [[3]](/references#ref-3 "Roemer PB, Edelstein WA, Hayes CE, Souza SP, Mueller OM. The NMR phased array. Magn Reson Med. 1990;16:192-225.") |
+| `grappa` | GRAPPA calibrated from ACS; acquired rows are preserved | GRAPPA [[5]](/references#ref-5 "Griswold MA, Jakob PM, Heidemann RM, et al. Generalized autocalibrating partially parallel acquisitions (GRAPPA). Magn Reson Med. 2002;47:1202-1210.") |
+| `sense` | SENSE with ESPIRiT sensitivity maps | SENSE [[6]](/references#ref-6 "Pruessmann KP, Weiger M, Scheidegger MB, Boesiger P. SENSE: sensitivity encoding for fast MRI. Magn Reson Med. 1999;42:952-962."); ESPIRiT [[7]](/references#ref-7 "Uecker M, Lai P, Murphy MJ, et al. ESPIRiT: an eigenvalue approach to autocalibrating parallel MRI. Magn Reson Med. 2014;71:990-1001.") |
+| `cs` | CS with TV and Haar-L1 regularization | Sparse MRI [[8]](/references#ref-8 "Lustig M, Donoho D, Pauly JM. Sparse MRI: the application of compressed sensing for rapid MR imaging. Magn Reson Med. 2007;58:1182-1195."); Chambolle-Pock [[9]](/references#ref-9 "Chambolle A, Pock T. A first-order primal-dual algorithm for convex problems with applications to imaging. J Math Imaging Vis. 2011;40:120-145.") |
 
-For accelerated data, `auto` uses diagnostic GRAPPA when enabled. Otherwise it falls back to RSS.
+For reproducible comparisons, choose a method explicitly rather than relying on `auto`.
 
-### RSS
+## 7. GRAPPA
 
-Centered 2D inverse FFT is applied coil-by-coil followed by root-sum-of-squares magnitude combination in the current coil basis.
+`recon_TSE2D_GRAPPA.m` implements GRAPPA [[5]](/references#ref-5 "Griswold MA, Jakob PM, Heidemann RM, et al. Generalized autocalibrating partially parallel acquisitions (GRAPPA). Magn Reson Med. 2002;47:1202-1210.").
 
-### Diagnostic PE-GRAPPA
+For each missing PE residue/offset pattern, the code selects acquired source lines, calibrates a multicoil kernel from the ACS region, applies relative Tikhonov regularization, and fills only missing PE rows. Acquired imaging and ACS samples are preserved.
 
-The repository implements a transparent one-dimensional PE-GRAPPA baseline for integer acceleration factors `R >= 2`.
+Current options:
 
-Only missing phase-encoding lines are synthesized. Acquired imaging and ACS samples are preserved.
+| Option | Default |
+| --- | ---: |
+| `GRAPPA` | `true` |
+| `GrappaKySourceCount` | `4` |
+| `GrappaKxKernel` | `0` |
+| `GrappaRegularization` | `1e-4` |
 
-The default diagnostic kernel uses four PE source lines and no readout neighbors, with relative Tikhonov loading `1e-4`.
+### Current implementation limits
 
-This implementation is intentionally simpler than Siemens ICE GRAPPA and should not be used to claim reconstruction equivalence with the scanner.
+The current GRAPPA implementation
 
-## 9. Iterative SENSE
+- accelerates along phase encoding only;
+- requires integer `R >= 2`;
+- expects a regular Cartesian acceleration lattice;
+- expects integrated contiguous ACS calibration;
+- supports configurable readout-neighbor offsets through `GrappaKxKernel`;
+- does not implement partial-Fourier GRAPPA;
+- does not implement SMS/slice-GRAPPA;
+- does not implement non-Cartesian GRAPPA;
+- does not reconstruct irregular variable-density/CS masks; and
+- does not reproduce proprietary vendor kernel selection, scaling, coil processing, or image filtering.
 
-SENSE and CS share the same Cartesian multicoil encoding model:
+The method name remains **GRAPPA**; these statements describe the current implementation scope.
 
-```text
-A x = P F (S x)
-```
+## 8. SENSE and CS
 
-where:
+After preprocessing and packing, SENSE and CS use
 
-- `S` contains complex sensitivity maps;
-- `F` is a centered unitary 2D FFT;
-- `P` is the acquired-line mask.
+$$
+A=PFS,
+$$
 
-Ordinary SENSE solves:
+where $S$ applies complex coil sensitivities, $F$ is the centered unitary Cartesian Fourier transform, and $P$ selects acquired PE rows.
 
-```text
-min_x 0.5 ||A x - y||_2^2 + 0.5 lambda ||x||_2^2
-```
+### SENSE
 
-using conjugate gradients on the normal equations.
+The SENSE path solves
 
-Typical starting values:
+$$
+\min_x\frac12\lVert Ax-y\rVert_2^2+\frac{\lambda_2}{2}\lVert x\rVert_2^2
+$$
 
-```matlab
-'SENSEIterations', 50
-'SENSETolerance', 1e-5
-'SENSETikhonov', 1e-4
-```
+with conjugate gradients on the normal equations.
 
-## 10. Cartesian CS
+| Option | Default |
+| --- | ---: |
+| `SENSEIterations` | `50` |
+| `SENSETolerance` | `1e-5` |
+| `SENSETikhonov` | `1e-4` |
 
-The CS solver minimizes:
+### CS
 
-```text
-0.5 ||A x-y||_2^2
-+ lambdaTV * TV(x)
-+ lambdaW * ||W x||_1
-```
+The CS path solves
 
-where `W` is an orthonormal Haar transform. Coarsest-scale Haar approximation coefficients are not penalized.
+$$
+\min_x\frac12\lVert Ax-y\rVert_2^2+\lambda_{\mathrm{TV}}\lVert Dx\rVert_{2,1}+\lambda_W\lVert W_Hx\rVert_1,
+$$
 
-A Chambolle-Pock primal-dual iteration is used.
+using a Chambolle-Pock primal-dual iteration [[9]](/references#ref-9 "Chambolle A, Pock T. A first-order primal-dual algorithm for convex problems with applications to imaging. J Math Imaging Vis. 2011;40:120-145.").
 
-Reference-validated starting settings in the example are:
+| Option | Default |
+| --- | ---: |
+| `CSIterations` | `250` |
+| `CSTVWeight` | `0.006` |
+| `CSWaveletWeight` | `0.0005` |
+| `CSWaveletLevels` | `2` |
 
-```matlab
-'CSIterations', 250
-'CSTVWeight', 0.006
-'CSWaveletWeight', 0.0005
-'CSWaveletLevels', 2
-```
+These are repository starting values, not universal optimum parameters.
 
-These are starting values, not universal parameters. Retune them for different resolution, contrast, sampling masks, coil arrays or calibration data.
+## 9. Coil compression and ESPIRiT
 
-## 11. Coil compression and ESPIRiT
+The SENSE/CS path can use ACS-derived PCA coil compression before sensitivity estimation. The default retains 99% calibration energy with at most 12 virtual coils. This follows array-compression principles [[24]](/references#ref-24 "Buehrer M, Pruessmann KP, Boesiger P, Kozerke S. Array compression for MRI with large coil arrays. Magn Reson Med. 2007;57:1131-1139.").
 
-Iterative reconstruction can use ACS-derived global PCA coil compression before sensitivity estimation.
+The default sensitivity estimation method is ESPIRiT [[7]](/references#ref-7 "Uecker M, Lai P, Murphy MJ, et al. ESPIRiT: an eigenvalue approach to autocalibrating parallel MRI. Magn Reson Med. 2014;71:990-1001."). The current implementation returns a single map set; multiple ESPIRiT map sets are not implemented.
 
-Typical settings are:
+## 10. Numerical checks
 
-```matlab
-'CoilCompressionEnergy', 0.99
-'MaximumVirtualCoils', 12
-```
+Before SENSE or CS iteration, the forward/adjoint inner-product identity is tested. A relative mismatch greater than `5e-5` stops reconstruction.
 
-The default sensitivity method is native MATLAB single-map ESPIRiT. The calibration workflow:
+GRAPPA stores calibration NMSE and regularized normal-matrix conditioning. These are calibration checks, not proof of equivalence to another reconstruction implementation.
 
-1. extracts a contiguous ACS region;
-2. builds a block-Hankel calibration matrix;
-3. retains the singular-vector signal subspace;
-4. converts kernels to an image-domain covariance operator;
-5. estimates the dominant eigenvector/eigenvalue by power iteration;
-6. crops support by eigenvalue threshold; and
-7. RSS-normalizes the retained complex map set.
+## 11. GPU support
 
-ESPIRiT requires at least eight contiguous ACS lines in the direct estimator. The higher-level iterative pipeline also refuses to proceed without enough central calibration data.
-
-## 12. Forward/adjoint consistency check
-
-Before SENSE or CS iterations, the implementation performs a numerical inner-product test of the forward and adjoint operators.
-
-A relative mismatch greater than `5e-5` stops reconstruction. This protects against silently solving an inconsistent inverse problem after code changes.
-
-## 13. GPU behavior
-
-Use:
+SENSE and CS can use MATLAB GPU execution through
 
 ```matlab
 'IterativeUseGPU', 'auto'
 ```
 
-`'auto'` attempts to use a supported MATLAB GPU when available and otherwise runs on CPU.
+RSS and GRAPPA do not require GPU support.
 
-## 14. NIfTI output
+## 12. Output and geometry
 
-The current NIfTI writer derives scanner-patient RAS geometry from Siemens MDH slice centers and quaternions when available and validates consistency across slices.
+The current NIfTI geometry path uses orientation/position information supplied by the maintained raw-data reader and validates reconstructed slice centers before writing.
 
-The code checks slice spacing/orientation and verifies reconstructed slice centers against the affine before writing.
+## 13. Optional denoising
 
-This is stricter than writing voxel dimensions alone and is important when comparing data with different matrices or resolutions in scanner physical space.
+NLM, BM3D, SANLM, and TGV2 are provided as a **separate optional image-domain module**. They are not called automatically by `recon_TSE2D`. See [Optional denoising](/guide/denoising).
 
-## 15. Known limitations
+## Current reconstruction limitations
 
-The offline MATLAB reconstruction currently excludes:
+The current MATLAB workflow does **not** implement
 
-- raw-data readers for non-Siemens platforms;
 - gSlider decoding;
-- partial Fourier;
+- partial Fourier reconstruction;
 - SMS;
-- non-Cartesian trajectories;
-- multiple ESPIRiT map sets;
-- proprietary Siemens raw-data scaling, coil combination and filtering.
+- non-Cartesian reconstruction;
+- multiple ESPIRiT map sets; or
+- vendor-independent raw-data readers.
 
-Image-domain denoising cannot recover signal or resolution that was not acquired and should not replace acquisition-side echo-envelope optimization.
+These missing capabilities are tracked in [TO DO & implementation checklist](/todo).
+
+## Source map
+
+| Function | Role |
+| --- | --- |
+| [`recon_TSE2D.m`](https://github.com/BennyZhang-Codes/tse-pulseq-matlab/blob/vitepress-style/recon/matlab/recon_TSE2D.m) | reconstruction pipeline and user-facing options |
+| [`read_TSE2D_twix.m`](https://github.com/BennyZhang-Codes/tse-pulseq-matlab/blob/vitepress-style/recon/matlab/read_TSE2D_twix.m) | current raw-data reader / metadata extraction |
+| [`recon_TSE2D_GRAPPA.m`](https://github.com/BennyZhang-Codes/tse-pulseq-matlab/blob/vitepress-style/recon/matlab/recon_TSE2D_GRAPPA.m) | GRAPPA |
+| [`recon_TSE2D_SENSE.m`](https://github.com/BennyZhang-Codes/tse-pulseq-matlab/blob/vitepress-style/recon/matlab/recon_TSE2D_SENSE.m) | SENSE |
+| [`recon_TSE2D_CS.m`](https://github.com/BennyZhang-Codes/tse-pulseq-matlab/blob/vitepress-style/recon/matlab/recon_TSE2D_CS.m) | CS |
+| [`estimate_TSE_phasecor.m`](https://github.com/BennyZhang-Codes/tse-pulseq-matlab/blob/vitepress-style/recon/matlab/estimate_TSE_phasecor.m) | navigator phase model |
+| [`pack_TSE2D_kspace.m`](https://github.com/BennyZhang-Codes/tse-pulseq-matlab/blob/vitepress-style/recon/matlab/pack_TSE2D_kspace.m) | k-space packing |
+| [`utils/prepare_TSE2D_sense_model.m`](https://github.com/BennyZhang-Codes/tse-pulseq-matlab/blob/vitepress-style/recon/matlab/utils/prepare_TSE2D_sense_model.m) | SENSE/CS calibration and model preparation |
+
+For controlled comparisons, continue with [Reconstruction Protocol](/validation/reconstruction-protocol) and [Validation Strategy](/validation/scientific-validation).

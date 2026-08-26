@@ -2,23 +2,33 @@
 
 [![CI](https://github.com/BennyZhang-Codes/tse-pulseq-matlab/actions/workflows/matlab-ci.yml/badge.svg?branch=main)](https://github.com/BennyZhang-Codes/tse-pulseq-matlab/actions/workflows/matlab-ci.yml) [![Documentation](https://github.com/BennyZhang-Codes/tse-pulseq-matlab/actions/workflows/docs.yml/badge.svg?branch=main)](https://bennyzhang-codes.github.io/tse-pulseq-matlab/) [![Coverage](https://codecov.io/github/BennyZhang-Codes/tse-pulseq-matlab/graph/badge.svg?token=JNHD7UK0A3)](https://codecov.io/github/BennyZhang-Codes/tse-pulseq-matlab) [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.22076863.svg)](https://doi.org/10.5281/zenodo.22076863)
 
-MATLAB/Pulseq tools for developing Cartesian 2D turbo spin echo (TSE) sequences toward **vendor-neutral deployment**, including conventional multi-slice TSE and gSlider-TSE, together with a transparent offline reconstruction workflow for conventional 2D TSE data.
+Open-source MATLAB/Pulseq implementation of **Cartesian 2D turbo spin echo (TSE)** sequences, including conventional multi-slice TSE and gSlider-TSE, with a companion MATLAB reconstruction pipeline for conventional 2D TSE data.
 
-> **Platform status.** Vendor-neutral deployment is the project goal, but the current implementation is still coupled to the Siemens 7 T development path in several places: scanner presets, PI/LIN mapping, interpreter definitions and PNS models. Scanner validation has so far been performed on Siemens 7 T systems, and the bundled offline raw-data reconstruction currently targets Siemens Twix. Other vendors are not yet implemented or validated.
+## Features
 
-> **Research software.** MATLAB/Pulseq timing checks, PNS estimates, CI results, and offline reconstruction do not replace scanner-side RF/SAR, gradient/PNS, protocol, interpreter, watchdog, or local institutional validation before volunteer or patient scanning.
+### Sequence
 
-## Scope
+- Conventional Cartesian 2D TSE: `TSE_2D.m`
+- gSlider-TSE: `TSE_2D_gSlider.m`
+- Linear, `CentricFull`, and `CentricHalf` phase-encoding order
+- Parallel-imaging (PI) and compressed-sensing (CS) PE sampling
+- Sinc and SLR RF pulses, gSlider RF pulse banks, optional VERSE
+- Multi-slice and inversion-recovery sequence paths
+- Pulseq timing/label checks and sequence/k-space visualization
 
-| Layer | Current scope |
-| --- | --- |
-| Design goal | Vendor-neutral Pulseq development for Cartesian 2D TSE and gSlider-TSE, with configurable RF, timing, PE order, PI/CS sampling, slice ordering and TRAPS schedules. |
-| Current sequence implementation | Pulseq-based, but shared prep code currently contains Siemens-specific Terra profiles, PI/LIN mapping and interpreter definitions. |
-| Validated scanner path | Siemens 7 T systems only at present. |
-| Offline reconstruction | Conventional Cartesian 2D TSE from Siemens Twix data: RSS, diagnostic GRAPPA, ESPIRiT-SENSE, and Cartesian CS. |
-| Not currently implemented | Validated non-Siemens scanner paths, offline gSlider decoding, partial Fourier, SMS, non-Cartesian reconstruction and oblique sequence orientation. |
+### Reconstruction
 
-Adding another scanner platform requires code changes for the system/metadata integration layer, a compatible Pulseq interpreter, correct hardware limits and safety models, and a new staged validation campaign. See [Platform Integration](https://bennyzhang-codes.github.io/tse-pulseq-matlab/platform-integration).
+The companion MATLAB pipeline for conventional Cartesian 2D TSE provides:
+
+- noise prewhitening;
+- navigator phase correction;
+- RSS, GRAPPA, SENSE, and CS;
+- ESPIRiT sensitivity estimation and coil compression;
+- optional navigator-derived echo magnitude correction;
+- optional NLM, BM3D, SANLM, and TGV2 post-processing; and
+- NIfTI output.
+
+The maintained raw-data reader currently uses Siemens Twix through external `mapVBVD`. Offline gSlider decoding is not yet implemented.
 
 ## Quick start
 
@@ -27,77 +37,74 @@ git clone --recurse-submodules https://github.com/BennyZhang-Codes/tse-pulseq-ma
 cd tse-pulseq-matlab
 ```
 
-Open MATLAB in the repository root and generate a conventional sequence using the current tested scanner preset:
+Generate conventional 2D TSE:
 
 ```matlab
 run('TSE_2D.m')
 ```
 
-Or generate the gSlider variant:
+Generate gSlider-TSE:
 
 ```matlab
 run('TSE_2D_gSlider.m')
 ```
 
-Run the deterministic MATLAB regression suite:
+The sequence scripts write the generated `.seq` file and resolved MATLAB configuration under `seq/`.
 
-```bash
-matlab -batch "run(fullfile(pwd,'tests','run_ci_tests.m'))"
+For reconstruction, edit and run:
+
+```text
+recon/matlab/examples/run_recon_TSE2D.m
 ```
 
-Generated `.seq` and resolved `Setup`/`Actual` files are written under `seq/`. Keep them with the repository commit and submodule SHAs used to generate them.
-
-## Main entry points
-
-| Entry point | Purpose |
-| --- | --- |
-| [`TSE_2D.m`](TSE_2D.m) | Conventional 2D multi-slice TSE generator. |
-| [`TSE_2D_gSlider.m`](TSE_2D_gSlider.m) | gSlider excitation with optional TRAPS refocusing-flip schedule. |
-| [`recon/matlab/examples/run_recon_TSE2D.m`](recon/matlab/examples/run_recon_TSE2D.m) | Editable offline reconstruction example for conventional 2D TSE Siemens Twix data. |
-| [`recon/matlab/recon_TSE2D.m`](recon/matlab/recon_TSE2D.m) | Programmatic reconstruction entry point for the current Twix workflow. |
-
-The offline reconstruction does **not** implement gSlider decoding.
+Full instructions: **[Quick Start](https://bennyzhang-codes.github.io/tse-pulseq-matlab/quickstart)**.
 
 ## Requirements
 
-### Sequence development
+Core sequence generation requires:
 
-- MATLAB with standard numerical and plotting functionality.
-- Git submodules: `pulseq/` and `VERSE/`. If necessary, run `git submodule update --init --recursive`.
-- A compatible Pulseq interpreter and scanner-side validation path for the target MR system.
+- MATLAB;
+- the tracked `pulseq/` and `VERSE/` submodules.
 
-### Current Siemens 7 T implementation and reconstruction path
+Optional/external dependencies are feature-specific:
 
-- `ScannerType='Terra-XJ'` or `'Terra-XR'` in the currently implemented system profiles.
-- A compatible Siemens Pulseq interpreter for scanner execution in the validated environment.
-- A compatible Siemens `.asc` PNS model when running `check_PNS`.
-- [`mapVBVD`](https://github.com/pehses/mapVBVD) on the MATLAB path for Siemens Twix reconstruction.
+| Dependency | Needed for |
+| --- | --- |
+| `safe_pns_prediction` + target-system hardware model | current PNS prediction path |
+| `mapVBVD` | current Twix reconstruction reader |
+| SigPy | regenerating bundled SLR/gSlider RF pulse banks; not required to use the stored `.mat` banks |
+| MATLAB GPU support | optional SENSE/CS GPU execution |
+| BM3D / CAT12 | optional BM3D/SANLM denoising |
+
+The current sequence scripts still call `check_PNS` directly. Making PNS prediction a clean optional dependency is a confirmed [TO DO](https://bennyzhang-codes.github.io/tse-pulseq-matlab/todo).
 
 ## Documentation
 
-- [Installation](https://bennyzhang-codes.github.io/tse-pulseq-matlab/installation)
-- [Quick start](https://bennyzhang-codes.github.io/tse-pulseq-matlab/quickstart)
-- [Sequence generation](https://bennyzhang-codes.github.io/tse-pulseq-matlab/sequence-generation)
-- [Parameter reference](https://bennyzhang-codes.github.io/tse-pulseq-matlab/parameter-reference)
-- [Platform integration](https://bennyzhang-codes.github.io/tse-pulseq-matlab/platform-integration)
-- [Siemens 7 T encoding and ICE integration](https://bennyzhang-codes.github.io/tse-pulseq-matlab/phase-encoding-and-ice)
-- [Siemens Twix reconstruction](https://bennyzhang-codes.github.io/tse-pulseq-matlab/reconstruction)
-- [Validation and safety](https://bennyzhang-codes.github.io/tse-pulseq-matlab/validation-and-safety)
-- [Siemens 7 T staged phantom validation](https://bennyzhang-codes.github.io/tse-pulseq-matlab/staged-phantom-validation)
-- [Reproducibility and citation](https://bennyzhang-codes.github.io/tse-pulseq-matlab/reproducibility)
+- [Quick Start](https://bennyzhang-codes.github.io/tse-pulseq-matlab/quickstart)
+- [Sequence Implementation](https://bennyzhang-codes.github.io/tse-pulseq-matlab/sequence-generation)
+- [Parameter Reference](https://bennyzhang-codes.github.io/tse-pulseq-matlab/parameter-reference)
+- [Phase Encoding & Acceleration](https://bennyzhang-codes.github.io/tse-pulseq-matlab/theory/phase-encoding)
+- [gSlider-TSE](https://bennyzhang-codes.github.io/tse-pulseq-matlab/guide/gslider-tse)
+- [Reconstruction](https://bennyzhang-codes.github.io/tse-pulseq-matlab/reconstruction)
+- [Dependencies & Method Provenance](https://bennyzhang-codes.github.io/tse-pulseq-matlab/reference/provenance)
+- [Literature References](https://bennyzhang-codes.github.io/tse-pulseq-matlab/references)
 
-## Contributing and security
+## Current testing and safety
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for development and test expectations, and [SECURITY.md](SECURITY.md) for software-security and scanner-safety reporting boundaries.
+Scanner development/testing to date has used Siemens 7 T systems. This describes the current testing environment, not the definition of the Pulseq sequence.
+
+> **Research use:** a generated `.seq` file and software checks do not replace target-scanner RF/SAR, gradient/PNS, interpreter/watchdog, phantom, or local safety validation before in-vivo use.
 
 ## Citation
 
-Use the repository DOI: [10.5281/zenodo.22076863](https://doi.org/10.5281/zenodo.22076863). Citation metadata is available in [CITATION.cff](CITATION.cff).
+Use the repository DOI: [10.5281/zenodo.22076863](https://doi.org/10.5281/zenodo.22076863). Citation metadata is in [CITATION.cff](CITATION.cff).
 
-If you use `TSE_2D_gSlider.m`, also cite:
+If `TSE_2D_gSlider.m` is used, also cite:
 
 > Zhang J, Wu Y, Xue R, Zhuo Y, Zhang Z. gSlider-TSE for high-resolution isotropic T2-weighted imaging with high contrast and high SNR. *Proceedings of the 2024 ISMRM and ISMRT Annual Meeting and Exhibition*, Singapore, Program #3256. [Abstract](http://echo.ismrm.org/p/ISMRM2024/3256)
 
+Scientific methods used in an acquisition/reconstruction should be cited as listed in the documentation.
+
 ## License
 
-This repository is released under the [MIT License](LICENSE). Pulseq and VERSE are git submodules with their own licenses and attribution notices.
+MIT License. Pulseq, VERSE, and other external dependencies remain under their upstream licenses.
