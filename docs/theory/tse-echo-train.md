@@ -65,7 +65,7 @@ The exact logical PE/echo mapping is documented in [Phase Encoding & Acceleratio
 
 ## gSlider-TSE
 
-`TSE_2D_gSlider.m` uses the same basic TSE echo-train concept with gSlider RF encoding. The gSlider method basis is [[21]](/references#ref-21 "Setsompop K, Fan Q, Stockmann J, et al. High-resolution in vivo diffusion imaging of the human brain with generalized slice dithered enhanced resolution: simultaneous multislice (gSlider-SMS). Magn Reson Med. 2018;79:141-151."), and the repository's TSE-specific implementation is associated with [[14]](/references#ref-14 "Zhang J, Wu Y, Xue R, Zhuo Y, Zhang Z. gSlider-TSE for high-resolution isotropic T2-weighted imaging with high contrast and high SNR. Proc Intl Soc Magn Reson Med. 2024; Program #3256."). See [gSlider-TSE](/guide/gslider-traps).
+`TSE_2D_gSlider.m` uses the same basic TSE echo-train concept with gSlider RF encoding. The gSlider method basis is [[21]](/references#ref-21 "Setsompop K, Fan Q, Stockmann J, et al. High-resolution in vivo diffusion imaging of the human brain with generalized slice dithered enhanced resolution: simultaneous multislice (gSlider-SMS). Magn Reson Med. 2018;79:141-151."), and the repository's TSE-specific implementation is associated with [[14]](/references#ref-14 "Zhang J, Wu Y, Xue R, Zhuo Y, Zhang Z. gSlider-TSE for high-resolution isotropic T2-weighted imaging with high contrast and high SNR. Proc Intl Soc Magn Reson Med. 2024; Program #3256."). See [gSlider-TSE](/guide/gslider-tse).
 
 An experimental TRAPS-style variable-refocusing test path also exists in the source, but it is not a core gSlider-TSE feature.
 
