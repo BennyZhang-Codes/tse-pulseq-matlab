@@ -16,7 +16,7 @@ This page records **where implemented functionality comes from**. It distinguish
 | gSlider | Excitation pulse bank generated offline by `prep/pulse/RF_pulse.ipynb` using `sigpy.mri.rf.slr.dz_gslider_rf`; sequence implemented by `TSE_2D_gSlider.m` | SigPy-generated pulse bank + repository sequence implementation | [[21]](/references#ref-21 "Setsompop K, Fan Q, Stockmann J, et al. High-resolution in vivo diffusion imaging of the human brain with generalized slice dithered enhanced resolution: simultaneous multislice (gSlider-SMS). Magn Reson Med. 2018;79:141-151.") and repository gSlider-TSE abstract [[14]](/references#ref-14 "Zhang J, Wu Y, Xue R, Zhuo Y, Zhang Z. gSlider-TSE for high-resolution isotropic T2-weighted imaging with high contrast and high SNR. Proc Intl Soc Magn Reson Med. 2024; Program #3256.") |
 | TRAPS | `utils/fliptraps.m`; schedule selected by `TSE_2D_gSlider.m` | Repository implementation of the TRAPS concept; not claimed to be original distributed TRAPS code | [[22]](/references#ref-22 "Hennig J, Weigel M, Scheffler K. Multiecho sequences with variable refocusing flip angles: optimization of signal behavior using smooth transitions between pseudo steady states (TRAPS). Magn Reson Med. 2003;49:527-535.") |
 | VERSE | `VERSE/` Git submodule | [`BennyZhang-Codes/VERSE-RF-Pulse`](https://github.com/BennyZhang-Codes/VERSE-RF-Pulse), with upstream lineage recorded there | [[23]](/references#ref-23 "Lee D, Lustig M, Grissom WA, Pauly JM. Time-optimal design for multidimensional and parallel transmit variable-rate selective excitation. Magn Reson Med. 2009;61:1471-1479.") |
-| PNS prediction | `check/check_PNS.m` calls Pulseq `Sequence.calcPNS` with the selected Siemens `MP_GPA*.asc` model | Pulseq `calcPNS` calls external [`safe_pns_prediction`](https://github.com/filip-szczepankiewicz/safe_pns_prediction); the package must be on the MATLAB path | SAFE model [[26]](/references#ref-26 "Hebrank FX, Gebhardt M. SAFE-Model—A new method for predicting peripheral nerve stimulations in MRI. Proc Intl Soc Magn Reson Med. 2000;8. Abstract #2007."); software/review citation [[27]](/references#ref-27 "Szczepankiewicz F, Westin C-F, Nilsson M. Gradient waveform design for tensor-valued encoding in diffusion MRI. J Neurosci Methods. 2021;348:109007.") |
+| PNS prediction | `check/check_PNS.m` calls Pulseq `Sequence.calcPNS` | Pulseq `calcPNS` calls external [`safe_pns_prediction`](https://github.com/filip-szczepankiewicz/safe_pns_prediction); target-system hardware parameters are supplied outside this repository | SAFE model [[26]](/references#ref-26 "Hebrank FX, Gebhardt M. SAFE-Model—A new method for predicting peripheral nerve stimulations in MRI. Proc Intl Soc Magn Reson Med. 2000;8. Abstract #2007."); software/review citation [[27]](/references#ref-27 "Szczepankiewicz F, Westin C-F, Nilsson M. Gradient waveform design for tensor-valued encoding in diffusion MRI. J Neurosci Methods. 2021;348:109007.") |
 
 ### PNS dependency chain
 
@@ -25,11 +25,11 @@ The current PNS check is not implemented entirely inside this repository:
 ```text
 check_PNS
   → Pulseq Sequence.calcPNS
-  → safe_pns_prediction (safe_gwf_to_pns / SAFE model)
-  → scanner-specific MP_GPA*.asc SAFE parameters
+  → safe_pns_prediction
+  → scanner-specific hardware model
 ```
 
-The tracked Pulseq `calcPNS.m` explicitly states that `safe_pns_prediction` must be downloaded and installed on the MATLAB path. The external package implements the SAFE model and reads/uses Siemens hardware parameters. The package does **not** distribute the scanner-specific `MP_GPA*.asc` hardware files; those must be supplied for the intended gradient system. This software prediction remains a development check and does not replace scanner-side safety supervision.
+The tracked Pulseq `calcPNS.m` explicitly states that `safe_pns_prediction` must be downloaded and installed on the MATLAB path. The target scanner's hardware parameters are an external input to that calculation and are **not part of the open-source sequence package or distributed by this repository**. PNS prediction remains a development check and does not replace scanner-side safety supervision.
 
 ## Compressed-sensing acquisition pattern
 
@@ -89,7 +89,7 @@ Implementation dependencies that are not vendor-neutral sequence concepts includ
 - Siemens MDH/Twix conventions and the current LIN/ICE integration;
 - mapVBVD for offline Twix reading;
 - `safe_pns_prediction` for the SAFE-model calculation called through Pulseq `calcPNS`;
-- Siemens `MP_GPA*.asc` SAFE/PNS hardware models for the documented Terra systems; and
+- target-system hardware parameters required by PNS prediction; and
 - applicable Siemens IDEA/ICE documentation for the validated environment.
 
 ## Attribution rule for future contributions
