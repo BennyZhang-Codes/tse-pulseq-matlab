@@ -1,0 +1,49 @@
+name: Cleanup preview deployments
+
+on:
+  push:
+    branches:
+      - vitepress-style
+    paths:
+      - '.github/workflows/cleanup-preview-deployments.yml'
+
+permissions:
+  contents: read
+  deployments: write
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Remove feature-branch and preview deployments
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          ids="$({
+            gh api --paginate "/repos/${REPO}/deployments?ref=vitepress-style&per_page=100" --jq '.[].id' || true
+            gh api --paginate "/repos/${REPO}/deployments?environment=github-pages-preview&per_page=100" --jq '.[].id' || true
+          } | sort -u)"
+
+          if [[ -z "${ids}" ]]; then
+            echo "No feature-branch/preview deployments found."
+          else
+            while read -r id; do
+              [[ -z "${id}" ]] && continue
+              echo "Removing deployment ${id}"
+              gh api --method POST "/repos/${REPO}/deployments/${id}/statuses" \
+                -f state='inactive' \
+                -f description='Removing obsolete preview deployment' >/dev/null || true
+              gh api --method DELETE "/repos/${REPO}/deployments/${id}" >/dev/null
+            done <<< "${ids}"
+          fi
+
+          if gh api "/repos/${REPO}/environments/github-pages-preview" >/dev/null 2>&1; then
+            echo "Removing github-pages-preview environment"
+            gh api --method DELETE "/repos/${REPO}/environments/github-pages-preview" >/dev/null || true
+          fi
+
+          echo "Cleanup complete. Production github-pages deployments were not targeted."
